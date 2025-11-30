@@ -13,6 +13,7 @@ bun packages/examples/src/basic.tsx
 bun packages/examples/src/interactive.tsx
 bun packages/examples/src/web-search.tsx
 bun packages/examples/src/subagents.tsx
+bun packages/examples/src/chatbot.tsx
 ```
 
 ## Examples
@@ -47,6 +48,18 @@ Nested agent delegation. Demonstrates:
 - Settings inheritance and overrides
 - Multi-agent orchestration
 - Manager-specialist pattern
+
+### chatbot.tsx
+Simple interactive chatbot. Demonstrates:
+- Interactive mode with multi-turn conversations
+- Real-time streaming responses
+- Custom tools (calculator) integrated into chat
+- Simple readline-based terminal interface
+- Error handling and graceful exit
+
+```bash
+bun packages/examples/src/chatbot.tsx
+```
 
 ## Key Concepts
 
@@ -133,18 +146,29 @@ Child agents inherit settings from parents:
 
 ### Streaming
 
-In interactive mode, you can stream responses:
+In interactive mode, you can stream responses. **Note:** `stream()` always requires a message parameter.
 
 ```tsx
 const agent = await render(<Agent stream={true}>...</Agent>, { mode: 'interactive' });
 
-for await (const event of agent.stream()) {
+// Stream with a message (message parameter is required)
+for await (const event of agent.stream('What is 2+2?')) {
   if (event.type === 'text') {
     process.stdout.write(event.text);
   } else if (event.type === 'tool_use_start') {
     console.log(`\nCalling tool: ${event.toolName}`);
   }
 }
+
+// Continue conversation (always pass a message)
+for await (const event of agent.stream('What about 3+3?')) {
+  if (event.type === 'text') {
+    process.stdout.write(event.text);
+  }
+}
+
+// Or use sendMessage() for non-streaming
+const result = await agent.sendMessage('Final question');
 ```
 
 ### System Prompts and Context

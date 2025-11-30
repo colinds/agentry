@@ -94,6 +94,130 @@ test('interactive mode allows multiple turns', async () => {
   }
 });
 
+test('stream() accepts message parameter for first turn', async () => {
+  const client = createMockClient([
+    { content: [mockText('Hi there!')] },
+  ]);
+
+  const agent = await render(
+    <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
+      <System>You are a test assistant. Be very concise.</System>
+    </Agent>,
+    { mode: 'interactive', client },
+  );
+
+  try {
+    let result;
+
+    // Use stream() with message parameter on first turn
+    // The stream() method returns an async iterator that yields events
+    // and finally returns the result
+    for await (const event of agent.stream('Say hi')) {
+      result = event;
+    }
+
+    // Verify message was added to conversation history
+    expect(agent.messages.length).toBeGreaterThanOrEqual(2);
+    expect(agent.messages[0]).toMatchObject({ role: 'user', content: 'Say hi' });
+  } finally {
+    agent.close();
+  }
+});
+
+test('stream() works with message for subsequent turns', async () => {
+  const client = createMockClient([
+    { content: [mockText('Hi there!')] },
+    { content: [mockText('One, two, three.')] },
+  ]);
+
+  const agent = await render(
+    <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
+      <System>You are a test assistant. Be very concise.</System>
+    </Agent>,
+    { mode: 'interactive', client },
+  );
+
+  try {
+    // First turn with stream() and message parameter
+    for await (const event of agent.stream('Say hi')) {
+      // consume stream
+    }
+
+    // Second turn with stream() and message parameter
+    for await (const event of agent.stream('Count to three')) {
+      // consume stream
+    }
+
+    // Verify both messages in history
+    expect(agent.messages.length).toBeGreaterThanOrEqual(4);
+    expect(agent.messages[0]).toMatchObject({ role: 'user', content: 'Say hi' });
+    expect(agent.messages[2]).toMatchObject({ role: 'user', content: 'Count to three' });
+  } finally {
+    agent.close();
+  }
+});
+
+test('stream() throws error when called without message on first turn', async () => {
+  const client = createMockClient([]);
+
+  const agent = await render(
+    <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
+      <System>You are a test assistant. Be very concise.</System>
+    </Agent>,
+    { mode: 'interactive', client },
+  );
+
+  try {
+    // Should throw error when no message provided
+    let errorThrown = false;
+    try {
+      for await (const event of agent.stream()) {
+        // Should not reach here
+      }
+    } catch (error: any) {
+      errorThrown = true;
+      expect(error.message).toContain('stream() requires a message parameter');
+    }
+    expect(errorThrown).toBe(true);
+  } finally {
+    agent.close();
+  }
+});
+
+test('stream() throws error when called without message on subsequent turns', async () => {
+  const client = createMockClient([
+    { content: [mockText('Hi there!')] },
+  ]);
+
+  const agent = await render(
+    <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
+      <System>You are a test assistant. Be very concise.</System>
+    </Agent>,
+    { mode: 'interactive', client },
+  );
+
+  try {
+    // First turn with message
+    for await (const event of agent.stream('Say hi')) {
+      // consume stream
+    }
+
+    // Second turn without message should also throw
+    let errorThrown = false;
+    try {
+      for await (const event of agent.stream()) {
+        // Should not reach here
+      }
+    } catch (error: any) {
+      errorThrown = true;
+      expect(error.message).toContain('stream() requires a message parameter');
+    }
+    expect(errorThrown).toBe(true);
+  } finally {
+    agent.close();
+  }
+});
+
 test('handles multiple tool calls in sequence', async () => {
   let callCount = 0;
   const counterTool = defineTool({

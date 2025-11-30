@@ -107,7 +107,7 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
   }
 
   // run the agent and return the result
-  async run(): Promise<AgentResult> {
+  async run(firstMessage?: string): Promise<AgentResult> {
     if (this.#running) {
       throw new Error('Agent is already running');
     }
@@ -146,9 +146,14 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
       if (!agent || !isAgentInstance(agent)) {
         throw new Error('No agent element found in tree');
       }
-      
+
       // Update store with the agent instance so hooks can access it
       this.#store.setState({ instance: agent });
+
+      // Add first message if provided (interactive mode, first turn)
+      if (firstMessage) {
+        agent.messages.push({ role: 'user', content: firstMessage });
+      }
 
       // build system prompt from parts (sorted by priority)
       const sortedSystemParts = [...agent.systemParts].sort((a, b) => b.priority - a.priority);
@@ -221,54 +226,31 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
 
   // send a message and get a response
   async sendMessage(content: string): Promise<AgentResult> {
-    if (!this.#engine) {
-      // first message, need to run
-      // Wrap element with provider for hooks support
-      const wrappedElement = this.#wrapWithProvider(this.#element);
-      
-      // Use updateContainer with callback to ensure commit is complete
-      await new Promise<void>((resolve) => {
-        flushSync(() => {
-          updateContainer(wrappedElement, this.#containerInfo, resolve);
-        });
-      });
-
-      // Additional yield for any pending effects
-      await new Promise<void>(resolve => {
-        unstable_scheduleCallback(unstable_NormalPriority, () => resolve());
-      });
-
-      const container = this.#containerInfo.container;
-      if (!isAgentInstance(container)) {
-        throw new Error('Root container is not an agent instance');
-      }
-
-      // the actual agent is the first child (the rendered <Agent> element)
-      const agent = container.children[0];
-      if (!agent || !isAgentInstance(agent)) {
-        throw new Error('No agent element found in tree');
-      }
-      
-      // Update store with the agent instance
-      this.#store.setState({ instance: agent });
-
-      // add the user message
-      agent.messages.push({ role: 'user', content });
-
+    if (this.#engine) {
+      // Subsequent message - add to existing engine
+      this.#engine.pushMessage({ role: 'user', content });
+      this.#engine.updateConfig({ messages: [...this.#engine.messages] });
       return this.run();
+    } else {
+      // First message - pass to run()
+      return this.run(content);
     }
-
-    // add message to existing conversation
-    this.#engine.pushMessage({ role: 'user', content });
-    this.#engine.updateConfig({ messages: [...this.#engine.messages] });
-
-    return this.run();
   }
 
   // async iterator for streaming
-  async *stream(): AsyncGenerator<AgentStreamEvent, AgentResult, undefined> {
+  async *stream(message?: string): AsyncGenerator<AgentStreamEvent, AgentResult, undefined> {
     if (this.#running) {
       throw new Error('Agent is already running. Wait for current execution to complete or call abort() first.');
+    }
+
+    if (!message) {
+      throw new Error('stream() requires a message parameter. Use: agent.stream("your message")');
+    }
+
+    // Add message to existing engine if not first turn
+    if (this.#engine) {
+      this.#engine.pushMessage({ role: 'user', content: message });
+      this.#engine.updateConfig({ messages: [...this.#engine.messages] });
     }
 
     const events: AgentStreamEvent[] = [];
@@ -308,8 +290,8 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
     this.on('complete', onComplete);
     this.on('error', onError);
 
-    // start the run in background
-    const runPromise = this.run().catch((e) => {
+    // start the run in background, passing message only on first turn
+    const runPromise = this.run(this.#engine ? undefined : message).catch((e) => {
       error = e;
       done = true;
     });

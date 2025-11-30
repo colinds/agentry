@@ -29,10 +29,11 @@ const agent = await render(
 );
 
 // stream first question
-console.log('User: What frameworks are popular for building React apps?\n');
+const question1 = 'What frameworks are popular for building React apps?';
+console.log(`User: ${question1}\n`);
 console.log('Assistant: ');
 
-for await (const event of agent.stream()) {
+for await (const event of agent.stream(question1)) {
   if (event.type === 'text') {
     process.stdout.write(event.text);
   }
@@ -40,8 +41,16 @@ for await (const event of agent.stream()) {
 
 console.log('\n\n---\n');
 
-// send follow-up
-await agent.sendMessage('Can you search the docs for more info on state management?');
+// stream follow-up
+const question2 = 'Can you search the docs for more info on state management?';
+console.log(`User: ${question2}\n`);
+console.log('Assistant: ');
+
+for await (const event of agent.stream(question2)) {
+  if (event.type === 'text') {
+    process.stdout.write(event.text);
+  }
+}
 
 console.log('\nConversation completed!');
 agent.close();
