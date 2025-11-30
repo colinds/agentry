@@ -10,13 +10,13 @@ export { renderSubagent, type RenderSubagentOptions } from './renderSubagent.ts'
 
 // hooks (React-friendly API for accessing agent state)
 export {
-  useAgentContext,
   useExecutionState,
   useMessages,
+  useAgentState,
+  useAgentStore,
   AgentProvider,
   AgentContext,
   createAgentStore,
-  type AgentContextValue,
   type AgentStore,
   type AgentStoreState,
 } from './hooks.ts';

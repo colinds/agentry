@@ -29,6 +29,7 @@ import { initialState, transition, extractToolUses, extractText } from '../types
 import { toApiTool, executeTool } from '../tools/index.ts';
 import { debug } from '../debug.ts';
 import { flushSync } from '../reconciler/renderer.ts';
+import type { AgentStore } from '../store.ts';
 
 /**
  * Sanitize content blocks from API responses to be safe for sending back as parameters.
@@ -88,6 +89,8 @@ export interface ExecutionEngineConfig {
   temperature?: number;
   agentName?: string;
   agentInstance?: AgentInstance;
+  /** Store - single source of truth for messages and state */
+  store: AgentStore;
 }
 
 const DEFAULT_TOKEN_THRESHOLD = 100_000;
@@ -109,8 +112,7 @@ Wrap your summary in <summary></summary> tags.`;
 export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   #client: Anthropic;
   #config: ExecutionEngineConfig;
-  #state: AgentState = initialState();
-  #messages: BetaMessageParam[];
+  #store: AgentStore;
   #iterationCount = 0;
   #lastMessage: BetaMessage | null = null;
   #aborted = false;
@@ -120,18 +122,23 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     super();
     this.#client = config.client;
     this.#config = config;
-    this.#messages = [...config.messages];
+    this.#store = config.store;
     this.#agentInstance = config.agentInstance ?? null;
+
+    // Initialize store with messages
+    if (config.messages.length > 0) {
+      this.#store.setState({ messages: [...config.messages] });
+    }
   }
 
-  // get current state
-  get state(): AgentState {
-    return this.#state;
+  // get current execution state from store
+  get executionState(): AgentState {
+    return this.#store.getState().executionState;
   }
 
-  // get current messages
+  // get current messages from store (single source of truth)
   get messages(): readonly BetaMessageParam[] {
-    return this.#messages;
+    return this.#store.getState().messages;
   }
 
   // update configuration (can be called during execution for hot updates)
@@ -139,15 +146,16 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.#config = { ...this.#config, ...updates };
   }
 
-  // add a message to the conversation
+  // add a message to the store
   pushMessage(message: BetaMessageParam): void {
-    this.#messages.push(message);
+    this.#store.setState((s) => ({ messages: [...s.messages, message] }));
   }
 
   // transition to a new state
   #transition(event: Parameters<typeof transition>[1]): void {
-    this.#state = transition(this.#state, event);
-    this.emit('stateChange', this.#state);
+    const newState = transition(this.#store.getState().executionState, event);
+    this.#store.setState({ executionState: newState });
+    this.emit('stateChange', newState);
   }
 
   // build the API params
@@ -176,7 +184,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       model: this.#config.model,
       max_tokens: this.#config.maxTokens,
       system: this.#config.system,
-      messages: this.#messages,
+      messages: this.messages as BetaMessageParam[],
       tools: tools.length > 0 ? tools : undefined,
       mcp_servers: mcpServers?.length ? mcpServers : undefined,
       stop_sequences: this.#config.stopSequences,
@@ -210,10 +218,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         this.emit('message', message);
 
         // add assistant message to history (sanitize to remove response-only fields)
-        this.#messages.push({
+        const assistantMessage: BetaMessageParam = {
           role: 'assistant',
           content: sanitizeContentBlocks(message.content),
-        });
+        };
+        this.pushMessage(assistantMessage);
 
         // check if we need to execute tools
         const toolUses = extractToolUses(message);
@@ -230,10 +239,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           const toolResults = await this.#executeTools(pendingTools);
 
           // add tool results to messages
-          this.#messages.push({
+          const toolResultMessage: BetaMessageParam = {
             role: 'user',
             content: toolResults,
-          });
+          };
+          this.pushMessage(toolResultMessage);
 
           this.#transition({ type: 'tools_completed', results: [] });
 
@@ -355,9 +365,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   async #executeTools(pendingTools: PendingToolCall[]): Promise<BetaToolResultBlockParam[]> {
     this.#transition({ type: 'tools_executing', pendingTools });
 
+    const currentState = this.executionState;
     const context: ToolContext = {
       agentName: this.#config.agentName,
-      signal: this.#state.status === 'streaming' ? this.#state.abortController.signal : undefined,
+      signal: currentState.status === 'streaming' ? currentState.abortController.signal : undefined,
       updateTools: this.#agentInstance ? (updates: ToolUpdate[]) => {
         for (const update of updates) {
           if (update.type === 'add') {
@@ -492,23 +503,23 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const summaryPrompt = compactionControl.summaryPrompt ?? DEFAULT_SUMMARY_PROMPT;
 
     // remove tool_use blocks from last message to avoid validation errors
-    const messages = [...this.#messages];
-    const lastMessage = messages[messages.length - 1];
+    const currentMessages = [...this.messages];
+    const lastMessage = currentMessages[currentMessages.length - 1];
     if (lastMessage?.role === 'assistant' && Array.isArray(lastMessage.content)) {
       const nonToolBlocks = lastMessage.content.filter(
         (block: { type: string }) => block.type !== 'tool_use',
       );
       if (nonToolBlocks.length === 0) {
-        messages.pop();
+        currentMessages.pop();
       } else {
-        messages[messages.length - 1] = { ...lastMessage, content: nonToolBlocks };
+        currentMessages[currentMessages.length - 1] = { ...lastMessage, content: nonToolBlocks };
       }
     }
 
     const response = await this.#client.beta.messages.create({
       model,
       messages: [
-        ...messages,
+        ...currentMessages,
         {
           role: 'user',
           content: [{ type: 'text', text: summaryPrompt }],
@@ -526,12 +537,14 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     }
 
     // replace messages with summary
-    this.#messages = [
-      {
-        role: 'user',
-        content: [{ type: 'text', text: summaryBlock.text }],
-      },
-    ];
+    this.#store.setState({
+      messages: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: summaryBlock.text }],
+        },
+      ],
+    });
 
     return true;
   }
@@ -544,7 +557,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
     return {
       content: extractText(this.#lastMessage),
-      messages: [...this.#messages],
+      messages: [...this.messages],
       usage: {
         inputTokens: this.#lastMessage.usage.input_tokens,
         outputTokens: this.#lastMessage.usage.output_tokens,
@@ -558,8 +571,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   // abort the execution
   abort(): void {
     this.#aborted = true;
-    if (this.#state.status === 'streaming') {
-      this.#state.abortController.abort();
+    const currentState = this.executionState;
+    if (currentState.status === 'streaming') {
+      currentState.abortController.abort();
     }
     const error = new Error('Execution aborted');
     this.#transition({ type: 'error', error });
@@ -571,7 +585,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.#aborted = false;
     this.#iterationCount = 0;
     this.#lastMessage = null;
-    this.#messages = [...this.#config.messages];
+    this.#store.setState({ messages: [...this.#config.messages] });
     this.#transition({ type: 'reset' });
   }
 }

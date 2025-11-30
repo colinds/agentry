@@ -1,28 +1,42 @@
 import { z } from 'zod';
-import { render, defineTool, Agent, System, Tools, Tool } from '@agentry/runtime';
+import { render, defineTool, Agent, System, Tools, Tool, useExecutionState, useMessages } from '@agentry/runtime';
 import { MODEL } from '@agentry/shared';
 import readline from 'node:readline';
 import type { Interface } from 'node:readline';
 
-// Define a simple calculator tool
-const calculatorTool = defineTool({
-  name: 'calculate',
-  description: 'Perform basic math calculations',
-  parameters: z.object({
-    expression: z.string().describe('Mathematical expression to evaluate (e.g., "2 + 2")'),
-  }),
-  handler: async ({ expression }) => {
-    try {
-      // WARNING: eval() is a security risk - this is for demo purposes only!
-      // Never use eval() with untrusted input in production code.
-      // Use a proper math parser library like mathjs instead.
-      const result = eval(expression);
-      return `Result: ${result}`;
-    } catch (error) {
-      return `Error: Invalid expression`;
-    }
-  },
-});
+const ChatbotAgent = () => {
+  // Define a simple calculator tool
+  const calculatorTool = defineTool({
+    name: 'calculate',
+    description: 'Perform basic math calculations',
+    parameters: z.object({
+      expression: z.string().describe('Mathematical expression to evaluate (e.g., "2 + 2")'),
+    }),
+    handler: async ({ expression }) => {
+      try {
+        // WARNING: eval() is a security risk - this is for demo purposes only!
+        // Never use eval() with untrusted input in production code.
+        // Use a proper math parser library like mathjs instead.
+        const result = eval(expression);
+        return `Result: ${result}`;
+      } catch (error) {
+        return `Error: Invalid expression`;
+      }
+    },
+  });
+
+  return (
+    <Agent model={MODEL} maxTokens={2048} stream={true}>
+      <System priority={1000}>
+        You are a helpful AI assistant. Be concise and friendly.
+        You have access to a calculator tool for math problems.
+      </System>
+      <Tools>
+        <Tool {...calculatorTool} />
+      </Tools>
+    </Agent>
+  )
+}
 
 async function main() {
   console.clear();
@@ -32,15 +46,7 @@ async function main() {
 
   // Initialize agent
   const agent = await render(
-    <Agent model={MODEL} maxTokens={2048} stream={true}>
-      <System priority={1000}>
-        You are a helpful AI assistant. Be concise and friendly.
-        You have access to a calculator tool for math problems.
-      </System>
-      <Tools>
-        <Tool {...calculatorTool} />
-      </Tools>
-    </Agent>,
+    <ChatbotAgent />,
     { mode: 'interactive' },
   );
 

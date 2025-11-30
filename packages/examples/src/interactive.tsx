@@ -1,30 +1,36 @@
+import { useEffect } from 'react';
 import { z } from 'zod';
 import { render, defineTool, Agent, System, Tools, Tool, WebSearch } from '@agentry/runtime';
 import { MODEL } from '@agentry/shared';
 
-// define a search tool
-const docsSearchTool = defineTool({
-  name: 'search_docs',
-  description: 'search through documentation',
-  parameters: z.object({
-    query: z.string().describe('search query'),
-    limit: z.number().optional().default(5).describe('max results'),
-  }),
-  handler: async ({ query, limit }) => {
-    // simulate a docs search
-    return `Found ${limit} results for "${query}":\n1. Getting Started\n2. API Reference\n3. Examples`;
-  },
-});
+const InteractiveAgent = () => {
+  const docsSearchTool = defineTool({
+    name: 'search_docs',
+    description: 'search through documentation',
+    parameters: z.object({
+      query: z.string().describe('search query'),
+      limit: z.number().optional().default(5).describe('max results'),
+    }),
+    handler: async ({ query, limit }) => {
+      // simulate a docs search
+      return `Found ${limit} results for "${query}":\n1. Getting Started\n2. API Reference\n3. Examples`;
+    },
+  });
+
+  return (
+    <Agent model={MODEL} maxTokens={2048} stream={true}>
+      <System priority={1000}>You are a helpful assistant with access to documentation and web search.</System>
+      <Tools>
+        <Tool {...docsSearchTool} />
+        <WebSearch maxUses={3} />
+      </Tools>
+    </Agent>
+  )
+}
 
 // run in interactive mode
 const agent = await render(
-  <Agent model={MODEL} maxTokens={2048} stream={true}>
-    <System priority={1000}>You are a helpful assistant with access to documentation and web search.</System>
-    <Tools>
-      <Tool {...docsSearchTool} />
-      <WebSearch maxUses={3} />
-    </Tools>
-  </Agent>,
+  <InteractiveAgent />,
   { mode: 'interactive' },
 );
 

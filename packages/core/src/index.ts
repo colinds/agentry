@@ -1,6 +1,9 @@
 // types
 export * from './types/index.ts';
 
+// store (single source of truth)
+export { createAgentStore, type AgentStore, type AgentStoreState } from './store.ts';
+
 // tools
 export { defineTool, toApiTool, parseToolInput, executeTool, zodToJsonSchema } from './tools/index.ts';
 

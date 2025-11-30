@@ -12,7 +12,8 @@
     "eventemitter3": "^5.0.1",
     "react-reconciler": "^0.33.0",
     "scheduler": "^0.26.0",
-    "zod": "^4.1.13"
+    "zod": "^4.1.13",
+    "zustand": "^5.0.3"
   },
   "peerDependencies": {
     "react": "^19.0.0"

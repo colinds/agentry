@@ -5,6 +5,7 @@ import {
   updateContainer,
   unmountContainer,
   ExecutionEngine,
+  createAgentStore,
   type SubagentInstance,
   type AgentInstance,
   type AgentResult,
@@ -87,7 +88,10 @@ export async function renderSubagent(
       );
     }
 
-    // create execution engine
+    // create store for subagent (isolated from parent)
+    const store = createAgentStore();
+
+    // create execution engine with store
     const engine = new ExecutionEngine({
       client,
       model: rootAgent.props.model,
@@ -104,6 +108,7 @@ export async function renderSubagent(
       temperature: rootAgent.props.temperature,
       agentName: subagent.name,
       agentInstance: rootAgent,
+      store,
     });
 
     rootAgent.engine = engine;

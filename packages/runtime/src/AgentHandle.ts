@@ -8,16 +8,18 @@ import {
   unmountContainer,
   flushSync,
   ExecutionEngine,
+  createAgentStore,
   type ContainerInfo,
   type AgentInstance,
   type AgentResult,
   type AgentStreamEvent,
   type AgentState,
   type BetaMessageParam,
+  type AgentStore,
   isAgentInstance,
 } from '@agentry/core';
 import { MODEL } from '@agentry/shared';
-import { AgentProvider, createAgentStore, type AgentStore } from './hooks.ts';
+import { AgentProvider } from './hooks.ts';
 
 // events emitted by AgentHandle
 export interface AgentHandleEvents {
@@ -28,9 +30,9 @@ export interface AgentHandleEvents {
 }
 
 /**
- * handle for controlling an agent at runtime
+ * Handle for controlling an agent at runtime
  *
- * provides methods to send messages, stream responses, and control execution
+ * Provides methods to send messages, stream responses, and control execution
  */
 export class AgentHandle extends EventEmitter<AgentHandleEvents> {
   #containerInfo: ContainerInfo;
@@ -39,16 +41,17 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
   #element: ReactNode;
   #running = false;
   #store: AgentStore;
+  #instance: AgentInstance | null = null;
 
   constructor(element: ReactNode, client?: Anthropic) {
     super();
     this.#client = client ?? new Anthropic();
     this.#element = element;
-    
-    // Create store for hooks to subscribe to
+
+    // Create Zustand store - single source of truth
     this.#store = createAgentStore();
 
-    // create a root agent instance as container
+    // Create root agent instance as container
     const rootAgent: AgentInstance = {
       type: 'agent',
       props: {
@@ -72,41 +75,45 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
 
     this.#containerInfo = createContainer(rootAgent);
   }
-  
-  // Expose store for advanced use cases (e.g., external subscriptions)
+
+  // Expose store for advanced use cases
   get store(): AgentStore {
     return this.#store;
   }
 
-  // get the current state
+  // Get current state from store
   get state(): AgentState {
-    return this.#engine?.state ?? { status: 'idle' };
+    return this.#store.getState().executionState;
   }
 
-  // get the conversation messages
+  // Get messages from store (single source of truth)
   get messages(): readonly BetaMessageParam[] {
-    return this.#engine?.messages ?? [];
+    return this.#store.getState().messages;
   }
 
-  // check if the agent is currently running
+  // Check if agent is currently running
   get isRunning(): boolean {
     return this.#running;
   }
 
-  // update the rendered element
+  // Update the rendered element
   update(element: ReactNode): void {
     this.#element = element;
-    // Wrap with provider for hooks support
     const wrappedElement = this.#wrapWithProvider(element);
     updateContainer(wrappedElement, this.#containerInfo);
   }
-  
-  // Helper to wrap element with provider
+
+  // Wrap element with provider
   #wrapWithProvider(element: ReactNode): ReactNode {
     return createElement(AgentProvider, { store: this.#store, children: element });
   }
 
-  // run the agent and return the result
+  // Push a message to the store
+  #pushMessage(message: BetaMessageParam): void {
+    this.#store.setState((s) => ({ messages: [...s.messages, message] }));
+  }
+
+  // Run the agent
   async run(firstMessage?: string): Promise<AgentResult> {
     if (this.#running) {
       throw new Error('Agent is already running');
@@ -114,25 +121,21 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
 
     this.#running = true;
 
-    // declare handlers before try so they're accessible in finally
     let onStateChange: ((state: AgentState) => void) | undefined;
     let onStream: ((event: AgentStreamEvent) => void) | undefined;
     let onError: ((error: Error) => void) | undefined;
 
     try {
-      // Wrap element with provider for hooks support
+      // Render element to collect state
       const wrappedElement = this.#wrapWithProvider(this.#element);
-      
-      // render the element to collect state
-      // Use updateContainer with a callback to ensure commit is complete
       await new Promise<void>((resolve) => {
         flushSync(() => {
           updateContainer(wrappedElement, this.#containerInfo, resolve);
         });
       });
 
-      // Additional yield to React's scheduler for any pending effects
-      await new Promise<void>(resolve => {
+      // Yield to React's scheduler for pending effects
+      await new Promise<void>((resolve) => {
         unstable_scheduleCallback(unstable_NormalPriority, () => resolve());
       });
 
@@ -141,34 +144,30 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
         throw new Error('Root container is not an agent instance');
       }
 
-      // the actual agent is the first child (the rendered <Agent> element)
       const agent = container.children[0];
       if (!agent || !isAgentInstance(agent)) {
         throw new Error('No agent element found in tree');
       }
 
-      // Update store with the agent instance so hooks can access it
-      this.#store.setState({ instance: agent });
+      // Keep instance reference (not in store - it's mutable/internal)
+      this.#instance = agent;
 
-      // Add first message if provided (interactive mode, first turn)
+      // Add first message if provided
       if (firstMessage) {
-        agent.messages.push({ role: 'user', content: firstMessage });
+        this.#pushMessage({ role: 'user', content: firstMessage });
       }
 
-      // build system prompt from parts (sorted by priority)
+      // Build system prompt
       const sortedSystemParts = [...agent.systemParts].sort((a, b) => b.priority - a.priority);
       const sortedContextParts = [...agent.contextParts].sort((a, b) => b.priority - a.priority);
-      
-      // Build system prompt as simple string concatenation
       const allParts = [...sortedSystemParts, ...sortedContextParts];
-      const system = allParts.length > 0 
-        ? allParts.map((p) => p.content).join('\n\n') 
-        : undefined;
+      const system = allParts.length > 0 ? allParts.map((p) => p.content).join('\n\n') : undefined;
 
-      // Get messages - use existing engine's messages if available (for multi-turn conversations)
-      const messages = this.#engine ? [...this.#engine.messages] : agent.messages;
+      // Get messages from store, fall back to initial JSX messages
+      const storeMessages = this.#store.getState().messages;
+      const initialMessages = storeMessages.length > 0 ? [...storeMessages] : agent.messages;
 
-      // create the execution engine (or recreate with updated config)
+      // Create execution engine with store (single source of truth)
       this.#engine = new ExecutionEngine({
         client: this.#client,
         model: agent.props.model,
@@ -177,7 +176,7 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
         tools: agent.tools,
         sdkTools: agent.sdkTools,
         mcpServers: agent.mcpServers.length > 0 ? agent.mcpServers : undefined,
-        messages,
+        messages: initialMessages,
         stream: agent.props.stream,
         maxIterations: agent.props.maxIterations,
         compactionControl: agent.props.compactionControl,
@@ -185,12 +184,12 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
         temperature: agent.props.temperature,
         agentName: agent.props.name,
         agentInstance: agent,
+        store: this.#store,
       });
 
-      // wire up events - handlers captured in closure for cleanup
+      // Wire up events
       onStateChange = (state: AgentState) => {
-        // Update store so hooks can react to state changes
-        this.#store.setState({ state });
+        // State is already updated in store by engine
         this.emit('stateChange', state);
       };
       onStream = (event: AgentStreamEvent) => {
@@ -206,7 +205,7 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
       this.#engine.on('stream', onStream);
       this.#engine.on('error', onError);
 
-      // run the engine
+      // Run engine
       const result = await this.#engine.run();
 
       this.emit('complete', result);
@@ -214,7 +213,6 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
 
       return result;
     } finally {
-      // cleanup - handlers captured in closure above
       if (this.#engine && onStateChange && onStream && onError) {
         this.#engine.off('stateChange', onStateChange);
         this.#engine.off('stream', onStream);
@@ -224,33 +222,36 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
     }
   }
 
-  // send a message and get a response
+  // Send a message and get response
   async sendMessage(content: string): Promise<AgentResult> {
+    // Push user message to store
+    this.#pushMessage({ role: 'user', content });
+
     if (this.#engine) {
-      // Subsequent message - add to existing engine
-      this.#engine.pushMessage({ role: 'user', content });
-      this.#engine.updateConfig({ messages: [...this.#engine.messages] });
-      return this.run();
-    } else {
-      // First message - pass to run()
-      return this.run(content);
+      // Update engine config with current messages
+      this.#engine.updateConfig({ messages: [...this.#store.getState().messages] });
     }
+
+    return this.run();
   }
 
-  // async iterator for streaming
+  // Stream responses
   async *stream(message?: string): AsyncGenerator<AgentStreamEvent, AgentResult, undefined> {
     if (this.#running) {
-      throw new Error('Agent is already running. Wait for current execution to complete or call abort() first.');
+      throw new Error(
+        'Agent is already running. Wait for current execution to complete or call abort() first.'
+      );
     }
 
     if (!message) {
       throw new Error('stream() requires a message parameter. Use: agent.stream("your message")');
     }
 
-    // Add message to existing engine if not first turn
+    // Push user message to store
+    this.#pushMessage({ role: 'user', content: message });
+
     if (this.#engine) {
-      this.#engine.pushMessage({ role: 'user', content: message });
-      this.#engine.updateConfig({ messages: [...this.#engine.messages] });
+      this.#engine.updateConfig({ messages: [...this.#store.getState().messages] });
     }
 
     const events: AgentStreamEvent[] = [];
@@ -290,8 +291,7 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
     this.on('complete', onComplete);
     this.on('error', onError);
 
-    // start the run in background, passing message only on first turn
-    const runPromise = this.run(this.#engine ? undefined : message).catch((e) => {
+    const runPromise = this.run().catch((e) => {
       error = e;
       done = true;
     });
@@ -310,7 +310,6 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
         }
       }
 
-      // yield any remaining events
       while (events.length > 0) {
         yield events.shift()!;
       }
@@ -327,22 +326,20 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
 
       return result;
     } finally {
-      // cleanup - handlers captured in closure above
       this.off('stream', onStream);
       this.off('complete', onComplete);
       this.off('error', onError);
     }
   }
 
-  // abort the current execution
+  // Abort current execution
   abort(): void {
     this.#engine?.abort();
   }
 
-  // close the agent and cleanup
+  // Close and cleanup
   close(): void {
     this.abort();
-    // Use flushSync to ensure unmount is fully committed
     flushSync(() => {
       unmountContainer(this.#containerInfo);
     });
