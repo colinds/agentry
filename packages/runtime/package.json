@@ -10,6 +10,7 @@
   "dependencies": {
     "@agentry/components": "workspace:*",
     "@agentry/core": "workspace:*",
+    "@agentry/shared": "workspace:*",
     "@anthropic-ai/sdk": "^0.71.0",
     "eventemitter3": "^5.0.1",
     "scheduler": "^0.26.0",

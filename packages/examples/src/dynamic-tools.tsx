@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { z } from 'zod';
 import { render, defineTool, Agent, System, Tools, Tool, Message } from '@agentry/runtime';
+import { MODEL } from '@agentry/shared';
 
 function MathAgent() {
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -8,7 +9,7 @@ function MathAgent() {
   console.log(`[MathAgent render] isUnlocked=${isUnlocked}`);
 
   return (
-    <Agent model="claude-haiku-4-5" maxTokens={2048}>
+    <Agent model={MODEL} maxTokens={2048}>
       <System>
         You are a helpful math assistant.
         {isUnlocked 

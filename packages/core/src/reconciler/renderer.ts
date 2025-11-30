@@ -1,6 +1,8 @@
 import ReactReconciler from 'react-reconciler';
+import { ConcurrentRoot } from 'react-reconciler/constants';
 import { hostConfig } from './hostConfig.ts';
 import type { AgentInstance } from '../instances/index.ts';
+import { isTreeMounted } from './utils.ts';
 
 // create the reconciler (cast to work around type issues with different react-reconciler versions)
 export const reconciler = ReactReconciler(hostConfig as unknown as Parameters<typeof ReactReconciler>[0]);
@@ -15,7 +17,6 @@ reconciler.injectIntoDevTools({
 // container info type
 export interface ContainerInfo {
   container: AgentInstance;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fiber: unknown;
 }
 
@@ -29,7 +30,7 @@ export function createContainer(agentInstance: AgentInstance): ContainerInfo {
 
   const fiber = createContainerFn(
     agentInstance,
-    0, // LegacyRoot
+    ConcurrentRoot, // Use ConcurrentRoot for better scheduling and transitions
     null, // hydrationCallbacks
     false, // isStrictMode
     null, // concurrentUpdatesByDefaultOverride
@@ -42,6 +43,13 @@ export function createContainer(agentInstance: AgentInstance): ContainerInfo {
     container: agentInstance,
     fiber,
   };
+}
+
+/**
+ * Check if the container's tree is fully mounted and ready for execution
+ */
+export function isContainerReady(containerInfo: ContainerInfo): boolean {
+  return isTreeMounted(containerInfo.container);
 }
 
 // update the container with new elements
@@ -63,8 +71,10 @@ export function updateContainer(
 }
 
 // flush sync to ensure all updates are processed
+// Note: API changed in newer react-reconciler versions
 export function flushSync<T>(fn: () => T): T {
-  return reconciler.flushSync(fn);
+  // @ts-expect-error - reconciler types are not maintained, using flushSyncFromReconciler
+  return reconciler.flushSyncFromReconciler(fn);
 }
 
 // unmount a container

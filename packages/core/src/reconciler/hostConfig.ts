@@ -15,6 +15,14 @@ import {
 import { createInstance, type ElementType, type ElementProps } from '../instances/index.ts';
 import type { InternalTool, CompactionControl, Model } from '../types/index.ts';
 import { debug } from '../debug.ts';
+import {
+  diffProps,
+  disposeOnIdle,
+  markTreeMounted,
+  queueReconstruction,
+  flushReconstructions,
+  HostTransitionContext,
+} from './utils.ts';
 
 // settings that propagate down the tree via HostContext
 interface PropagatedSettings {
@@ -55,10 +63,10 @@ export const hostConfig: HostConfig<
   warnsIfNotActing: false,
   noTimeout: -1 as const,
 
-  // newer reconciler requirements - not used but required by interface
+  // newer reconciler requirements
   NotPendingTransition: null as never,
-  // @ts-expect-error - not implementing transition context
-  HostTransitionContext: null,
+  // proper transition context (instead of null workaround)
+  HostTransitionContext: HostTransitionContext as unknown as never,
 
   setCurrentUpdatePriority(_newPriority: number): void {
     // no-op for now
@@ -154,26 +162,23 @@ export const hostConfig: HostConfig<
   },
 
   prepareUpdate(
-    _instance: Instance,
+    instance: Instance,
     _type: ElementType,
     oldProps: ElementProps,
     newProps: ElementProps,
     _rootContainer: AgentInstance,
     _hostContext: PropagatedSettings,
   ): Partial<ElementProps> | null {
-    // check if props changed
-    const updatePayload: Partial<ElementProps> = {};
-    let hasChanges = false;
+    // Use sophisticated diffProps with deep equality and reconstruction detection
+    const { changes, hasChanges, needsReconstruction } = diffProps(oldProps, newProps);
 
-    for (const key of Object.keys(newProps) as (keyof ElementProps)[]) {
-      if (key === 'children') continue;
-      if (oldProps[key] !== newProps[key]) {
-        (updatePayload as Record<string, unknown>)[key] = newProps[key];
-        hasChanges = true;
-      }
+    // Queue for reconstruction if critical props changed (model, client)
+    if (needsReconstruction && isAgentInstance(instance)) {
+      queueReconstruction(instance, newProps);
+      debug('reconciler', `Agent queued for reconstruction due to critical prop change`);
     }
 
-    return hasChanges ? updatePayload : null;
+    return hasChanges ? changes : null;
   },
 
   shouldSetTextContent(_type: ElementType, _props: ElementProps): boolean {
@@ -215,8 +220,20 @@ export const hostConfig: HostConfig<
     return null;
   },
 
-  resetAfterCommit(_containerInfo: AgentInstance): void {
-    // no-op
+  resetAfterCommit(containerInfo: AgentInstance): void {
+    // Mark tree as mounted after commit completes
+    // This ensures all children are collected before execution starts
+    markTreeMounted(containerInfo);
+    
+    // Process any queued reconstructions
+    const reconstructions = flushReconstructions();
+    for (const { instance, newProps } of reconstructions) {
+      if (isAgentInstance(instance)) {
+        debug('reconciler', `Reconstructing agent instance`);
+        // For now, just update props - full reconstruction would recreate client
+        Object.assign(instance.props, newProps);
+      }
+    }
   },
 
   preparePortalMount(_containerInfo: AgentInstance): void {
@@ -326,20 +343,15 @@ export const hostConfig: HostConfig<
   commitUpdate(
     instance: Instance,
     _type: ElementType,
-    _prevProps: ElementProps,
+    prevProps: ElementProps,
     nextProps: ElementProps,
     _internalHandle: unknown,
   ): void {
-    // compute what changed
-    const updatePayload: Partial<ElementProps> = {};
-    for (const key of Object.keys(nextProps) as (keyof ElementProps)[]) {
-      if (key === 'children') continue;
-      if (_prevProps[key] !== nextProps[key]) {
-        (updatePayload as Record<string, unknown>)[key] = nextProps[key];
-      }
-    }
-    if (Object.keys(updatePayload).length > 0) {
-      commitUpdate(instance, updatePayload);
+    // Use sophisticated diffProps for deep equality
+    const { changes, hasChanges } = diffProps(prevProps, nextProps);
+    
+    if (hasChanges) {
+      applyUpdate(instance, changes);
     }
   },
 
@@ -457,9 +469,22 @@ function removeChild(parent: Instance, child: Instance): void {
       uncollectFromChildForSubagent(agent, child);
     }
   }
+
+  disposeOnIdle(() => {
+    // Clean up any instance-specific resources
+    if (isSubagentInstance(child)) {
+      // Clear subagent's collected state
+      child.tools = [];
+      child.sdkTools = [];
+      child.systemParts = [];
+      child.contextParts = [];
+      child.messages = [];
+      child.children = [];
+    }
+  });
 }
 
-function commitUpdate(instance: Instance, updatePayload: Partial<ElementProps>): void {
+function applyUpdate(instance: Instance, updatePayload: Partial<ElementProps>): void {
   // prevent infinite update loops
   if (isAgentInstance(instance) && instance._updating) {
     return;
@@ -520,9 +545,13 @@ function collectFromChild(agent: AgentInstance, child: Instance): void {
   if (isToolInstance(child)) {
     debug('reconciler', `Tool added: ${child.tool.name}`);
     agent.tools.push(child.tool);
+    // Push to pendingUpdates so ExecutionEngine can sync during execution
+    agent.pendingUpdates.push({ type: 'tool_added', tool: child.tool });
   } else if (isSdkToolInstance(child)) {
     debug('reconciler', `SDK tool added: ${'name' in child.tool ? child.tool.name : child.tool.type}`);
     agent.sdkTools.push(child.tool);
+    // Push to pendingUpdates so ExecutionEngine can sync during execution
+    agent.pendingUpdates.push({ type: 'sdk_tool_added', tool: child.tool });
   } else if (isSystemInstance(child)) {
     agent.systemParts.push({ content: child.content, priority: child.priority });
   } else if (isContextInstance(child)) {
@@ -544,6 +573,8 @@ function collectFromChild(agent: AgentInstance, child: Instance): void {
     const syntheticTool = createSubagentTool(child, agent);
     debug('reconciler', `Subagent tool added: ${child.name}`);
     agent.tools.push(syntheticTool);
+    // Push to pendingUpdates so ExecutionEngine can sync during execution
+    agent.pendingUpdates.push({ type: 'tool_added', tool: syntheticTool });
   }
 }
 
@@ -554,12 +585,17 @@ function uncollectFromChild(agent: AgentInstance, child: Instance): void {
     const index = agent.tools.findIndex((t) => t.name === child.tool.name);
     if (index >= 0) {
       agent.tools.splice(index, 1);
+      // Push to pendingUpdates so ExecutionEngine can sync during execution
+      agent.pendingUpdates.push({ type: 'tool_removed', toolName: child.tool.name });
     }
   } else if (isSdkToolInstance(child)) {
     debug('reconciler', `SDK tool removed: ${'name' in child.tool ? child.tool.name : child.tool.type}`);
     const index = agent.sdkTools.indexOf(child.tool);
     if (index >= 0) {
       agent.sdkTools.splice(index, 1);
+      // Push to pendingUpdates so ExecutionEngine can sync during execution
+      const toolName = 'name' in child.tool ? child.tool.name : child.tool.type;
+      agent.pendingUpdates.push({ type: 'sdk_tool_removed', toolName });
     }
   } else if (isSystemInstance(child)) {
     const index = agent.systemParts.findIndex(
@@ -589,6 +625,8 @@ function uncollectFromChild(agent: AgentInstance, child: Instance): void {
     const index = agent.tools.findIndex((t) => t.name === child.name);
     if (index >= 0) {
       agent.tools.splice(index, 1);
+      // Push to pendingUpdates so ExecutionEngine can sync during execution
+      agent.pendingUpdates.push({ type: 'tool_removed', toolName: child.name });
     }
   }
 }

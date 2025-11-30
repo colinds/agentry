@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test';
 import { z } from 'zod';
-import { defineTool, parseToolInput, executeTool, toApiTool } from './tools/index.ts';
-import { initialState, transition, type InternalTool } from './types/index.ts';
+import { defineTool, parseToolInput, executeTool, toApiTool, zodToJsonSchema } from '../src/tools/index.ts';
+import { initialState, transition, canAcceptMessages, isProcessing, type InternalTool } from '../src/types/index.ts';
 
 test('defineTool creates a type-safe tool', () => {
   const testTool = defineTool({
@@ -134,3 +134,89 @@ test('state machine transitions correctly', () => {
   });
   expect(state.status).toBe('idle');
 });
+
+// zodToJsonSchema tests
+test('zodToJsonSchema returns object with type field', () => {
+  const schema = z.object({
+    name: z.string(),
+  });
+
+  const jsonSchema = zodToJsonSchema(schema);
+
+  expect(jsonSchema.type).toBe('object');
+});
+
+test('zodToJsonSchema works with defineTool output', () => {
+  const tool = defineTool({
+    name: 'test',
+    description: 'test',
+    parameters: z.object({
+      query: z.string().describe('The query'),
+      count: z.number().optional(),
+    }),
+    handler: async () => 'ok',
+  });
+
+  // The tool should have a valid jsonSchema
+  expect(tool.jsonSchema).toBeDefined();
+  expect(tool.jsonSchema.type).toBe('object');
+});
+
+test('zodToJsonSchema handles empty schema', () => {
+  const schema = z.object({});
+  const jsonSchema = zodToJsonSchema(schema);
+
+  expect(jsonSchema.type).toBe('object');
+});
+
+// State machine edge case tests
+test('state machine transitions to error state', () => {
+  let state = initialState();
+  state = transition(state, { type: 'start_streaming', abortController: new AbortController() });
+
+  const error = new Error('Something went wrong');
+  state = transition(state, { type: 'error', error });
+
+  expect(state.status).toBe('error');
+  if (state.status === 'error') {
+    expect(state.error).toBe(error);
+  }
+});
+
+test('state machine transitions to completed state', () => {
+  let state = initialState();
+  state = transition(state, { type: 'start_streaming', abortController: new AbortController() });
+
+  const finalMessage = { id: 'msg_1', type: 'message' } as any;
+  state = transition(state, { type: 'completed', finalMessage });
+
+  expect(state.status).toBe('completed');
+  if (state.status === 'completed') {
+    expect(state.finalMessage).toBe(finalMessage);
+  }
+});
+
+test('state machine reset returns to idle', () => {
+  let state = initialState();
+  state = transition(state, { type: 'start_streaming', abortController: new AbortController() });
+  expect(state.status).toBe('streaming');
+
+  state = transition(state, { type: 'reset' });
+  expect(state.status).toBe('idle');
+});
+
+test('canAcceptMessages returns true for idle and completed', () => {
+  expect(canAcceptMessages({ status: 'idle' })).toBe(true);
+  expect(canAcceptMessages({ status: 'completed', finalMessage: {} as any })).toBe(true);
+  expect(canAcceptMessages({ status: 'streaming', abortController: new AbortController() })).toBe(false);
+  expect(canAcceptMessages({ status: 'waiting_for_tools', pendingTools: [] })).toBe(false);
+});
+
+test('isProcessing returns true for active states', () => {
+  expect(isProcessing({ status: 'idle' })).toBe(false);
+  expect(isProcessing({ status: 'completed', finalMessage: {} as any })).toBe(false);
+  expect(isProcessing({ status: 'streaming', abortController: new AbortController() })).toBe(true);
+  expect(isProcessing({ status: 'waiting_for_tools', pendingTools: [] })).toBe(true);
+  expect(isProcessing({ status: 'executing_tools', pendingTools: [] })).toBe(true);
+});
+

@@ -27,6 +27,8 @@ export interface AgentInstance extends BaseInstance {
   pendingUpdates: PendingUpdate[];
   // flag to prevent infinite loops
   _updating: boolean;
+  // flag to track if the tree is fully mounted (for tree completion guards)
+  _treeMounted?: boolean;
 }
 
 // tool instance - wraps a RunnableTool

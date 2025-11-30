@@ -8,6 +8,19 @@ export { render, createAgent, type RenderOptions } from './render.ts';
 export { AgentHandle, type AgentHandleEvents } from './AgentHandle.ts';
 export { renderSubagent, type RenderSubagentOptions } from './renderSubagent.ts';
 
+// hooks (React-friendly API for accessing agent state)
+export {
+  useAgentContext,
+  useExecutionState,
+  useMessages,
+  AgentProvider,
+  AgentContext,
+  createAgentStore,
+  type AgentContextValue,
+  type AgentStore,
+  type AgentStoreState,
+} from './hooks.ts';
+
 // re-export components for convenience
 export {
   Agent,

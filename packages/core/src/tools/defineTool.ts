@@ -2,6 +2,18 @@ import type { z } from 'zod';
 import type { InternalTool, ToolContext, ToolResult } from '../types/index.ts';
 
 /**
+ * Convert a Zod schema to JSON schema format for the Anthropic API
+ */
+export function zodToJsonSchema(schema: unknown): Record<string, unknown> {
+  const zodSchema = schema as { toJSONSchema?: () => Record<string, unknown> };
+  const jsonSchemaRaw = zodSchema.toJSONSchema?.() || {};
+  return {
+    type: 'object' as const,
+    ...jsonSchemaRaw,
+  };
+}
+
+/**
  * define a type-safe tool with Zod schema validation
  *
  * @example
@@ -28,20 +40,11 @@ export function defineTool<TSchema extends z.ZodType>(options: {
 }): InternalTool<z.output<TSchema>> {
   const { name, description, parameters, handler } = options;
 
-  // convert zod schema to JSON schema using Zod v4's native support
-  const jsonSchemaRaw = (parameters as any).toJSONSchema?.() || {};
-
-  // Ensure type field exists (required by Anthropic API)
-  const finalSchema = {
-    type: 'object' as const,
-    ...jsonSchemaRaw,
-  };
-
   return {
     name,
     description,
     inputSchema: parameters,
-    jsonSchema: finalSchema,
+    jsonSchema: zodToJsonSchema(parameters),
     handler,
   } as InternalTool<z.output<TSchema>>;
 }

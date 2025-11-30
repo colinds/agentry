@@ -9,36 +9,26 @@ Separate React's reconciliation from agent execution (inspired by react-three-fi
 ## Quick Start
 
 ```tsx
-import { render, defineTool, Agent, System, Tools, Tool } from '@agentry/runtime';
+import { render, Agent, System, Tools, Tool } from '@agentry/runtime';
 import { z } from 'zod';
 
-// define type-safe tools
-const calculator = defineTool({
-  name: 'calculator',
-  description: 'Perform calculations',
-  parameters: z.object({
-    operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
-    a: z.number(),
-    b: z.number(),
-  }),
-  handler: async ({ operation, a, b }) => {
-    // params are fully typed!
-    const ops = {
-      add: a + b,
-      subtract: a - b,
-      multiply: a * b,
-      divide: b !== 0 ? a / b : NaN,
-    };
-    return String(ops[operation]);
-  },
-});
-
-// batch mode - runs to completion
 const result = await render(
-  <Agent model="claude-sonnet-4-5-20250514" maxTokens={1024}>
+  <Agent model="claude-haiku-4-5" maxTokens={1024}>
     <System>You are a helpful math assistant</System>
     <Tools>
-      <Tool {...calculator} />
+      <Tool
+        name="calculator"
+        description="Perform calculations"
+        inputSchema={z.object({
+          operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
+          a: z.number(),
+          b: z.number(),
+        })}
+        handler={async ({ operation, a, b }) => {
+          const ops = { add: a + b, subtract: a - b, multiply: a * b, divide: a / b };
+          return String(ops[operation]);
+        }}
+      />
     </Tools>
   </Agent>
 );
@@ -48,14 +38,12 @@ console.log(result.content);
 
 ## Features
 
-✅ **Type-safe tools** - Handler params inferred from Zod schemas
-✅ **Declarative subagents** - Nest `<Agent>` components, auto-generate delegation tools
-✅ **Dynamic tool updates** - Add/remove tools during execution via `context.updateTools()`
-✅ **Clean JSX API** - Declarative component tree
-✅ **Streaming support** - Both pull (AsyncIterator) and push (EventEmitter) interfaces
-✅ **Token management** - SDK CompactionControl for long conversations
-✅ **Built-in tools** - WebSearch, context-management, MCP support
-✅ **Mock testing** - Test without API costs using `createMockClient()`
+- **Type-safe tools** - Handler params inferred from Zod schemas
+- **Declarative subagents** - Nest `<Agent>` components, auto-generate delegation tools
+- **Dynamic tools via React state** - Add/remove tools during execution with `useState`
+- **React hooks** - `useExecutionState()`, `useMessages()` for reactive state
+- **Component composition** - Organize agent logic into reusable components
+- **Streaming support** - Both pull (AsyncIterator) and push (EventEmitter) interfaces
 
 ## Installation
 
@@ -67,140 +55,149 @@ bun add @agentry/runtime react zod
 
 - `@agentry/core` - Types, reconciler, execution engine
 - `@agentry/components` - React components (`<Agent>`, `<Tool>`, `<System>`, etc.)
-- `@agentry/runtime` - Public API (`render()`, `AgentHandle`)
+- `@agentry/runtime` - Public API (`render()`, `AgentHandle`, hooks)
+- `@agentry/shared` - Shared constants
 
 ## Examples
 
+### Inline Tool Definition
+
+Define tools directly in JSX with `inputSchema`:
+
+```tsx
+<Tool
+  name="get_weather"
+  description="Get weather for a location"
+  inputSchema={z.object({
+    location: z.string().describe('City name'),
+  })}
+  handler={async ({ location }) => {
+    return `Weather in ${location}: 72°F, sunny`;
+  }}
+/>
+```
+
+### Dynamic Tools with React State
+
+Tools can be added/removed during execution using React's state:
+
+```tsx
+function DynamicAgent() {
+  const [hasAdvanced, setHasAdvanced] = useState(false);
+
+  return (
+    <Agent model="claude-haiku-4-5">
+      <Tools>
+        <Tool
+          name="unlock_advanced"
+          description="Unlock advanced features"
+          inputSchema={z.object({})}
+          handler={async () => {
+            setHasAdvanced(true);  // Triggers re-render, adds new tool
+            return 'Advanced features unlocked!';
+          }}
+        />
+        {hasAdvanced && (
+          <Tool
+            name="advanced_analysis"
+            description="Perform advanced analysis"
+            inputSchema={z.object({ data: z.string() })}
+            handler={async ({ data }) => `Analysis of: ${data}`}
+          />
+        )}
+      </Tools>
+    </Agent>
+  );
+}
+```
+
+### Hooks for State Tracking
+
+Access agent state from within components:
+
+```tsx
+import { useExecutionState, useMessages } from '@agentry/runtime';
+
+function ExecutionMonitor() {
+  const state = useExecutionState();
+  const messages = useMessages();
+
+  useEffect(() => {
+    console.log(`Status: ${state.status}, Messages: ${messages.length}`);
+  }, [state.status, messages.length]);
+
+  return null;
+}
+
+// Use inside Agent tree
+<Agent model="claude-haiku-4-5">
+  <ExecutionMonitor />
+  <System>You are helpful</System>
+</Agent>
+```
+
 ### Declarative Subagents
 
-Nested `<Agent>` components automatically become tools. **Settings propagate automatically**:
+Nested `<Agent>` components automatically become tools:
 
 ```tsx
-import { render, Agent, System, Tools } from '@agentry/runtime';
+<Agent model="claude-haiku-4-5" name="manager" maxTokens={4096}>
+  <System>You delegate to specialists</System>
+  <Tools>
+    {/* Becomes a tool: researcher(task) */}
+    <Agent
+      name="researcher"
+      description="Research specialist"
+      temperature={0.7}
+    >
+      <System>You are a research expert.</System>
+    </Agent>
 
-const result = await render(
-  <Agent
-    model="claude-sonnet-4-5-20250514"
-    name="manager"
-    stream={false}        // propagates to all children
-    temperature={0.7}     // propagates to all children
-    maxTokens={4096}      // children get half (2048)
-  >
-    <System>You are a project manager who delegates to specialists</System>
-
-    <Tools>
-      {/* child agent becomes a tool: researcher(task, context?) */}
-      {/* inherits: stream=false, temperature=0.7, maxTokens=2048 */}
-      <Agent
-        name="researcher"
-        model="claude-sonnet-4-5-20250514"
-        description="Deep research specialist"
-      >
-        <System>You are a research expert. Provide thorough analysis.</System>
-        <Tools><WebSearch /></Tools>
-      </Agent>
-
-      {/* can override inherited settings */}
-      <Agent
-        name="coder"
-        model="claude-sonnet-4-5-20250514"
-        description="Code generation specialist"
-        temperature={0.3}  // override: use lower temperature for coding
-      >
-        <System>You are a coding expert. Write production-ready code.</System>
-      </Agent>
-    </Tools>
-
-    <Message role="user">
-      Research React reconcilers, then generate an example implementation
-    </Message>
-  </Agent>
-);
-
-// Manager delegates: "Use researcher to learn about reconcilers"
-// Researcher runs independently with inherited settings, returns text
-// Manager uses that to inform: "Use coder to implement based on research"
-```
-
-### Dynamic Tool Updates
-
-Tools can add new tools during execution:
-
-```tsx
-const learnTool = defineTool({
-  name: 'learn_skill',
-  parameters: z.object({ skill: z.string() }),
-  handler: async ({ skill }, context) => {
-    // create a new tool on the fly
-    const newTool = defineTool({
-      name: `use_${skill}`,
-      description: `Apply the ${skill} skill`,
-      parameters: z.object({ input: z.string() }),
-      handler: async ({ input }) => `Applied ${skill} to: ${input}`,
-    });
-
-    // inject into running agent
-    context.updateTools?.([{ type: 'add', tool: newTool }]);
-
-    return `Learned ${skill}. New tool 'use_${skill}' available.`;
-  },
-});
-
-<Agent model="claude-sonnet-4-5-20250514">
-  <Tools><Tool {...learnTool} /></Tools>
-  <Message role="user">
-    Learn web scraping, then use it to scrape example.com
-  </Message>
+    {/* Becomes a tool: coder(task) */}
+    <Agent
+      name="coder"
+      description="Code generation specialist"
+      temperature={0.3}
+    >
+      <System>You write clean code.</System>
+    </Agent>
+  </Tools>
 </Agent>
-
-// Turn 1: Calls learn_skill, adds use_web_scraping tool
-// Turn 2: Calls use_web_scraping (now available)
-```
-
-### Testing Without API Costs
-
-```tsx
-import { createMockClient, mockText, mockToolUse } from '@agentry/runtime';
-
-const mockClient = createMockClient([
-  { content: [mockToolUse('search', { query: 'test' })], stop_reason: 'tool_use' },
-  { content: [mockText('Results found')] },
-]);
-
-const result = await render(
-  <Agent model="claude-sonnet-4-5-20250514">
-    <Tools><Tool {...searchTool} /></Tools>
-  </Agent>,
-  { client: mockClient }  // no API calls made
-);
 ```
 
 ### More Examples
 
-See the `examples/` directory:
+See `packages/examples/src/`:
 
-- `basic.tsx` - Simple calculator tool with batch mode
-- `interactive.tsx` - Interactive mode with streaming
+| Example | Description |
+|---------|-------------|
+| `basic.tsx` | Simple calculator tool |
+| `hooks.tsx` | Hooks, composition, subagents, dynamic tools |
+| `dynamic-tools.tsx` | Tools unlocked via state |
+| `subagents.tsx` | Manager delegating to specialists |
+| `interactive.tsx` | Multi-turn conversations |
 
 Run an example:
 
 ```bash
-# set your API key
-echo "ANTHROPIC_API_KEY=your-key-here" > .env
-
-# run an example
-bun examples/basic.tsx
+echo "ANTHROPIC_API_KEY=your-key" > .env
+bun run packages/examples/src/hooks.tsx
 ```
 
 ## Development
 
 ```bash
-# install dependencies
 bun install
-
-# type check
 bun tsc --noEmit
+```
 
-# run tests
-bun test
+## Project Structure
+
+```
+packages/
+├── core/           # Reconciler, execution engine, types
+├── components/     # React components
+├── runtime/        # Public API, hooks
+├── shared/         # Shared constants
+└── examples/       # Example agents
 ```

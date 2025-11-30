@@ -1,0 +1,12 @@
+{
+  "name": "@agentry/shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./constants": "./constants.ts"
+  }
+}

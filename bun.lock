@@ -46,6 +46,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@agentry/runtime": "workspace:*",
+        "@agentry/shared": "workspace:*",
         "zod": "^4.1.13",
       },
       "peerDependencies": {
@@ -58,6 +59,7 @@
       "dependencies": {
         "@agentry/components": "workspace:*",
         "@agentry/core": "workspace:*",
+        "@agentry/shared": "workspace:*",
         "@anthropic-ai/sdk": "^0.71.0",
         "eventemitter3": "^5.0.1",
         "scheduler": "^0.26.0",
@@ -71,6 +73,10 @@
         "react": "^19.0.0",
       },
     },
+    "packages/shared": {
+      "name": "@agentry/shared",
+      "version": "0.0.1",
+    },
   },
   "packages": {
     "@agentry/components": ["@agentry/components@workspace:packages/components"],
@@ -80,6 +86,8 @@
     "@agentry/examples": ["@agentry/examples@workspace:packages/examples"],
 
     "@agentry/runtime": ["@agentry/runtime@workspace:packages/runtime"],
+
+    "@agentry/shared": ["@agentry/shared@workspace:packages/shared"],
 
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.71.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-go1XeWXmpxuiTkosSXpb8tokLk2ZLkIRcXpbWVwJM6gH5OBtHOVsfPfGuqI1oW7RRt4qc59EmYbrXRZ0Ng06Jw=="],
 

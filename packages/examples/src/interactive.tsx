@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { render, defineTool, Agent, System, Tools, Tool, WebSearch } from '@agentry/runtime';
+import { MODEL } from '@agentry/shared';
 
 // define a search tool
 const docsSearchTool = defineTool({
@@ -17,7 +18,7 @@ const docsSearchTool = defineTool({
 
 // run in interactive mode
 const agent = await render(
-  <Agent model="claude-haiku-4-5" maxTokens={2048} stream={true}>
+  <Agent model={MODEL} maxTokens={2048} stream={true}>
     <System priority={1000}>You are a helpful assistant with access to documentation and web search.</System>
     <Tools>
       <Tool {...docsSearchTool} />

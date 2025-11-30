@@ -1,1 +1,1 @@
-export { defineTool, toApiTool, parseToolInput, executeTool } from './defineTool.ts';
+export { defineTool, toApiTool, parseToolInput, executeTool, zodToJsonSchema } from './defineTool.ts';

@@ -1,9 +1,10 @@
 import { render, Agent, System, Tools, Message } from '@agentry/runtime';
+import { MODEL } from '@agentry/shared';
 
 // Example showing manager delegating to specialist subagents
 const result = await render(
   <Agent
-    model="claude-haiku-4-5"
+    model={MODEL}
     name="manager"
     maxTokens={4096}
     temperature={0.7}

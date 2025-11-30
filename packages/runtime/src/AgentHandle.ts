@@ -1,11 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { EventEmitter } from 'eventemitter3';
-import type { ReactNode } from 'react';
+import { createElement, type ReactNode } from 'react';
 import { unstable_scheduleCallback, unstable_NormalPriority } from 'scheduler';
 import {
   createContainer,
   updateContainer,
   unmountContainer,
+  flushSync,
   ExecutionEngine,
   type ContainerInfo,
   type AgentInstance,
@@ -15,6 +16,8 @@ import {
   type BetaMessageParam,
   isAgentInstance,
 } from '@agentry/core';
+import { MODEL } from '@agentry/shared';
+import { AgentProvider, createAgentStore, type AgentStore } from './hooks.ts';
 
 // events emitted by AgentHandle
 export interface AgentHandleEvents {
@@ -35,17 +38,21 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
   #client: Anthropic;
   #element: ReactNode;
   #running = false;
+  #store: AgentStore;
 
   constructor(element: ReactNode, client?: Anthropic) {
     super();
     this.#client = client ?? new Anthropic();
     this.#element = element;
+    
+    // Create store for hooks to subscribe to
+    this.#store = createAgentStore();
 
     // create a root agent instance as container
     const rootAgent: AgentInstance = {
       type: 'agent',
       props: {
-        model: 'claude-sonnet-4-5-20250514', // default, will be overwritten
+        model: MODEL,
         maxTokens: 4096,
         stream: true,
       },
@@ -63,6 +70,11 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
     };
 
     this.#containerInfo = createContainer(rootAgent);
+  }
+  
+  // Expose store for advanced use cases (e.g., external subscriptions)
+  get store(): AgentStore {
+    return this.#store;
   }
 
   // get the current state
@@ -83,7 +95,14 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
   // update the rendered element
   update(element: ReactNode): void {
     this.#element = element;
-    updateContainer(element, this.#containerInfo);
+    // Wrap with provider for hooks support
+    const wrappedElement = this.#wrapWithProvider(element);
+    updateContainer(wrappedElement, this.#containerInfo);
+  }
+  
+  // Helper to wrap element with provider
+  #wrapWithProvider(element: ReactNode): ReactNode {
+    return createElement(AgentProvider, { store: this.#store, children: element });
   }
 
   // run the agent and return the result
@@ -100,10 +119,18 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
     let onError: ((error: Error) => void) | undefined;
 
     try {
+      // Wrap element with provider for hooks support
+      const wrappedElement = this.#wrapWithProvider(this.#element);
+      
       // render the element to collect state
-      updateContainer(this.#element, this.#containerInfo);
+      // Use updateContainer with a callback to ensure commit is complete
+      await new Promise<void>((resolve) => {
+        flushSync(() => {
+          updateContainer(wrappedElement, this.#containerInfo, resolve);
+        });
+      });
 
-      // yield to React's scheduler to ensure reconciler commits are complete
+      // Additional yield to React's scheduler for any pending effects
       await new Promise<void>(resolve => {
         unstable_scheduleCallback(unstable_NormalPriority, () => resolve());
       });
@@ -118,6 +145,9 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
       if (!agent || !isAgentInstance(agent)) {
         throw new Error('No agent element found in tree');
       }
+      
+      // Update store with the agent instance so hooks can access it
+      this.#store.setState({ instance: agent });
 
       // build system prompt from parts (sorted by priority)
       const sortedSystemParts = [...agent.systemParts].sort((a, b) => b.priority - a.priority);
@@ -130,7 +160,10 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
       // combine system and context
       const fullSystem = contextContent ? `${systemPrompt}\n\n${contextContent}` : systemPrompt;
 
-      // create the execution engine
+      // Get messages - use existing engine's messages if available (for multi-turn conversations)
+      const messages = this.#engine ? [...this.#engine.messages] : agent.messages;
+
+      // create the execution engine (or recreate with updated config)
       this.#engine = new ExecutionEngine({
         client: this.#client,
         model: agent.props.model,
@@ -138,7 +171,7 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
         system: fullSystem || undefined,
         tools: agent.tools,
         sdkTools: agent.sdkTools,
-        messages: agent.messages,
+        messages,
         stream: agent.props.stream,
         maxIterations: agent.props.maxIterations,
         compactionControl: agent.props.compactionControl,
@@ -150,6 +183,8 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
 
       // wire up events - handlers captured in closure for cleanup
       onStateChange = (state: AgentState) => {
+        // Update store so hooks can react to state changes
+        this.#store.setState({ state });
         this.emit('stateChange', state);
       };
       onStream = (event: AgentStreamEvent) => {
@@ -187,9 +222,17 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
   async sendMessage(content: string): Promise<AgentResult> {
     if (!this.#engine) {
       // first message, need to run
-      updateContainer(this.#element, this.#containerInfo);
+      // Wrap element with provider for hooks support
+      const wrappedElement = this.#wrapWithProvider(this.#element);
+      
+      // Use updateContainer with callback to ensure commit is complete
+      await new Promise<void>((resolve) => {
+        flushSync(() => {
+          updateContainer(wrappedElement, this.#containerInfo, resolve);
+        });
+      });
 
-      // yield to React's scheduler to ensure reconciler commits are complete
+      // Additional yield for any pending effects
       await new Promise<void>(resolve => {
         unstable_scheduleCallback(unstable_NormalPriority, () => resolve());
       });
@@ -204,6 +247,9 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
       if (!agent || !isAgentInstance(agent)) {
         throw new Error('No agent element found in tree');
       }
+      
+      // Update store with the agent instance
+      this.#store.setState({ instance: agent });
 
       // add the user message
       agent.messages.push({ role: 'user', content });
@@ -313,7 +359,10 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
   // close the agent and cleanup
   close(): void {
     this.abort();
-    unmountContainer(this.#containerInfo);
+    // Use flushSync to ensure unmount is fully committed
+    flushSync(() => {
+      unmountContainer(this.#containerInfo);
+    });
     this.removeAllListeners();
   }
 }

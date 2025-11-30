@@ -10,6 +10,7 @@ import type {
   BetaContentBlockParam,
   BetaTextBlockParam,
 } from '@anthropic-ai/sdk/resources/beta';
+import { unstable_scheduleCallback, unstable_ImmediatePriority } from 'scheduler';
 import type {
   AgentState,
   AgentStreamEvent,
@@ -25,7 +26,7 @@ import type { AgentInstance } from '../instances/index.ts';
 import { initialState, transition, extractToolUses, extractText } from '../types/index.ts';
 import { toApiTool, executeTool } from '../tools/index.ts';
 import { debug } from '../debug.ts';
-import { unstable_scheduleCallback, unstable_NormalPriority } from 'scheduler';
+import { flushSync } from '../reconciler/renderer.ts';
 
 /**
  * Sanitize content blocks from API responses to be safe for sending back as parameters.
@@ -215,14 +216,16 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
           this.#transition({ type: 'tools_completed', results: [] });
 
-          // Yield to React's scheduler to allow pending state updates to commit
-          // This ensures tools added/removed via setState are available before next API call
+          // Force React to commit any pending state updates from tool handlers
+          // With ConcurrentRoot, we need both:
+          // 1. flushSync - processes synchronous React work
+          // 2. Immediate priority yield - ensures concurrent scheduler commits
+          flushSync(() => {});
           await new Promise<void>(resolve => {
-            unstable_scheduleCallback(unstable_NormalPriority, () => resolve());
+            unstable_scheduleCallback(unstable_ImmediatePriority, () => resolve());
           });
-          debug('engine', 'React scheduler flushed');
 
-          // process any pending updates (dynamic tool adds/removes)
+          // Process any pending updates (dynamic tool adds/removes from setState)
           this.#processPendingUpdates();
 
           // check for compaction after tool execution

@@ -1,10 +1,10 @@
 import { test, expect } from 'bun:test';
-import { createSubagentInstance } from './instances/createInstance.ts';
+import { createSubagentInstance } from '../src/instances/createInstance.ts';
 
 test('createSubagentInstance requires name', () => {
   expect(() => {
     createSubagentInstance({
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-haiku-4-5',
       // no name provided
     } as Parameters<typeof createSubagentInstance>[0]);
   }).toThrow('Child agents must have a name');
@@ -12,7 +12,7 @@ test('createSubagentInstance requires name', () => {
 
 test('createSubagentInstance creates correct structure', () => {
   const subagent = createSubagentInstance({
-    model: 'claude-sonnet-4-5-20250514',
+    model: 'claude-haiku-4-5',
     name: 'researcher',
     description: 'A research agent',
     maxTokens: 1000,
@@ -21,7 +21,7 @@ test('createSubagentInstance creates correct structure', () => {
   expect(subagent.type).toBe('subagent');
   expect(subagent.name).toBe('researcher');
   expect(subagent.description).toBe('A research agent');
-  expect(subagent.props.model).toBe('claude-sonnet-4-5-20250514');
+  expect(subagent.props.model).toBe('claude-haiku-4-5');
   expect(subagent.props.maxTokens).toBe(1000);
   expect(subagent.systemParts).toEqual([]);
   expect(subagent.tools).toEqual([]);
@@ -30,7 +30,7 @@ test('createSubagentInstance creates correct structure', () => {
 test('subagent defaults to non-streaming', () => {
   const subagent = createSubagentInstance(
     {
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-haiku-4-5',
       name: 'test',
     } as Parameters<typeof createSubagentInstance>[0],
     {},
@@ -44,7 +44,7 @@ test('subagent defaults to non-streaming', () => {
 test('subagent inherits stream setting from parent', () => {
   const subagent = createSubagentInstance(
     {
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-haiku-4-5',
       name: 'test',
     } as Parameters<typeof createSubagentInstance>[0],
     { stream: true },
@@ -56,7 +56,7 @@ test('subagent inherits stream setting from parent', () => {
 test('subagent inherits temperature from parent', () => {
   const subagent = createSubagentInstance(
     {
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-haiku-4-5',
       name: 'test',
     } as Parameters<typeof createSubagentInstance>[0],
     { temperature: 0.9 },
@@ -68,7 +68,7 @@ test('subagent inherits temperature from parent', () => {
 test('subagent halves maxTokens from parent', () => {
   const subagent = createSubagentInstance(
     {
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-haiku-4-5',
       name: 'test',
     } as Parameters<typeof createSubagentInstance>[0],
     { maxTokens: 4096 },
@@ -80,7 +80,7 @@ test('subagent halves maxTokens from parent', () => {
 test('subagent can override inherited settings', () => {
   const subagent = createSubagentInstance(
     {
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-haiku-4-5',
       name: 'test',
       stream: false,
       temperature: 0.5,
@@ -91,3 +91,4 @@ test('subagent can override inherited settings', () => {
   expect(subagent.props.stream).toBe(false);
   expect(subagent.props.temperature).toBe(0.5);
 });
+

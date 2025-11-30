@@ -2,7 +2,7 @@
 export * from './types/index.ts';
 
 // tools
-export { defineTool, toApiTool, parseToolInput, executeTool } from './tools/index.ts';
+export { defineTool, toApiTool, parseToolInput, executeTool, zodToJsonSchema } from './tools/index.ts';
 
 // execution
 export { ExecutionEngine, type ExecutionEngineEvents, type ExecutionEngineConfig } from './execution/index.ts';
@@ -18,7 +18,14 @@ export {
   flushSync,
   unmountContainer,
   setSubagentToolFactory,
+  isContainerReady,
   type ContainerInfo,
+  // utilities
+  diffProps,
+  disposeOnIdle,
+  isTreeMounted,
+  markTreeMounted,
+  HostTransitionContext,
 } from './reconciler/index.ts';
 
 // test utilities

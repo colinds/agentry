@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { render, defineTool, Agent, System, Tools, Tool, Message } from '@agentry/runtime';
+import { MODEL } from '@agentry/shared';
 
 const parametersSchema = z.object({
   operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('the operation to perform'),
@@ -30,7 +31,7 @@ const calculatorTool = defineTool({
 
 // run in batch mode
 const result = await render(
-  <Agent model="claude-haiku-4-5" maxTokens={1024}>
+  <Agent model={MODEL} maxTokens={1024}>
     <System>You are a helpful math assistant.</System>
     <Tools>
       <Tool {...calculatorTool} />
