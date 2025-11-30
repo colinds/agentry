@@ -11,6 +11,7 @@ echo "ANTHROPIC_API_KEY=your-key-here" > .env
 # Run examples from project root
 bun packages/examples/src/basic.tsx
 bun packages/examples/src/interactive.tsx
+bun packages/examples/src/web-search.tsx
 bun packages/examples/src/subagents.tsx
 ```
 
@@ -29,6 +30,16 @@ Interactive mode with streaming. Demonstrates:
 - Streaming responses
 - Built-in WebSearch tool
 - Agent handle usage for ongoing interaction
+
+### web-search.tsx
+Real-world web search patterns with analysis workflows. Demonstrates:
+- WebSearch built-in tool with different configurations
+- Using search results to inform subsequent actions
+- Component composition for organizing search capabilities
+- useExecutionState() and useMessages() hooks
+- Multi-step research and analysis pipelines
+- Domain filtering and location-based search
+- Tools for analyzing and comparing search results
 
 ### subagents.tsx
 Nested agent delegation. Demonstrates:
