@@ -9,6 +9,7 @@ import {
   flushSync,
   ExecutionEngine,
   createAgentStore,
+  createEngineConfig,
   type ContainerInfo,
   type AgentInstance,
   type AgentResult,
@@ -152,7 +153,7 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
         throw new Error('No agent element found in tree');
       }
 
-      // Keep instance reference (not in store - it's mutable/internal)
+      // Keep instance reference
       this.#instance = agent;
 
       // Add first message if provided
@@ -160,35 +161,19 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
         this.#pushMessage({ role: 'user', content: firstMessage });
       }
 
-      // Build system prompt
-      const sortedSystemParts = [...agent.systemParts].sort((a, b) => b.priority - a.priority);
-      const sortedContextParts = [...agent.contextParts].sort((a, b) => b.priority - a.priority);
-      const allParts = [...sortedSystemParts, ...sortedContextParts];
-      const system = allParts.length > 0 ? allParts.map((p) => p.content).join('\n\n') : undefined;
-
       // Get messages from store, fall back to initial JSX messages
       const storeMessages = this.#store.getState().messages;
       const initialMessages = storeMessages.length > 0 ? [...storeMessages] : agent.messages;
 
-      // Create execution engine with store (single source of truth)
-      this.#engine = new ExecutionEngine({
+      // Create execution engine using shared factory
+      const { config } = createEngineConfig({
+        agent,
         client: this.#client,
-        model: agent.props.model,
-        maxTokens: agent.props.maxTokens ?? 4096,
-        system,
-        tools: agent.tools,
-        sdkTools: agent.sdkTools,
-        mcpServers: agent.mcpServers.length > 0 ? agent.mcpServers : undefined,
-        messages: initialMessages,
-        stream: agent.props.stream,
-        maxIterations: agent.props.maxIterations,
-        compactionControl: agent.props.compactionControl,
-        stopSequences: agent.props.stopSequences,
-        temperature: agent.props.temperature,
-        agentName: agent.props.name,
-        agentInstance: agent,
         store: this.#store,
+        overrideMessages: initialMessages,
       });
+
+      this.#engine = new ExecutionEngine(config);
 
       // Wire up events
       onStateChange = (state: AgentState) => {
@@ -221,11 +206,11 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
 
       return result;
     } finally {
-      if (this.#engine && onStateChange && onStream && onError && onStepFinish) {
-        this.#engine.off('stateChange', onStateChange);
-        this.#engine.off('stream', onStream);
-        this.#engine.off('error', onError);
-        this.#engine.off('stepFinish', onStepFinish);
+      if (this.#engine) {
+        if (onStateChange) this.#engine.off('stateChange', onStateChange);
+        if (onStream) this.#engine.off('stream', onStream);
+        if (onError) this.#engine.off('error', onError);
+        if (onStepFinish) this.#engine.off('stepFinish', onStepFinish);
       }
       this.#running = false;
     }

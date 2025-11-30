@@ -1,4 +1,10 @@
-import type { BetaContentBlock, BetaMessage, BetaMessageParam } from '@anthropic-ai/sdk/resources/beta';
+import type {
+  BetaContentBlock,
+  BetaContentBlockParam,
+  BetaMessage,
+  BetaMessageParam,
+  BetaToolResultBlockParam,
+} from '@anthropic-ai/sdk/resources/beta';
 
 /**
  * Information about a tool call in a step
@@ -15,7 +21,7 @@ export interface StepToolCall {
 export interface StepToolResult {
   toolCallId: string;
   toolName: string;
-  result: string | BetaContentBlock[];
+  result: BetaToolResultBlockParam['content'];
   isError: boolean;
   executionTime?: number; // Milliseconds
 }

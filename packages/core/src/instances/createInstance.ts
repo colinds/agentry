@@ -237,11 +237,11 @@ export function createSubagentInstance(
       model: props.model ?? inherited.model, // inherit model from parent if not specified
       name: props.name,
       // inherit with fallback to defaults (halve numeric values for subagents)
-      maxTokens: props.maxTokens ?? (inherited.maxTokens ? Math.floor(inherited.maxTokens / 2) : 2048),
-      maxIterations: props.maxIterations ?? (inherited.maxIterations ? Math.floor(inherited.maxIterations / 2) : 5),
+      maxTokens: props.maxTokens ?? (inherited.maxTokens ? Math.floor(inherited.maxTokens / 2) : 4096),
+      maxIterations: props.maxIterations ?? (inherited.maxIterations ? Math.floor(inherited.maxIterations / 2) : undefined),
       stopSequences: props.stopSequences ?? inherited.stopSequences,
       temperature: props.temperature ?? inherited.temperature,
-      stream: props.stream ?? inherited.stream ?? false,
+      stream: props.stream ?? inherited.stream ?? true,
       compactionControl: props.compactionControl ?? inherited.compactionControl,
       // callbacks never inherited
       onMessage: props.onMessage,

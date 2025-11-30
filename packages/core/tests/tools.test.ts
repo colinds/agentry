@@ -2,6 +2,14 @@ import { test, expect } from 'bun:test';
 import { z } from 'zod';
 import { defineTool, parseToolInput, executeTool, toApiTool, zodToJsonSchema } from '../src/tools/index.ts';
 import { initialState, transition, canAcceptMessages, isProcessing, type InternalTool } from '../src/types/index.ts';
+import { createMockClient } from '../src/test-utils/index.ts';
+import type { ToolContext } from '../src/types/tools.ts';
+
+// Mock ToolContext for tests
+const mockContext: ToolContext = {
+  agentName: 'test-agent',
+  client: createMockClient([]),
+};
 
 test('defineTool creates a type-safe tool', () => {
   const testTool = defineTool({
@@ -72,7 +80,7 @@ test('executeTool runs handler with validated input', async () => {
     handler: async ({ name }) => `Hello, ${name}!`,
   });
 
-  const result = await executeTool(tool, { name: 'World' }, {});
+  const result = await executeTool(tool, { name: 'World' }, mockContext);
   expect(result.isError).toBe(false);
   expect(result.result).toBe('Hello, World!');
 });
@@ -87,7 +95,7 @@ test('executeTool handles validation errors', async () => {
     handler: async () => 'success',
   });
 
-  const result = await executeTool(tool, { age: 'invalid' }, {});
+  const result = await executeTool(tool, { age: 'invalid' }, mockContext);
   expect(result.isError).toBe(true);
   expect(result.result).toContain('Validation error');
 });
@@ -107,7 +115,7 @@ test('executeTool handles handler errors', async () => {
     },
   });
 
-  const result = await executeTool(tool, { shouldFail: true }, {});
+  const result = await executeTool(tool, { shouldFail: true }, mockContext);
   expect(result.isError).toBe(true);
   expect(result.result).toContain('Error: Tool failed!');
 });

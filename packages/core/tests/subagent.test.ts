@@ -27,7 +27,7 @@ test('createSubagentInstance creates correct structure', () => {
   expect(subagent.tools).toEqual([]);
 });
 
-test('subagent defaults to non-streaming', () => {
+test('subagent uses unified defaults', () => {
   const subagent = createSubagentInstance(
     {
       model: 'claude-haiku-4-5',
@@ -36,9 +36,10 @@ test('subagent defaults to non-streaming', () => {
     {},
   );
 
-  expect(subagent.props.stream).toBe(false);
-  expect(subagent.props.maxTokens).toBe(2048);
-  expect(subagent.props.maxIterations).toBe(5);
+  // Unified defaults (same as root agents)
+  expect(subagent.props.stream).toBe(true);
+  expect(subagent.props.maxTokens).toBe(4096);
+  expect(subagent.props.maxIterations).toBe(undefined);
 });
 
 test('subagent inherits stream setting from parent', () => {

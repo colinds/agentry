@@ -6,7 +6,7 @@ import {
   updateContainer,
   unmountContainer,
   ExecutionEngine,
-  createAgentStore,
+  createEngineConfig,
   type SubagentInstance,
   type AgentInstance,
   type AgentResult,
@@ -63,20 +63,6 @@ export async function renderSubagent(
   }
 
   try {
-    // build system prompt from collected parts (sorted by priority)
-    const sortedSystemParts = [...rootAgent.systemParts].sort(
-      (a, b) => b.priority - a.priority,
-    );
-    const sortedContextParts = [...rootAgent.contextParts].sort(
-      (a, b) => b.priority - a.priority,
-    );
-
-    // Build system prompt as simple string concatenation
-    const allParts = [...sortedSystemParts, ...sortedContextParts];
-    const system = allParts.length > 0 
-      ? allParts.map((p) => p.content).join('\n\n') 
-      : undefined;
-
     // validate model is present
     if (!rootAgent.props.model) {
       throw new Error(
@@ -85,34 +71,12 @@ export async function renderSubagent(
       );
     }
 
-    // create store for subagent (isolated from parent)
-    const store = createAgentStore();
-
-    // Initialize store with messages before rendering
-    if (rootAgent.messages.length > 0) {
-      store.setState({ messages: [...rootAgent.messages] });
-    }
-
-    // create execution engine with store
-    const engine = new ExecutionEngine({
+    const { config, store } = createEngineConfig({
+      agent: rootAgent,
       client,
-      model: rootAgent.props.model,
-      maxTokens: rootAgent.props.maxTokens ?? 2048,
-      system,
-      tools: rootAgent.tools,
-      sdkTools: rootAgent.sdkTools,
-      mcpServers: rootAgent.mcpServers.length > 0 ? rootAgent.mcpServers : undefined,
-      messages: rootAgent.messages,
-      stream: rootAgent.props.stream ?? false,
-      maxIterations: rootAgent.props.maxIterations ?? 5,
-      compactionControl: rootAgent.props.compactionControl,
-      stopSequences: rootAgent.props.stopSequences,
-      temperature: rootAgent.props.temperature,
-      agentName: subagent.name,
-      agentInstance: rootAgent,
-      store,
     });
 
+    const engine = new ExecutionEngine(config);
     rootAgent.engine = engine;
 
     // Wrap the subagent's React children with AgentProvider

@@ -8,7 +8,7 @@ export { createAgentStore, type AgentStore, type AgentStoreState } from './store
 export { defineTool, toApiTool, parseToolInput, executeTool, zodToJsonSchema } from './tools/index.ts';
 
 // execution
-export { ExecutionEngine, type ExecutionEngineEvents, type ExecutionEngineConfig } from './execution/index.ts';
+export { ExecutionEngine, type ExecutionEngineEvents, type ExecutionEngineConfig, createEngineConfig, type EngineConfigOptions, type EngineConfigResult } from './execution/index.ts';
 
 // instances
 export * from './instances/index.ts';
