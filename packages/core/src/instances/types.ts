@@ -97,6 +97,8 @@ export interface SubagentInstance extends BaseAgentInstance {
   mcpServers: BetaRequestMCPServerURLDefinition[];
 }
 
+export type AgentLike = AgentInstance | SubagentInstance;
+
 // all instance types
 export type Instance =
   | AgentInstance
@@ -192,6 +194,10 @@ export function isToolsContainerInstance(instance: Instance): instance is ToolsC
 
 export function isSubagentInstance(instance: Instance): instance is SubagentInstance {
   return instance.type === 'subagent';
+}
+
+export function isAgentLike(instance: Instance): instance is AgentLike {
+  return instance.type === 'agent' || instance.type === 'subagent';
 }
 
 export function isMCPServerInstance(instance: Instance): instance is MCPServerInstance {

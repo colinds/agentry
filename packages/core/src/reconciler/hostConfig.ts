@@ -3,8 +3,10 @@ import {
   type Instance,
   type AgentInstance,
   type SubagentInstance,
+  type AgentLike,
   isAgentInstance,
   isSubagentInstance,
+  isAgentLike,
   isToolInstance,
   isSdkToolInstance,
   isSystemInstance,
@@ -386,25 +388,17 @@ export const hostConfig: HostConfig<
   },
 };
 
-// helper functions for tree manipulation
-
 function appendChild(parent: Instance, child: Instance): void {
   child.parent = parent;
 
-  if (isAgentInstance(parent)) {
+  if (isAgentLike(parent)) {
     parent.children.push(child);
     collectFromChild(parent, child);
-  } else if (isSubagentInstance(parent)) {
-    parent.children.push(child);
-    collectFromChildForSubagent(parent, child);
   } else if (isToolsContainerInstance(parent)) {
     parent.children.push(child);
-    // propagate to parent agent (could be AgentInstance or SubagentInstance)
     const agent = findParentAgent(parent);
-    if (agent && isAgentInstance(agent)) {
+    if (agent) {
       collectFromChild(agent, child);
-    } else if (agent && isSubagentInstance(agent)) {
-      collectFromChildForSubagent(agent, child);
     }
   }
 }
@@ -412,7 +406,7 @@ function appendChild(parent: Instance, child: Instance): void {
 function insertBefore(parent: Instance, child: Instance, beforeChild: Instance): void {
   child.parent = parent;
 
-  if (isAgentInstance(parent)) {
+  if (isAgentLike(parent)) {
     const index = parent.children.indexOf(beforeChild);
     if (index >= 0) {
       parent.children.splice(index, 0, child);
@@ -420,14 +414,6 @@ function insertBefore(parent: Instance, child: Instance, beforeChild: Instance):
       parent.children.push(child);
     }
     collectFromChild(parent, child);
-  } else if (isSubagentInstance(parent)) {
-    const index = parent.children.indexOf(beforeChild);
-    if (index >= 0) {
-      parent.children.splice(index, 0, child);
-    } else {
-      parent.children.push(child);
-    }
-    collectFromChildForSubagent(parent, child);
   } else if (isToolsContainerInstance(parent)) {
     const index = parent.children.indexOf(beforeChild);
     if (index >= 0) {
@@ -436,10 +422,8 @@ function insertBefore(parent: Instance, child: Instance, beforeChild: Instance):
       parent.children.push(child);
     }
     const agent = findParentAgent(parent);
-    if (agent && isAgentInstance(agent)) {
+    if (agent) {
       collectFromChild(agent, child);
-    } else if (agent && isSubagentInstance(agent)) {
-      collectFromChildForSubagent(agent, child);
     }
   }
 }
@@ -447,28 +431,20 @@ function insertBefore(parent: Instance, child: Instance, beforeChild: Instance):
 function removeChild(parent: Instance, child: Instance): void {
   child.parent = null;
 
-  if (isAgentInstance(parent)) {
+  if (isAgentLike(parent)) {
     const index = parent.children.indexOf(child);
     if (index >= 0) {
       parent.children.splice(index, 1);
     }
     uncollectFromChild(parent, child);
-  } else if (isSubagentInstance(parent)) {
-    const index = parent.children.indexOf(child);
-    if (index >= 0) {
-      parent.children.splice(index, 1);
-    }
-    uncollectFromChildForSubagent(parent, child);
   } else if (isToolsContainerInstance(parent)) {
     const index = parent.children.indexOf(child);
     if (index >= 0) {
       parent.children.splice(index, 1);
     }
     const agent = findParentAgent(parent);
-    if (agent && isAgentInstance(agent)) {
+    if (agent) {
       uncollectFromChild(agent, child);
-    } else if (agent && isSubagentInstance(agent)) {
-      uncollectFromChildForSubagent(agent, child);
     }
   }
 
@@ -543,8 +519,8 @@ function applyUpdate(instance: Instance, updatePayload: Partial<ElementProps>): 
   }
 }
 
-// collect state from a child into the agent
-function collectFromChild(agent: AgentInstance, child: Instance): void {
+// collect state from a child into an agent-like parent
+function collectFromChild(agent: AgentLike, child: Instance): void {
   if (isToolInstance(child)) {
     debug('reconciler', `Tool added: ${child.tool.name}`);
     agent.tools.push(child.tool);
@@ -570,12 +546,20 @@ function collectFromChild(agent: AgentInstance, child: Instance): void {
       collectFromChild(agent, grandchild);
     }
   } else if (isSubagentInstance(child)) {
-    // Inherit model from parent agent (this overrides the host context default)
-    // The parent agent's model is the correct one to inherit
-    if (agent.props.model) {
+    // Handle model inheritance from agent to subagent child
+    if (isAgentInstance(agent) && agent.props.model) {
       child.props.model = agent.props.model;
     }
-    // auto-generate a tool from the subagent
+    // Validate no circular reference in subagent hierarchy
+    if (isSubagentInstance(agent)) {
+      if (isCircularReference(agent, child)) {
+        throw new Error(
+          `Circular subagent reference detected: '${child.name}' is an ancestor of '${agent.name}'. ` +
+          `Subagents cannot reference themselves or their ancestors.`,
+        );
+      }
+    }
+
     const syntheticTool = createSubagentTool(child);
     debug('reconciler', `Subagent tool added: ${child.name}`);
     agent.tools.push(syntheticTool);
@@ -584,8 +568,8 @@ function collectFromChild(agent: AgentInstance, child: Instance): void {
   }
 }
 
-// remove state from a child from the agent
-function uncollectFromChild(agent: AgentInstance, child: Instance): void {
+// remove state from a child from an agent-like parent
+function uncollectFromChild(agent: AgentLike, child: Instance): void {
   if (isToolInstance(child)) {
     debug('reconciler', `Tool removed: ${child.tool.name}`);
     const index = agent.tools.findIndex((t) => t.name === child.tool.name);
@@ -644,10 +628,10 @@ function uncollectFromChild(agent: AgentInstance, child: Instance): void {
 }
 
 // find the parent agent of an instance (could be AgentInstance or SubagentInstance)
-function findParentAgent(instance: Instance): AgentInstance | SubagentInstance | null {
+function findParentAgent(instance: Instance): AgentLike | null {
   let current = instance.parent;
   while (current) {
-    if (isAgentInstance(current) || isSubagentInstance(current)) {
+    if (isAgentLike(current)) {
       return current;
     }
     current = current.parent;
@@ -671,92 +655,6 @@ function rebuildContextParts(agent: AgentInstance): void {
   for (const child of agent.children) {
     if (isContextInstance(child)) {
       agent.contextParts.push({ content: child.content, priority: child.priority });
-    }
-  }
-}
-
-// collect state from a child into a subagent (similar to collectFromChild but for subagents)
-function collectFromChildForSubagent(subagent: SubagentInstance, child: Instance): void {
-  if (isToolInstance(child)) {
-    subagent.tools.push(child.tool);
-    subagent.pendingUpdates.push({ type: 'tool_added', tool: child.tool });
-  } else if (isSdkToolInstance(child)) {
-    subagent.sdkTools.push(child.tool);
-    subagent.pendingUpdates.push({ type: 'sdk_tool_added', tool: child.tool });
-  } else if (isSystemInstance(child)) {
-    subagent.systemParts.push({ content: child.content, priority: child.priority });
-  } else if (isContextInstance(child)) {
-    subagent.contextParts.push({ content: child.content, priority: child.priority });
-  } else if (isMessageInstance(child)) {
-    subagent.messages.push(child.message);
-  } else if (isMCPServerInstance(child)) {
-    subagent.mcpServers.push(child.config);
-  } else if (isToolsContainerInstance(child)) {
-    for (const grandchild of child.children) {
-      collectFromChildForSubagent(subagent, grandchild);
-    }
-  } else if (isSubagentInstance(child)) {
-    // prevent circular reference
-    if (isCircularReference(subagent, child)) {
-      throw new Error(
-        `Circular subagent reference detected: '${child.name}' is an ancestor of '${subagent.name}'. ` +
-        `Subagents cannot reference themselves or their ancestors.`,
-      );
-    }
-    const nestedTool = createSubagentTool(child);
-    subagent.tools.push(nestedTool);
-    subagent.pendingUpdates.push({ type: 'tool_added', tool: nestedTool });
-  }
-}
-
-// remove state from a child from a subagent
-function uncollectFromChildForSubagent(subagent: SubagentInstance, child: Instance): void {
-  if (isToolInstance(child)) {
-    const index = subagent.tools.findIndex((t) => t.name === child.tool.name);
-    if (index >= 0) {
-      subagent.tools.splice(index, 1);
-      subagent.pendingUpdates.push({ type: 'tool_removed', toolName: child.tool.name });
-    }
-  } else if (isSdkToolInstance(child)) {
-    const index = subagent.sdkTools.indexOf(child.tool);
-    if (index >= 0) {
-      subagent.sdkTools.splice(index, 1);
-      const toolName = 'name' in child.tool ? child.tool.name : child.tool.type;
-      subagent.pendingUpdates.push({ type: 'sdk_tool_removed', toolName });
-    }
-  } else if (isSystemInstance(child)) {
-    const index = subagent.systemParts.findIndex(
-      (p) => p.content === child.content && p.priority === child.priority,
-    );
-    if (index >= 0) {
-      subagent.systemParts.splice(index, 1);
-    }
-  } else if (isContextInstance(child)) {
-    const index = subagent.contextParts.findIndex(
-      (p) => p.content === child.content && p.priority === child.priority,
-    );
-    if (index >= 0) {
-      subagent.contextParts.splice(index, 1);
-    }
-  } else if (isMessageInstance(child)) {
-    const index = subagent.messages.indexOf(child.message);
-    if (index >= 0) {
-      subagent.messages.splice(index, 1);
-    }
-  } else if (isMCPServerInstance(child)) {
-    const index = subagent.mcpServers.findIndex((s) => s.name === child.config.name);
-    if (index >= 0) {
-      subagent.mcpServers.splice(index, 1);
-    }
-  } else if (isToolsContainerInstance(child)) {
-    for (const grandchild of child.children) {
-      uncollectFromChildForSubagent(subagent, grandchild);
-    }
-  } else if (isSubagentInstance(child)) {
-    const index = subagent.tools.findIndex((t) => t.name === child.name);
-    if (index >= 0) {
-      subagent.tools.splice(index, 1);
-      subagent.pendingUpdates.push({ type: 'tool_removed', toolName: child.name });
     }
   }
 }
