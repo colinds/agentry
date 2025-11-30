@@ -58,19 +58,21 @@ test('diffProps skips callback props', () => {
   expect(result.hasChanges).toBe(false);
 });
 
-test('diffProps sets needsReconstruction when model changes', () => {
+test('diffProps detects model changes', () => {
   const result = diffProps({ model: 'old-model' }, { model: 'new-model' });
 
-  expect(result.needsReconstruction).toBe(true);
+  expect(result.hasChanges).toBe(true);
+  expect(result.changes.model).toBe('new-model');
 });
 
-test('diffProps sets needsReconstruction when client changes', () => {
+test('diffProps detects client changes', () => {
   const oldClient = { apiKey: 'old' };
   const newClient = { apiKey: 'new' };
 
   const result = diffProps({ client: oldClient }, { client: newClient });
 
-  expect(result.needsReconstruction).toBe(true);
+  expect(result.hasChanges).toBe(true);
+  expect(result.changes.client).toBe(newClient);
 });
 
 test('diffProps returns hasChanges false when props are identical', () => {
@@ -82,7 +84,6 @@ test('diffProps returns hasChanges false when props are identical', () => {
   );
 
   expect(result.hasChanges).toBe(false);
-  expect(result.needsReconstruction).toBe(false);
   expect(result.changes).toEqual({});
 });
 

@@ -1,18 +1,6 @@
-import ReactReconciler from 'react-reconciler';
 import { ConcurrentRoot } from 'react-reconciler/constants';
-import { hostConfig } from './hostConfig.ts';
+import { reconciler } from './reconciler.ts';
 import type { AgentInstance } from '../instances/index.ts';
-import { isTreeMounted } from './utils.ts';
-
-// create the reconciler (cast to work around type issues with different react-reconciler versions)
-export const reconciler = ReactReconciler(hostConfig as unknown as Parameters<typeof ReactReconciler>[0]);
-
-// enable concurrent mode features
-reconciler.injectIntoDevTools({
-  bundleType: process.env.NODE_ENV === 'production' ? 0 : 1,
-  version: '0.0.1',
-  rendererPackageName: '@agentry/core',
-});
 
 // container info type
 export interface ContainerInfo {
@@ -43,13 +31,6 @@ export function createContainer(agentInstance: AgentInstance): ContainerInfo {
     container: agentInstance,
     fiber,
   };
-}
-
-/**
- * Check if the container's tree is fully mounted and ready for execution
- */
-export function isContainerReady(containerInfo: ContainerInfo): boolean {
-  return isTreeMounted(containerInfo.container);
 }
 
 // update the container with new elements

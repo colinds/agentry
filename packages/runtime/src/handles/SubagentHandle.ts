@@ -43,7 +43,6 @@ export class SubagentHandle extends AbstractAgentHandle {
       children: [],
       pendingUpdates: subagent.pendingUpdates,
       parent: null,
-      _updating: false,
     };
 
     const containerInfo = createContainer(rootAgent);
@@ -93,7 +92,6 @@ export class SubagentHandle extends AbstractAgentHandle {
     }
 
     // Render the subagent's React children with AgentProvider
-    // Following react-three-fiber's pattern: Provider receives children as a prop
     if (this.subagent.reactChildren) {
       await this.renderWithProvider(this.subagent.reactChildren);
     }

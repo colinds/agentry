@@ -121,7 +121,6 @@ function createAgentInstance(props: AgentComponentProps, rootContainer?: unknown
     children: [],
     pendingUpdates: [],
     parent: null,
-    _updating: false,
   };
 
   // If this is the root agent (first child of container), update container's model for propagation

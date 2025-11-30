@@ -3,6 +3,14 @@ import { z } from 'zod';
 import { render, Agent, System, Tools, Tool, Message } from '@agentry/runtime';
 import { MODEL } from '@agentry/shared';
 
+/**
+ * Example: Dynamically Creating Subagents
+ * 
+ * This example demonstrates how an agent can create new subagents at runtime
+ * using a tool. The factory agent creates a coder subagent, which then creates
+ * a tester subagent to validate the code.
+ */
+
 interface Subagent {
   id: string;
   name: string;
@@ -11,6 +19,11 @@ interface Subagent {
   temperature?: number;
 }
 
+/**
+ * Tool that allows an agent to create new subagents dynamically.
+ * When called, it adds a new subagent to the parent's state, which
+ * then becomes available as a tool in the next step.
+ */
 function CreateSubagentTool({
   subagents,
   onCreate,
@@ -21,58 +34,67 @@ function CreateSubagentTool({
   return (
     <Tool
       name="create_subagent"
-      description="Create a new specialist subagent. Requires: name (lowercase with underscores), description (what it does), systemPrompt (full instructions for the subagent)."
+      description="Create a new specialist subagent. The subagent will be available as a tool in the next step."
       inputSchema={z.object({
-        name: z.string().describe('Subagent name in lowercase with underscores, e.g. "tester_agent" (required)'),
-        description: z.string().describe('Brief description of what the subagent does (required)'),
-        systemPrompt: z.string().describe('Complete system prompt/instructions that define the subagent\'s behavior and expertise (required)'),
+        name: z.string().describe('Subagent name in lowercase with underscores (e.g., "coder_agent")'),
+        description: z.string().describe('Brief description of what the subagent does'),
+        systemPrompt: z.string().describe('Complete system prompt that defines the subagent\'s behavior'),
         temperature: z.number().min(0).max(2).optional().describe('Temperature 0-2, optional'),
       })}
       handler={async (input) => {
         const { name, description, systemPrompt, temperature } = input;
         
+        // Validate name format
         if (subagents.some((s) => s.name === name)) {
           return `Error: ${name} already exists`;
         }
         if (!/^[a-z][a-z0-9_]*$/.test(name)) {
-          return `Error: invalid name format`;
+          return `Error: name must be lowercase with underscores (e.g., "coder_agent")`;
         }
 
-        console.log(`[create_subagent] ${name}: ${description}`);
+        // Create the subagent - it will be available as a tool in the next step
         onCreate({ name, description, systemPrompt, temperature });
-        return `Created ${name}. Use ${name}(task) to call it.`;
+        return `Created ${name}. You can now call ${name}(task="...") to use it.`;
       }}
     />
   );
 }
 
-function SubagentComponent({ config, parentName }: { config: Subagent; parentName?: string }) {
+/**
+ * Recursive component that renders a subagent and its nested subagents.
+ * Each subagent can also create its own subagents, forming a tree structure.
+ */
+function SubagentComponent({ config }: { config: Subagent }) {
   const [subagents, setSubagents] = useState<Subagent[]>([]);
-  const prefix = parentName ? `${parentName}→${config.name}` : config.name;
-  console.log(`[${prefix}] ${subagents.length} subagents`);
 
   return (
-    <Agent name={config.name} description={config.description} temperature={config.temperature}>
+    <Agent 
+      name={config.name} 
+      description={config.description} 
+      temperature={config.temperature}
+    >
       <System>{config.systemPrompt}</System>
       <Tools>
+        {/* Allow this subagent to create its own subagents */}
         <CreateSubagentTool
           subagents={subagents}
           onCreate={(subagent) => {
-            const prefix = parentName ? `${parentName}→${config.name}` : config.name;
-            console.log(`${prefix} Spawning: ${subagent.name}`);
             setSubagents((prev) => [...prev, { ...subagent, id: `${subagent.name}_${Date.now()}` }]);
           }}
         />
-        {subagents.map((s) => {
-          const fullParentName = parentName ? `${parentName}→${config.name}` : config.name;
-          return <SubagentComponent key={s.id} config={s} parentName={fullParentName} />;
-        })}
       </Tools>
+      {/* Render nested subagents */}
+      {subagents.map((s) => (
+        <SubagentComponent key={s.id} config={s} />
+      ))}
     </Agent>
   );
 }
 
-
+/**
+ * Main factory agent that orchestrates the creation of subagents.
+ * It creates a coder subagent, which then creates a tester subagent.
+ */
 function Factory() {
   const [subagents, setSubagents] = useState<Subagent[]>([]);
 
@@ -82,56 +104,52 @@ function Factory() {
       maxTokens={2048}
       temperature={0.7}
       stream={true}
-      onStepFinish={(result) => {
-        console.log(`[factory] Step ${result.stepNumber}:`, {
-          subagents: subagents.length,
-          text: result.text.substring(0, 100),
-          toolCalls: result.toolCalls.map(tc => `${tc.name}(${JSON.stringify(tc.input)})`),
-          tokens: result.usage.totalTokens,
-        });
-      }}
     >
       <System>
-        You must create a coder subagent to write code. The coder MUST:
-        1. Write the function
-        2. Use create_subagent to create a tester subagent
-        3. IMMEDIATELY call the tester subagent (use the tool name returned by create_subagent) with the code
-        4. Wait for the tester's results
-        5. Return both the code and test results
+        You are a factory agent that creates specialized subagents.
+        
+        Your task:
+        1. Create a coder subagent that writes code
+        2. The coder will create a tester subagent to validate the code
+        3. Return both the code and test results
+        
+        When creating the coder subagent, give it a system prompt that instructs it to:
+        - Write the requested function
+        - Create a tester subagent using create_subagent
+        - Call the tester subagent with the code
+        - Return both the code and test results
 
-        When creating the coder subagent, give it a system prompt that explicitly states:
-        "After creating the tester subagent, you MUST call it using the tool name (e.g., tester_add_numbers(task='...')). Do not end your turn until you have called the tester and received results."
-
-        {subagents.length > 0 && `\n\nCreated: ${subagents.map((s) => s.name).join(', ')}`}
+        {subagents.length > 0 && `\n\nCreated subagents: ${subagents.map((s) => s.name).join(', ')}`}
       </System>
 
       <Tools>
         <CreateSubagentTool
           subagents={subagents}
           onCreate={(subagent) => {
-            console.log(`[factory] Spawning: ${subagent.name}`);
+            console.log(`✨ Created subagent: ${subagent.name}`);
             setSubagents((prev) => [...prev, { ...subagent, id: `${subagent.name}_${Date.now()}` }]);
           }}
         />
-        {subagents.map((s) => (
-          <SubagentComponent key={s.id} config={s} />
-        ))}
       </Tools>
+
+      {/* Render created subagents */}
+      {subagents.map((s) => (
+        <SubagentComponent key={s.id} config={s} />
+      ))}
 
       <Message role="user">
         Write a function that adds two numbers. The coder must:
         1. Create a tester subagent using create_subagent
-        2. IMMEDIATELY call the tester subagent by its tool name (the name you gave it) with the code as the task
-        3. Wait for the tester's response
-        4. Return both the code and the actual test results from the tester
-
-        Do not make up test results. You must actually call the tester subagent and use its response.
+        2. Call the tester subagent with the code
+        3. Return both the code and the actual test results from the tester
       </Message>
     </Agent>
   );
 }
 
+console.log('🚀 Starting dynamic subagent creation example...\n');
 const result = await render(<Factory />);
+console.log('\n✅ Final Result:');
 console.log(result.content);
-console.log('Usage:', result.usage);
-
+const totalTokens = result.usage.inputTokens + result.usage.outputTokens;
+console.log(`\nUsage: ${totalTokens} tokens (${result.usage.inputTokens} in, ${result.usage.outputTokens} out)`);

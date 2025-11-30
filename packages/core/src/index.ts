@@ -21,13 +21,10 @@ export {
   flushSync,
   unmountContainer,
   setSubagentToolFactory,
-  isContainerReady,
   type ContainerInfo,
   // utilities
   diffProps,
   disposeOnIdle,
-  isTreeMounted,
-  markTreeMounted,
   HostTransitionContext,
 } from './reconciler/index.ts';
 

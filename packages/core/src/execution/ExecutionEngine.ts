@@ -28,7 +28,7 @@ import type {
 } from '../types/index.ts';
 import { ANTHROPIC_BETAS, type AnthropicBeta } from '../constants.ts';
 import type { AgentInstance } from '../instances/index.ts';
-import { initialState, transition, extractToolUses, extractText } from '../types/index.ts';
+import { transition, extractToolUses, extractText } from '../types/index.ts';
 import { toApiTool, executeTool } from '../tools/index.ts';
 import { debug } from '../debug.ts';
 import { flushSync } from '../reconciler/renderer.ts';

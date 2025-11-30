@@ -1,4 +1,5 @@
-import type { HostConfig } from 'react-reconciler';
+import ReactReconciler from 'react-reconciler';
+import type Anthropic from '@anthropic-ai/sdk';
 import {
   type Instance,
   type AgentInstance,
@@ -21,11 +22,45 @@ import { debug } from '../debug.ts';
 import {
   diffProps,
   disposeOnIdle,
-  markTreeMounted,
-  queueReconstruction,
-  flushReconstructions,
   HostTransitionContext,
 } from './utils.ts';
+
+function createReconciler<
+  Type,
+  Props,
+  Container,
+  Instance,
+  TextInstance,
+  SuspenseInstance,
+  HydratableInstance,
+  FormInstance,
+  PublicInstance,
+  HostContext,
+  ChildSet,
+  TimeoutHandle,
+  NoTimeout,
+  TransitionStatus,
+>(
+  config: ReactReconciler.HostConfig<
+    Type,
+    Props,
+    Container,
+    Instance,
+    TextInstance,
+    SuspenseInstance,
+    HydratableInstance,
+    FormInstance,
+    PublicInstance,
+    HostContext,
+    ChildSet,
+    TimeoutHandle,
+    NoTimeout,
+    TransitionStatus
+  >,
+): ReactReconciler.Reconciler<Container, Instance, TextInstance, SuspenseInstance, FormInstance, PublicInstance> {
+  const reconciler = ReactReconciler(config as any);
+  return reconciler as any;
+}
 
 // settings that propagate down the tree via HostContext
 interface PropagatedSettings {
@@ -39,23 +74,40 @@ interface PropagatedSettings {
   model?: Model; // model to inherit for subagents
 }
 
+interface HostConfig {
+  type: ElementType;
+  props: ElementProps;
+  container: AgentInstance;
+  instance: Instance;
+  textInstance: null;
+  suspenseInstance: never;
+  hydratableInstance: never;
+  formInstance: never;
+  publicInstance: Instance;
+  hostContext: PropagatedSettings;
+  childSet: never;
+  timeoutHandle: ReturnType<typeof setTimeout>;
+  noTimeout: -1;
+  TransitionStatus: never;
+}
+
 // the host config implementation
-export const hostConfig: HostConfig<
-  ElementType,
-  ElementProps,
-  AgentInstance,
-  Instance,
-  null,
-  never,
-  never,
-  never,
-  Instance,
-  PropagatedSettings,
-  never,
-  ReturnType<typeof setTimeout>,
-  -1,
-  never
-> = {
+export const reconciler = /* @__PURE__ */ createReconciler<
+  HostConfig['type'],
+  HostConfig['props'],
+  HostConfig['container'],
+  HostConfig['instance'],
+  HostConfig['textInstance'],
+  HostConfig['suspenseInstance'],
+  HostConfig['hydratableInstance'],
+  HostConfig['formInstance'],
+  HostConfig['publicInstance'],
+  HostConfig['hostContext'],
+  HostConfig['childSet'],
+  HostConfig['timeoutHandle'],
+  HostConfig['noTimeout'],
+  HostConfig['TransitionStatus']
+>({
   // mode
   supportsMutation: true,
   supportsPersistence: false,
@@ -67,128 +119,60 @@ export const hostConfig: HostConfig<
   noTimeout: -1 as const,
 
   // newer reconciler requirements
-  NotPendingTransition: null as never,
+  NotPendingTransition: null as HostConfig['TransitionStatus'],
   // proper transition context (instead of null workaround)
-  HostTransitionContext: HostTransitionContext as unknown as never,
+  HostTransitionContext: HostTransitionContext as unknown as ReactReconciler.ReactContext<HostConfig['TransitionStatus']>,
 
-  setCurrentUpdatePriority(_newPriority: number): void {
-    // no-op for now
-  },
+  setCurrentUpdatePriority() {},
 
-  getCurrentUpdatePriority(): number {
+  getCurrentUpdatePriority() {
     return 16; // DefaultEventPriority
   },
 
-  resolveUpdatePriority(): number {
+  resolveUpdatePriority() {
     return 16; // DefaultEventPriority
   },
 
-  resetFormInstance(_form: unknown): void {
-    // no-op
-  },
+  resetFormInstance() {},
 
-  requestPostPaintCallback(_callback: (time: number) => void): void {
-    // no-op
-  },
+  requestPostPaintCallback() {},
 
-  shouldAttemptEagerTransition(): boolean {
-    return false;
-  },
+  shouldAttemptEagerTransition: () => false,
 
-  trackSchedulerEvent(): void {
-    // no-op
-  },
+  trackSchedulerEvent: () => {},
 
-  resolveEventType(): null | string {
-    return null;
-  },
+  resolveEventType: () => null,
 
-  resolveEventTimeStamp(): number {
-    return Date.now();
-  },
+  resolveEventTimeStamp: () => Date.now(),
 
-  maySuspendCommit(_type: ElementType, _props: ElementProps): boolean {
-    return false;
-  },
+  maySuspendCommit: () => false,
 
-  preloadInstance(_type: ElementType, _props: ElementProps): boolean {
-    return false;
-  },
+  preloadInstance: () => false,
 
-  startSuspendingCommit(): void {
-    // no-op
-  },
+  startSuspendingCommit() {},
 
-  suspendInstance(_type: ElementType, _props: ElementProps): void {
-    // no-op
-  },
+  suspendInstance() {},
 
-  waitForCommitToBeReady(): null {
-    return null;
-  },
+  waitForCommitToBeReady: () => null,
 
   // instance creation
-  createInstance(
-    type: ElementType,
-    props: ElementProps,
-    rootContainer: AgentInstance,
-    hostContext: PropagatedSettings,
-    _internalHandle: unknown,
-  ): Instance {
+  createInstance(type, props, rootContainer, hostContext, _internalHandle) {
     return createInstance(type, props, rootContainer, hostContext);
   },
 
-  createTextInstance(
-    _text: string,
-    _rootContainer: AgentInstance,
-    _hostContext: PropagatedSettings,
-    _internalHandle: unknown,
-  ): null {
-    // we don't support raw text nodes
-    return null;
-  },
+  createTextInstance: () => null,
 
-  appendInitialChild(parentInstance: Instance, child: Instance): void {
+  appendInitialChild(parentInstance, child) {
     // guard against null children (from createTextInstance)
     if (child === null) return;
     appendChild(parentInstance, child);
   },
 
-  finalizeInitialChildren(
-    _instance: Instance,
-    _type: ElementType,
-    _props: ElementProps,
-    _rootContainer: AgentInstance,
-    _hostContext: PropagatedSettings,
-  ): boolean {
-    return false;
-  },
+  finalizeInitialChildren: () => false,
 
-  prepareUpdate(
-    instance: Instance,
-    _type: ElementType,
-    oldProps: ElementProps,
-    newProps: ElementProps,
-    _rootContainer: AgentInstance,
-    _hostContext: PropagatedSettings,
-  ): Partial<ElementProps> | null {
-    // Use sophisticated diffProps with deep equality and reconstruction detection
-    const { changes, hasChanges, needsReconstruction } = diffProps(oldProps, newProps);
+  shouldSetTextContent: () => false,
 
-    // Queue for reconstruction if critical props changed (model, client)
-    if (needsReconstruction && isAgentInstance(instance)) {
-      queueReconstruction(instance, newProps);
-      debug('reconciler', `Agent queued for reconstruction due to critical prop change`);
-    }
-
-    return hasChanges ? changes : null;
-  },
-
-  shouldSetTextContent(_type: ElementType, _props: ElementProps): boolean {
-    return false;
-  },
-
-  getRootHostContext(rootContainer: AgentInstance): PropagatedSettings {
+  getRootHostContext(rootContainer) {
     // root agent's settings become the initial context
     return {
       stream: rootContainer.props.stream,
@@ -202,11 +186,7 @@ export const hostConfig: HostConfig<
     };
   },
 
-  getChildHostContext(
-    parentHostContext: PropagatedSettings,
-    type: ElementType,
-    _rootContainer: AgentInstance,
-  ): PropagatedSettings {
+  getChildHostContext(parentHostContext, type, _rootContainer) {
     // when entering an agent element, mark that we're inside an agent
     if (type === 'agent') {
       return { ...parentHostContext, insideAgent: true };
@@ -215,141 +195,77 @@ export const hostConfig: HostConfig<
     return parentHostContext;
   },
 
-  getPublicInstance(instance: Instance): Instance {
+  getPublicInstance(instance: HostConfig['instance']) {
     return instance;
   },
 
-  prepareForCommit(_containerInfo: AgentInstance): Record<string, unknown> | null {
-    return null;
-  },
+  prepareForCommit: () => null,
 
-  resetAfterCommit(containerInfo: AgentInstance): void {
-    // Mark tree as mounted after commit completes
-    // This ensures all children are collected before execution starts
-    markTreeMounted(containerInfo);
-    
-    // Process any queued reconstructions
-    const reconstructions = flushReconstructions();
-    for (const { instance, newProps } of reconstructions) {
-      if (isAgentInstance(instance)) {
-        debug('reconciler', `Reconstructing agent instance`);
-        // For now, just update props - full reconstruction would recreate client
-        Object.assign(instance.props, newProps);
-      }
-    }
-  },
+  resetAfterCommit() {},
 
-  preparePortalMount(_containerInfo: AgentInstance): void {
-    // no-op
-  },
+  preparePortalMount() {},
 
-  scheduleTimeout(
-    fn: (...args: unknown[]) => unknown,
-    delay?: number,
-  ): ReturnType<typeof setTimeout> {
+  scheduleTimeout(fn, delay) {
     return setTimeout(fn, delay);
   },
 
-  cancelTimeout(id: ReturnType<typeof setTimeout>): void {
+  cancelTimeout(id) {
     clearTimeout(id);
   },
 
-  getCurrentEventPriority(): number {
-    return 16; // DefaultEventPriority
-  },
+  getInstanceFromNode: () => null,
 
-  // @ts-expect-error - not implementing node -> fiber mapping
-  getInstanceFromNode(_node: unknown): unknown {
-    return undefined;
-  },
+  beforeActiveInstanceBlur() {},
 
-  beforeActiveInstanceBlur(): void {
-    // no-op
-  },
+  afterActiveInstanceBlur() {},
 
-  afterActiveInstanceBlur(): void {
-    // no-op
-  },
+  prepareScopeUpdate() {},
 
-  prepareScopeUpdate(_scopeInstance: unknown, _instance: unknown): void {
-    // no-op
-  },
+  getInstanceFromScope: () => null,
 
-  getInstanceFromScope(_scopeInstance: unknown): Instance | null {
-    return null;
-  },
-
-  detachDeletedInstance(_node: Instance): void {
-    // no-op
-  },
+  detachDeletedInstance() {},
 
   // mutation methods
-  appendChild(parentInstance: Instance, child: Instance): void {
+  appendChild(parentInstance, child) {
     // guard against null children
     if (child === null) return;
     appendChild(parentInstance, child);
   },
 
-  appendChildToContainer(container: AgentInstance, child: Instance): void {
+  appendChildToContainer(container, child) {
+    if (child === null) return;
     appendChild(container, child);
   },
 
-  insertBefore(
-    parentInstance: Instance,
-    child: Instance,
-    beforeChild: Instance,
-  ): void {
+  insertBefore(parentInstance, child, beforeChild) {
     // guard against null children
-    if (child === null) return;
+    if (child === null || beforeChild === null) return;
     insertBefore(parentInstance, child, beforeChild);
   },
 
-  insertInContainerBefore(
-    container: AgentInstance,
-    child: Instance,
-    beforeChild: Instance,
-  ): void {
+  insertInContainerBefore(container, child, beforeChild) {
+    if (child === null || beforeChild === null) return;
     insertBefore(container, child, beforeChild);
   },
 
-  removeChild(parentInstance: Instance, child: Instance): void {
+  removeChild(parentInstance, child) {
     // guard against null children
     if (child === null) return;
     removeChild(parentInstance, child);
   },
 
-  removeChildFromContainer(container: AgentInstance, child: Instance): void {
+  removeChildFromContainer(container, child) {
+    if (child === null) return;
     removeChild(container, child);
   },
 
-  resetTextContent(_instance: Instance): void {
-    // no-op
-  },
+  resetTextContent() {},
 
-  commitTextUpdate(
-    _textInstance: null,
-    _oldText: string,
-    _newText: string,
-  ): void {
-    // no-op
-  },
+  commitTextUpdate() {},
 
-  commitMount(
-    _instance: Instance,
-    _type: ElementType,
-    _props: ElementProps,
-    _internalInstanceHandle: unknown,
-  ): void {
-    // no-op
-  },
+  commitMount() {},
 
-  commitUpdate(
-    instance: Instance,
-    _type: ElementType,
-    prevProps: ElementProps,
-    nextProps: ElementProps,
-    _internalHandle: unknown,
-  ): void {
+  commitUpdate(instance, _type, prevProps, nextProps, _internalHandle) {
     // Use sophisticated diffProps for deep equality
     const { changes, hasChanges } = diffProps(prevProps, nextProps);
     
@@ -358,23 +274,15 @@ export const hostConfig: HostConfig<
     }
   },
 
-  hideInstance(_instance: Instance): void {
-    // no-op
-  },
+  hideInstance() {},
 
-  hideTextInstance(_textInstance: null): void {
-    // no-op
-  },
+  hideTextInstance() {},
 
-  unhideInstance(_instance: Instance, _props: ElementProps): void {
-    // no-op
-  },
+  unhideInstance() {},
 
-  unhideTextInstance(_textInstance: null, _text: string): void {
-    // no-op
-  },
+  unhideTextInstance() {},
 
-  clearContainer(_container: AgentInstance): void {
+  clearContainer(_container) {
     // clear all children from container
     if (isAgentInstance(_container)) {
       _container.children = [];
@@ -386,18 +294,20 @@ export const hostConfig: HostConfig<
       _container.mcpServers = [];
     }
   },
-};
+});
 
 function appendChild(parent: Instance, child: Instance): void {
   child.parent = parent;
 
   if (isAgentLike(parent)) {
     parent.children.push(child);
+    debug('reconciler', `appendChild: Adding child to ${isAgentInstance(parent) ? parent.props.name : 'subagent'}, child type: ${child.type}, isSubagent: ${isSubagentInstance(child)}`);
     collectFromChild(parent, child);
   } else if (isToolsContainerInstance(parent)) {
     parent.children.push(child);
     const agent = findParentAgent(parent);
     if (agent) {
+      debug('reconciler', `appendChild: Adding child from Tools to ${isAgentInstance(agent) ? agent.props.name : 'subagent'}, child type: ${child.type}`);
       collectFromChild(agent, child);
     }
   }
@@ -413,6 +323,7 @@ function insertBefore(parent: Instance, child: Instance, beforeChild: Instance):
     } else {
       parent.children.push(child);
     }
+    debug('reconciler', `insertBefore: Adding child to ${isAgentInstance(parent) ? parent.props.name : 'subagent'}, child type: ${child.type}, isSubagent: ${isSubagentInstance(child)}`);
     collectFromChild(parent, child);
   } else if (isToolsContainerInstance(parent)) {
     const index = parent.children.indexOf(beforeChild);
@@ -423,6 +334,7 @@ function insertBefore(parent: Instance, child: Instance, beforeChild: Instance):
     }
     const agent = findParentAgent(parent);
     if (agent) {
+      debug('reconciler', `insertBefore: Adding child from Tools to ${isAgentInstance(agent) ? agent.props.name : 'subagent'}, child type: ${child.type}`);
       collectFromChild(agent, child);
     }
   }
@@ -464,19 +376,17 @@ function removeChild(parent: Instance, child: Instance): void {
 }
 
 function applyUpdate(instance: Instance, updatePayload: Partial<ElementProps>): void {
-  // prevent infinite update loops
-  if (isAgentInstance(instance) && instance._updating) {
-    return;
-  }
-
   if (isAgentInstance(instance)) {
-    instance._updating = true;
-    try {
-      // update agent props
-      Object.assign(instance.props, updatePayload);
-    } finally {
-      instance._updating = false;
+    // Warn if model changes at runtime (only takes effect on next execution)
+    if ('model' in updatePayload && updatePayload.model !== instance.props.model) {
+      console.warn(
+        '[agentry] Model prop changed at runtime. This will only take effect on the next execution.',
+        { oldModel: instance.props.model, newModel: updatePayload.model },
+      );
     }
+
+    // update agent props
+    Object.assign(instance.props, updatePayload);
   } else if (isSystemInstance(instance)) {
     const payload = updatePayload as { children?: string; priority?: number };
     if (payload.children !== undefined) {
@@ -521,6 +431,7 @@ function applyUpdate(instance: Instance, updatePayload: Partial<ElementProps>): 
 
 // collect state from a child into an agent-like parent
 function collectFromChild(agent: AgentLike, child: Instance): void {
+  debug('reconciler', `collectFromChild: agent=${isAgentInstance(agent) ? agent.props.name : agent.name}, child.type=${child.type}, isSubagent=${isSubagentInstance(child)}`);
   if (isToolInstance(child)) {
     debug('reconciler', `Tool added: ${child.tool.name}`);
     agent.tools.push(child.tool);

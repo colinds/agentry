@@ -13,9 +13,6 @@ const RESERVED_PROPS = [
   'onError',
 ] as const;
 
-// Props that trigger instance reconstruction when changed
-const RECONSTRUCTION_PROPS = ['model', 'client'] as const;
-
 /** Simple equality check for props */
 function shallowEqual(a: unknown, b: unknown): boolean {
   // Same reference or primitives
@@ -54,10 +51,9 @@ function shallowEqual(a: unknown, b: unknown): boolean {
 export function diffProps<T>(
   oldProps: T,
   newProps: T,
-): { changes: Partial<T>; hasChanges: boolean; needsReconstruction: boolean } {
+): { changes: Partial<T>; hasChanges: boolean } {
   const changes: Record<string, unknown> = {};
   let hasChanges = false;
-  let needsReconstruction = false;
 
   const oldRecord = oldProps as Record<string, unknown>;
   const newRecord = newProps as Record<string, unknown>;
@@ -66,13 +62,6 @@ export function diffProps<T>(
   for (const key of Object.keys(newRecord)) {
     // Skip reserved props
     if ((RESERVED_PROPS as readonly string[]).includes(key)) continue;
-
-    // Check if this prop triggers reconstruction
-    if ((RECONSTRUCTION_PROPS as readonly string[]).includes(key)) {
-      if (!shallowEqual(oldRecord[key], newRecord[key])) {
-        needsReconstruction = true;
-      }
-    }
 
     // Check equality
     if (!shallowEqual(oldRecord[key], newRecord[key])) {
@@ -91,27 +80,7 @@ export function diffProps<T>(
     }
   }
 
-  return { changes: changes as Partial<T>, hasChanges, needsReconstruction };
-}
-
-/**
- * Track instances that need reconstruction
- */
-interface ReconstructionEntry {
-  instance: Instance;
-  newProps: ElementProps;
-}
-
-const reconstructionQueue: ReconstructionEntry[] = [];
-
-export function queueReconstruction(instance: Instance, newProps: ElementProps): void {
-  reconstructionQueue.push({ instance, newProps });
-}
-
-export function flushReconstructions(): ReconstructionEntry[] {
-  const queue = [...reconstructionQueue];
-  reconstructionQueue.length = 0;
-  return queue;
+  return { changes: changes as Partial<T>, hasChanges };
 }
 
 /**
@@ -125,18 +94,6 @@ export function disposeOnIdle(cleanup: () => void): void {
       // no-op
     }
   });
-}
-
-/**
- * Tree completion tracking for agent instances
- * Ensures we don't start execution until the tree is fully mounted
- */
-export function markTreeMounted(agent: AgentInstance): void {
-  agent._treeMounted = true;
-}
-
-export function isTreeMounted(agent: AgentInstance): boolean {
-  return agent._treeMounted === true;
 }
 
 /**

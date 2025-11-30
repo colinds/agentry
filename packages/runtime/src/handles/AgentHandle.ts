@@ -42,7 +42,6 @@ export class AgentHandle extends AbstractAgentHandle {
       children: [],
       pendingUpdates: [],
       parent: null,
-      _updating: false,
     };
 
     const containerInfo = createContainer(rootAgent);
