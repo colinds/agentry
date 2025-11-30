@@ -1,0 +1,13 @@
+{
+  "name": "@agentry/examples",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@agentry/runtime": "workspace:*",
+    "zod": "^4.1.13"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

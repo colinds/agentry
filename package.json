@@ -1,0 +1,14 @@
+{
+  "name": "agentry",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19",
+    "react": "19",
+    "typescript": "^5"
+  }
+}

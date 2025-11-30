@@ -1,0 +1,25 @@
+{
+  "name": "@agentry/runtime",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@agentry/components": "workspace:*",
+    "@agentry/core": "workspace:*",
+    "@anthropic-ai/sdk": "^0.71.0",
+    "eventemitter3": "^5.0.1",
+    "scheduler": "^0.26.0",
+    "zod": "^4.1.13"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/scheduler": "^0.26.0"
+  }
+}
