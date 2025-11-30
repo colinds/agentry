@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ReactNode } from 'react';
-import { AgentHandle } from './AgentHandle.ts';
+import { AgentHandle } from './handles/index.ts';
 import type { AgentResult } from '@agentry/core';
 
 export interface RenderOptions {

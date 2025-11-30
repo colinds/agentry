@@ -5,7 +5,7 @@ setSubagentToolFactory(createSubagentTool);
 
 // runtime API
 export { render, createAgent, type RenderOptions } from './render.ts';
-export { AgentHandle, type AgentHandleEvents } from './AgentHandle.ts';
+export { AgentHandle, type AgentHandleEvents } from './handles/index.ts';
 export { renderSubagent, type RenderSubagentOptions } from './renderSubagent.ts';
 
 // hooks (React-friendly API for accessing agent state)
