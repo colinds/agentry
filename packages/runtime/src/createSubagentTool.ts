@@ -1,7 +1,6 @@
 import type { z } from 'zod';
 import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta';
-import type { SubagentInstance, AgentInstance, InternalTool } from '@agentry/core';
-import { isAgentInstance } from '@agentry/core';
+import type { SubagentInstance, InternalTool } from '@agentry/core';
 import { renderSubagent } from './renderSubagent.ts';
 
 /**
@@ -11,7 +10,6 @@ import { renderSubagent } from './renderSubagent.ts';
  */
 export function createSubagentTool(
   subagent: SubagentInstance,
-  parentAgent: AgentInstance | SubagentInstance,
 ): InternalTool {
   return {
     name: subagent.name,
@@ -52,15 +50,9 @@ export function createSubagentTool(
         },
       ];
 
-      // get parent's client
-      const client = isAgentInstance(parentAgent) ? parentAgent.client : null;
-      if (!client) {
-        throw new Error('Cannot spawn subagent: parent agent has no client');
-      }
-
       // spawn the subagent
       const result = await renderSubagent(subagent, {
-        client,
+        client: toolContext.client,
         signal: toolContext.signal,
         initialMessages: childMessages,
       });

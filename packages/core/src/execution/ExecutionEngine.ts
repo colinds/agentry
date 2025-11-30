@@ -22,6 +22,9 @@ import type {
   ToolUpdate,
   CompactionControl,
   Model,
+  OnStepFinishResult,
+  StepToolCall,
+  StepToolResult,
 } from '../types/index.ts';
 import { ANTHROPIC_BETAS, type AnthropicBeta } from '../constants.ts';
 import type { AgentInstance } from '../instances/index.ts';
@@ -70,6 +73,7 @@ export interface ExecutionEngineEvents {
   message: (message: BetaMessage) => void;
   complete: (result: AgentResult) => void;
   error: (error: Error) => void;
+  stepFinish: (result: OnStepFinishResult) => void;
 }
 
 // configuration for the execution engine
@@ -117,6 +121,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   #lastMessage: BetaMessage | null = null;
   #aborted = false;
   #agentInstance: AgentInstance | null = null;
+  #toolExecutionTimes = new Map<string, number>();
 
   constructor(config: ExecutionEngineConfig) {
     super();
@@ -261,8 +266,15 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
           // check for compaction after tool execution
           await this.#checkAndCompact();
+
+          // emit step finish event
+          const stepResult = this.#buildStepFinishResult(message, toolUses, toolResults);
+          this.emit('stepFinish', stepResult);
         } else {
           // no more tool calls, we're done
+          // emit step finish event with no tools
+          const stepResult = this.#buildStepFinishResult(message, [], []);
+          this.emit('stepFinish', stepResult);
           break;
         }
       }
@@ -367,7 +379,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
     const currentState = this.executionState;
     const context: ToolContext = {
-      agentName: this.#config.agentName,
+      agentName: this.#config.agentName ?? 'agent',
+      client: this.#client,
       signal: currentState.status === 'streaming' ? currentState.abortController.signal : undefined,
       updateTools: this.#agentInstance ? (updates: ToolUpdate[]) => {
         for (const update of updates) {
@@ -383,6 +396,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     // execute all tools in parallel
     const results = await Promise.all(
       pendingTools.map(async (toolCall) => {
+        const startTime = performance.now();
+
         // find the tool
         const tool = this.#config.tools.find((t) => t.name === toolCall.name);
 
@@ -395,6 +410,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           if (sdkTool) {
             // SDK tools are handled by Anthropic, we shouldn't receive them here
             // but just in case, return an error
+            const executionTime = performance.now() - startTime;
+            this.#toolExecutionTimes.set(toolCall.id, executionTime);
             return {
               type: 'tool_result' as const,
               tool_use_id: toolCall.id,
@@ -403,6 +420,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             };
           }
 
+          const executionTime = performance.now() - startTime;
+          this.#toolExecutionTimes.set(toolCall.id, executionTime);
           return {
             type: 'tool_result' as const,
             tool_use_id: toolCall.id,
@@ -414,9 +433,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         // execute the tool
         debug('tool', `Executing: ${toolCall.name}`, toolCall.input);
         const { result, isError } = await executeTool(tool, toolCall.input, context);
-        debug('tool', `Result: ${toolCall.name}`, { 
-          isError, 
-          result: typeof result === 'string' ? result.substring(0, 100) : result 
+        const executionTime = performance.now() - startTime;
+        this.#toolExecutionTimes.set(toolCall.id, executionTime);
+
+        debug('tool', `Result: ${toolCall.name}`, {
+          isError,
+          result: typeof result === 'string' ? result.substring(0, 100) : result
         });
 
         // emit tool result event
@@ -437,6 +459,60 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     );
 
     return results;
+  }
+
+  // build step finish result from current state
+  #buildStepFinishResult(
+    message: BetaMessage,
+    toolUses: Array<{ id: string; name: string; input: unknown }>,
+    toolResults: BetaToolResultBlockParam[]
+  ): OnStepFinishResult {
+    // extract text content
+    const text = extractText(message);
+
+    // extract thinking content
+    const thinkingBlock = message.content.find(
+      (b): b is Extract<BetaContentBlock, { type: 'thinking' }> => b.type === 'thinking'
+    );
+    const thinking = thinkingBlock?.thinking;
+
+    // build tool calls array
+    const toolCalls: StepToolCall[] = toolUses.map((tu) => ({
+      id: tu.id,
+      name: tu.name,
+      input: tu.input,
+    }));
+
+    // build tool results array with execution times
+    const toolResultsWithTimes: StepToolResult[] = toolResults.map((tr) => {
+      const toolUse = toolUses.find((tu) => tu.id === tr.tool_use_id);
+      return {
+        toolCallId: tr.tool_use_id,
+        toolName: toolUse?.name ?? 'unknown',
+        result: tr.content,
+        isError: tr.is_error ?? false,
+        executionTime: this.#toolExecutionTimes.get(tr.tool_use_id),
+      };
+    });
+
+    return {
+      stepNumber: this.#iterationCount,
+      text,
+      thinking,
+      toolCalls,
+      toolResults: toolResultsWithTimes,
+      finishReason: message.stop_reason,
+      usage: {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens,
+        cacheCreationTokens: message.usage.cache_creation_input_tokens,
+        cacheReadTokens: message.usage.cache_read_input_tokens,
+        totalTokens: message.usage.input_tokens + message.usage.output_tokens,
+      },
+      message,
+      messages: [...this.messages],
+      timestamp: new Date(),
+    };
   }
 
   // process pending updates from the instance

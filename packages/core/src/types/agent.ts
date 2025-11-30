@@ -1,6 +1,7 @@
 import type { Model } from '@anthropic-ai/sdk/resources/messages';
 import type { BetaMessageParam, BetaToolUnion } from '@anthropic-ai/sdk/resources/beta';
 import type { InternalTool } from './tools.ts';
+import type { OnStepFinishResult } from './lifecycle.ts';
 
 // re-export Model type
 export type { Model };
@@ -25,6 +26,7 @@ export interface AgentProps {
   onMessage?: (message: AgentStreamEvent) => void;
   onComplete?: (result: AgentResult) => void;
   onError?: (error: Error) => void;
+  onStepFinish?: (result: OnStepFinishResult) => void | Promise<void>;
 
   // compaction settings (from SDK)
   compactionControl?: CompactionControl;

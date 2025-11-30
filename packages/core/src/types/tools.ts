@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import type Anthropic from '@anthropic-ai/sdk';
 import type { BetaToolUnion, BetaToolResultBlockParam } from '@anthropic-ai/sdk/resources/beta';
 
 // result type that tools can return
@@ -12,7 +13,9 @@ export type ToolUpdate =
 // context passed to tool handlers
 export interface ToolContext {
   // the agent instance that invoked the tool
-  agentName?: string;
+  agentName: string;
+  // Anthropic client
+  client: Anthropic;
   // abort signal for cancellation
   signal?: AbortSignal;
   // additional metadata

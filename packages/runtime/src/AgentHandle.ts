@@ -16,6 +16,7 @@ import {
   type AgentState,
   type BetaMessageParam,
   type AgentStore,
+  type OnStepFinishResult,
   isAgentInstance,
 } from '@agentry/core';
 import { MODEL } from '@agentry/shared';
@@ -27,6 +28,7 @@ export interface AgentHandleEvents {
   stream: (event: AgentStreamEvent) => void;
   complete: (result: AgentResult) => void;
   error: (error: Error) => void;
+  stepFinish: (result: OnStepFinishResult) => void;
 }
 
 /**
@@ -124,6 +126,7 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
     let onStateChange: ((state: AgentState) => void) | undefined;
     let onStream: ((event: AgentStreamEvent) => void) | undefined;
     let onError: ((error: Error) => void) | undefined;
+    let onStepFinish: ((result: OnStepFinishResult) => void) | undefined;
 
     try {
       // Render element to collect state
@@ -200,10 +203,15 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
         this.emit('error', error);
         agent.props.onError?.(error);
       };
+      onStepFinish = (result: OnStepFinishResult) => {
+        this.emit('stepFinish', result);
+        agent.props.onStepFinish?.(result);
+      };
 
       this.#engine.on('stateChange', onStateChange);
       this.#engine.on('stream', onStream);
       this.#engine.on('error', onError);
+      this.#engine.on('stepFinish', onStepFinish);
 
       // Run engine
       const result = await this.#engine.run();
@@ -213,10 +221,11 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
 
       return result;
     } finally {
-      if (this.#engine && onStateChange && onStream && onError) {
+      if (this.#engine && onStateChange && onStream && onError && onStepFinish) {
         this.#engine.off('stateChange', onStateChange);
         this.#engine.off('stream', onStream);
         this.#engine.off('error', onError);
+        this.#engine.off('stepFinish', onStepFinish);
       }
       this.#running = false;
     }

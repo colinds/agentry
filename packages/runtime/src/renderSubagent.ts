@@ -44,7 +44,7 @@ export async function renderSubagent(
     messages: [...subagent.messages, ...initialMessages],
     mcpServers: [...subagent.mcpServers],
     children: [],
-    pendingUpdates: [],
+    pendingUpdates: subagent.pendingUpdates,
     parent: null,
     _updating: false,
   };
@@ -88,6 +88,11 @@ export async function renderSubagent(
     // create store for subagent (isolated from parent)
     const store = createAgentStore();
 
+    // Initialize store with messages before rendering
+    if (rootAgent.messages.length > 0) {
+      store.setState({ messages: [...rootAgent.messages] });
+    }
+
     // create execution engine with store
     const engine = new ExecutionEngine({
       client,
@@ -110,13 +115,11 @@ export async function renderSubagent(
 
     rootAgent.engine = engine;
 
-    // If the subagent has an element tree, wrap it with AgentProvider
-    // so that useMessages() and other hooks inside the subagent's components
-    // will use the subagent's store, not the parent's
-    if (subagent.agentElement) {
-      const wrappedElement = createElement(AgentProvider, { store, children: subagent.agentElement });
-      updateContainer(wrappedElement, containerInfo);
-    }
+    // Wrap the subagent's React children with AgentProvider
+    // Following react-three-fiber's pattern: Provider receives children as a prop
+    // This allows components like MessagesLogger to access the subagent's store via useMessages()
+    const wrappedElement = createElement(AgentProvider, { store, children: subagent.reactChildren });
+    updateContainer(wrappedElement, containerInfo);
 
     // run to completion
     const result = await engine.run();

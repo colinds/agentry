@@ -576,7 +576,7 @@ function collectFromChild(agent: AgentInstance, child: Instance): void {
       child.props.model = agent.props.model;
     }
     // auto-generate a tool from the subagent
-    const syntheticTool = createSubagentTool(child, agent);
+    const syntheticTool = createSubagentTool(child);
     debug('reconciler', `Subagent tool added: ${child.name}`);
     agent.tools.push(syntheticTool);
     // Push to pendingUpdates so ExecutionEngine can sync during execution
@@ -679,8 +679,10 @@ function rebuildContextParts(agent: AgentInstance): void {
 function collectFromChildForSubagent(subagent: SubagentInstance, child: Instance): void {
   if (isToolInstance(child)) {
     subagent.tools.push(child.tool);
+    subagent.pendingUpdates.push({ type: 'tool_added', tool: child.tool });
   } else if (isSdkToolInstance(child)) {
     subagent.sdkTools.push(child.tool);
+    subagent.pendingUpdates.push({ type: 'sdk_tool_added', tool: child.tool });
   } else if (isSystemInstance(child)) {
     subagent.systemParts.push({ content: child.content, priority: child.priority });
   } else if (isContextInstance(child)) {
@@ -701,8 +703,9 @@ function collectFromChildForSubagent(subagent: SubagentInstance, child: Instance
         `Subagents cannot reference themselves or their ancestors.`,
       );
     }
-    const nestedTool = createSubagentTool(child, subagent);
+    const nestedTool = createSubagentTool(child);
     subagent.tools.push(nestedTool);
+    subagent.pendingUpdates.push({ type: 'tool_added', tool: nestedTool });
   }
 }
 
@@ -712,11 +715,14 @@ function uncollectFromChildForSubagent(subagent: SubagentInstance, child: Instan
     const index = subagent.tools.findIndex((t) => t.name === child.tool.name);
     if (index >= 0) {
       subagent.tools.splice(index, 1);
+      subagent.pendingUpdates.push({ type: 'tool_removed', toolName: child.tool.name });
     }
   } else if (isSdkToolInstance(child)) {
     const index = subagent.sdkTools.indexOf(child.tool);
     if (index >= 0) {
       subagent.sdkTools.splice(index, 1);
+      const toolName = 'name' in child.tool ? child.tool.name : child.tool.type;
+      subagent.pendingUpdates.push({ type: 'sdk_tool_removed', toolName });
     }
   } else if (isSystemInstance(child)) {
     const index = subagent.systemParts.findIndex(
@@ -750,39 +756,37 @@ function uncollectFromChildForSubagent(subagent: SubagentInstance, child: Instan
     const index = subagent.tools.findIndex((t) => t.name === child.name);
     if (index >= 0) {
       subagent.tools.splice(index, 1);
+      subagent.pendingUpdates.push({ type: 'tool_removed', toolName: child.name });
     }
   }
 }
 
 // check if child is an ancestor of subagent (circular reference)
 function isCircularReference(subagent: SubagentInstance, child: SubagentInstance): boolean {
-  const ancestorNames = new Set<string>();
   let current: Instance | null = subagent.parent;
 
   while (current) {
-    if (isSubagentInstance(current) || isAgentInstance(current)) {
-      if ('name' in current && current.name) {
-        ancestorNames.add(current.name);
-      }
+    // If we find the child instance itself in the ancestor chain, it's a circular reference
+    if (current === child) {
+      return true;
     }
     current = current.parent;
   }
 
-  return ancestorNames.has(child.name);
+  return false;
 }
 
 // reference to createSubagentTool - set by runtime package to avoid circular dependency
-let _createSubagentTool: ((subagent: SubagentInstance, parent: AgentInstance | SubagentInstance) => InternalTool) | null = null;
+let _createSubagentTool: ((subagent: SubagentInstance) => InternalTool) | null = null;
 
 export function setSubagentToolFactory(
-  factory: (subagent: SubagentInstance, parent: AgentInstance | SubagentInstance) => InternalTool,
+  factory: (subagent: SubagentInstance) => InternalTool,
 ): void {
   _createSubagentTool = factory;
 }
 
 function createSubagentTool(
   subagent: SubagentInstance,
-  parentAgent: AgentInstance | SubagentInstance,
 ): InternalTool {
   if (!_createSubagentTool) {
     throw new Error(
@@ -790,5 +794,5 @@ function createSubagentTool(
       'runtime package should call setSubagentToolFactory() on initialization.',
     );
   }
-  return _createSubagentTool(subagent, parentAgent);
+  return _createSubagentTool(subagent);
 }

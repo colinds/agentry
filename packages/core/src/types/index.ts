@@ -49,3 +49,11 @@ export {
   type CollectedAgentState,
   emptyCollectedState,
 } from './agent.ts';
+
+// lifecycle types
+export {
+  type OnStepFinishResult,
+  type StepToolCall,
+  type StepToolResult,
+  type StepUsage,
+} from './lifecycle.ts';

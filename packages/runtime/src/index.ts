@@ -53,4 +53,8 @@ export type {
   Model,
   BetaMessage,
   BetaMessageParam,
+  OnStepFinishResult,
+  StepToolCall,
+  StepToolResult,
+  StepUsage,
 } from '@agentry/core';

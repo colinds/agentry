@@ -233,7 +233,6 @@ export function createSubagentInstance(
     type: 'subagent',
     name: props.name,
     description: props.description,
-    agentElement: null,
     props: {
       model: props.model ?? inherited.model, // inherit model from parent if not specified
       name: props.name,
@@ -256,6 +255,8 @@ export function createSubagentInstance(
     messages: [],
     mcpServers: [],
     children: [],
+    pendingUpdates: [],
     parent: null,
+    reactChildren: props.children || null,
   };
 }

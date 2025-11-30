@@ -9,8 +9,12 @@ export interface BaseInstance {
   parent: Instance | null;
 }
 
+export interface BaseAgentInstance extends BaseInstance {
+  pendingUpdates: PendingUpdate[];
+}
+
 // agent instance - the root container for an agent
-export interface AgentInstance extends BaseInstance {
+export interface AgentInstance extends BaseAgentInstance {
   type: 'agent';
   props: AgentProps;
   client: Anthropic;
@@ -24,8 +28,6 @@ export interface AgentInstance extends BaseInstance {
   mcpServers: BetaRequestMCPServerURLDefinition[];
   // child instances
   children: Instance[];
-  // pending updates during execution
-  pendingUpdates: PendingUpdate[];
   // flag to prevent infinite loops
   _updating: boolean;
   // flag to track if the tree is fully mounted (for tree completion guards)
@@ -77,13 +79,15 @@ export interface ToolsContainerInstance extends BaseInstance {
 }
 
 // subagent instance - child agent that becomes a tool
-export interface SubagentInstance extends BaseInstance {
+export interface SubagentInstance extends BaseAgentInstance {
   type: 'subagent';
   name: string;
   description?: string;
-  agentElement: React.ReactNode | null;
   props: AgentProps;
   children: Instance[];
+  // Store the React children so they can be rendered in the isolated container with AgentProvider
+  // Following react-three-fiber's pattern where Provider receives children as a prop
+  reactChildren: React.ReactNode | null;
   // collected state (same as AgentInstance but not used until spawned)
   systemParts: Array<{ content: string; priority: number }>;
   tools: InternalTool[];
