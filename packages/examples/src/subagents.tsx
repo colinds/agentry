@@ -1,7 +1,35 @@
-import { render, Agent, System, Tools, Message } from '@agentry/runtime';
+import { render, Agent, System, Tools, Message, useMessages } from '@agentry/runtime';
 import { MODEL } from '@agentry/shared';
 
-// Example showing manager delegating to specialist subagents
+function ResearcherAgent() {
+  const messages = useMessages();
+  console.log(`[Researcher] Subagent has ${messages.length} messages: ${JSON.stringify(messages)}`);
+  
+  return (
+    <Agent
+      name="researcher"
+      description="Research specialist who finds information"
+    >
+      <System>You are a research expert. Provide thorough, accurate information.</System>
+    </Agent>
+  );
+}
+
+function CoderAgent() {
+  const messages = useMessages();
+  console.log(`[Coder] Subagent has ${messages.length} messages: ${JSON.stringify(messages)}`);
+  
+  return (
+    <Agent
+      name="coder"
+      description="Code generation specialist"
+      temperature={0.3}  // Override: lower temp for coding
+    >
+      <System>You are a coding expert. Write clean, production-ready code.</System>
+    </Agent>
+  );
+}
+
 const result = await render(
   <Agent
     model={MODEL}
@@ -12,22 +40,8 @@ const result = await render(
     <System>You are a project manager who delegates tasks to specialists.</System>
 
     <Tools>
-      {/* Researcher subagent */}
-      <Agent
-        name="researcher"
-        description="Research specialist who finds information"
-      >
-        <System>You are a research expert. Provide thorough, accurate information.</System>
-      </Agent>
-
-      {/* Coder subagent */}
-      <Agent
-        name="coder"
-        description="Code generation specialist"
-        temperature={0.3}  // Override: lower temp for coding
-      >
-        <System>You are a coding expert. Write clean, production-ready code.</System>
-      </Agent>
+      <ResearcherAgent />
+      <CoderAgent />
     </Tools>
 
     <Message role="user">

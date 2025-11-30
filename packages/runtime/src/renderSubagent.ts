@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta';
+import { createElement  } from 'react';
 import {
   createContainer,
   updateContainer,
@@ -10,6 +11,7 @@ import {
   type AgentInstance,
   type AgentResult,
 } from '@agentry/core';
+import { AgentProvider } from './hooks.ts';
 
 export interface RenderSubagentOptions {
   client: Anthropic;
@@ -61,11 +63,6 @@ export async function renderSubagent(
   }
 
   try {
-    // render the child's element tree if it exists
-    if (subagent.agentElement) {
-      updateContainer(subagent.agentElement, containerInfo);
-    }
-
     // build system prompt from collected parts (sorted by priority)
     const sortedSystemParts = [...rootAgent.systemParts].sort(
       (a, b) => b.priority - a.priority,
@@ -112,6 +109,14 @@ export async function renderSubagent(
     });
 
     rootAgent.engine = engine;
+
+    // If the subagent has an element tree, wrap it with AgentProvider
+    // so that useMessages() and other hooks inside the subagent's components
+    // will use the subagent's store, not the parent's
+    if (subagent.agentElement) {
+      const wrappedElement = createElement(AgentProvider, { store, children: subagent.agentElement });
+      updateContainer(wrappedElement, containerInfo);
+    }
 
     // run to completion
     const result = await engine.run();
