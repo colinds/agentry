@@ -33,3 +33,6 @@ export { createMockClient, mockToolUse, mockText, type MockResponse } from './te
 
 // debug utilities
 export { debug, isDebugEnabled } from './debug.ts';
+
+// constants
+export { ANTHROPIC_BETAS, type AnthropicBeta } from './constants.ts';

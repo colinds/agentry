@@ -63,6 +63,7 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
       sdkTools: [],
       contextParts: [],
       messages: [],
+      mcpServers: [],
       children: [],
       pendingUpdates: [],
       parent: null,
@@ -151,14 +152,13 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
 
       // build system prompt from parts (sorted by priority)
       const sortedSystemParts = [...agent.systemParts].sort((a, b) => b.priority - a.priority);
-      const systemPrompt = sortedSystemParts.map((p) => p.content).join('\n\n');
-
-      // build context from parts
       const sortedContextParts = [...agent.contextParts].sort((a, b) => b.priority - a.priority);
-      const contextContent = sortedContextParts.map((p) => p.content).join('\n\n');
-
-      // combine system and context
-      const fullSystem = contextContent ? `${systemPrompt}\n\n${contextContent}` : systemPrompt;
+      
+      // Build system prompt as simple string concatenation
+      const allParts = [...sortedSystemParts, ...sortedContextParts];
+      const system = allParts.length > 0 
+        ? allParts.map((p) => p.content).join('\n\n') 
+        : undefined;
 
       // Get messages - use existing engine's messages if available (for multi-turn conversations)
       const messages = this.#engine ? [...this.#engine.messages] : agent.messages;
@@ -168,9 +168,10 @@ export class AgentHandle extends EventEmitter<AgentHandleEvents> {
         client: this.#client,
         model: agent.props.model,
         maxTokens: agent.props.maxTokens ?? 4096,
-        system: fullSystem || undefined,
+        system,
         tools: agent.tools,
         sdkTools: agent.sdkTools,
+        mcpServers: agent.mcpServers.length > 0 ? agent.mcpServers : undefined,
         messages,
         stream: agent.props.stream,
         maxIterations: agent.props.maxIterations,

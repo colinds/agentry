@@ -12,6 +12,9 @@ export { Tools, type ToolsProps } from './Tools.tsx';
 // built-in tools
 export { WebSearch, type WebSearchProps } from './built-ins/WebSearch.tsx';
 
+// MCP server connection
+export { MCP, type MCPProps } from './MCP.tsx';
+
 // re-export core utilities for convenience
 export { defineTool } from '@agentry/core';
 

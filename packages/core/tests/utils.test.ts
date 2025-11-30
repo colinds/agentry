@@ -31,7 +31,7 @@ test('diffProps compares objects shallowly by content', () => {
 test('diffProps detects removed props', () => {
   const result = diffProps(
     { model: 'test', temperature: 0.7 },
-    { model: 'test' }, // temperature removed
+    { model: 'test' }
   );
 
   expect(result.hasChanges).toBe(true);
@@ -78,7 +78,7 @@ test('diffProps returns hasChanges false when props are identical', () => {
 
   const result = diffProps(
     { model: 'test', maxTokens: 100, data: obj },
-    { model: 'test', maxTokens: 100, data: obj }, // Same reference
+    { model: 'test', maxTokens: 100, data: obj },
   );
 
   expect(result.hasChanges).toBe(false);

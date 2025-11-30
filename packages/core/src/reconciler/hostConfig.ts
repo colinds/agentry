@@ -11,6 +11,7 @@ import {
   isContextInstance,
   isMessageInstance,
   isToolsContainerInstance,
+  isMCPServerInstance,
 } from '../instances/index.ts';
 import { createInstance, type ElementType, type ElementProps } from '../instances/index.ts';
 import type { InternalTool, CompactionControl, Model } from '../types/index.ts';
@@ -380,6 +381,7 @@ export const hostConfig: HostConfig<
       _container.sdkTools = [];
       _container.contextParts = [];
       _container.messages = [];
+      _container.mcpServers = [];
     }
   },
 };
@@ -479,6 +481,7 @@ function removeChild(parent: Instance, child: Instance): void {
       child.systemParts = [];
       child.contextParts = [];
       child.messages = [];
+      child.mcpServers = [];
       child.children = [];
     }
   });
@@ -558,6 +561,9 @@ function collectFromChild(agent: AgentInstance, child: Instance): void {
     agent.contextParts.push({ content: child.content, priority: child.priority });
   } else if (isMessageInstance(child)) {
     agent.messages.push(child.message);
+  } else if (isMCPServerInstance(child)) {
+    debug('reconciler', `MCP server added: ${child.config.name}`);
+    agent.mcpServers.push(child.config);
   } else if (isToolsContainerInstance(child)) {
     // collect from tools container children
     for (const grandchild of child.children) {
@@ -615,6 +621,12 @@ function uncollectFromChild(agent: AgentInstance, child: Instance): void {
     const index = agent.messages.indexOf(child.message);
     if (index >= 0) {
       agent.messages.splice(index, 1);
+    }
+  } else if (isMCPServerInstance(child)) {
+    debug('reconciler', `MCP server removed: ${child.config.name}`);
+    const index = agent.mcpServers.findIndex((s) => s.name === child.config.name);
+    if (index >= 0) {
+      agent.mcpServers.splice(index, 1);
     }
   } else if (isToolsContainerInstance(child)) {
     for (const grandchild of child.children) {
@@ -675,6 +687,8 @@ function collectFromChildForSubagent(subagent: SubagentInstance, child: Instance
     subagent.contextParts.push({ content: child.content, priority: child.priority });
   } else if (isMessageInstance(child)) {
     subagent.messages.push(child.message);
+  } else if (isMCPServerInstance(child)) {
+    subagent.mcpServers.push(child.config);
   } else if (isToolsContainerInstance(child)) {
     for (const grandchild of child.children) {
       collectFromChildForSubagent(subagent, grandchild);
@@ -722,6 +736,11 @@ function uncollectFromChildForSubagent(subagent: SubagentInstance, child: Instan
     const index = subagent.messages.indexOf(child.message);
     if (index >= 0) {
       subagent.messages.splice(index, 1);
+    }
+  } else if (isMCPServerInstance(child)) {
+    const index = subagent.mcpServers.findIndex((s) => s.name === child.config.name);
+    if (index >= 0) {
+      subagent.mcpServers.splice(index, 1);
     }
   } else if (isToolsContainerInstance(child)) {
     for (const grandchild of child.children) {

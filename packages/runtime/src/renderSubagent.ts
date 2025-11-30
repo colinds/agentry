@@ -39,6 +39,7 @@ export async function renderSubagent(
     sdkTools: [...subagent.sdkTools],
     contextParts: [...subagent.contextParts],
     messages: [...subagent.messages, ...initialMessages],
+    mcpServers: [...subagent.mcpServers],
     children: [],
     pendingUpdates: [],
     parent: null,
@@ -64,18 +65,19 @@ export async function renderSubagent(
       updateContainer(subagent.agentElement, containerInfo);
     }
 
-    // build system prompt from collected parts
+    // build system prompt from collected parts (sorted by priority)
     const sortedSystemParts = [...rootAgent.systemParts].sort(
       (a, b) => b.priority - a.priority,
     );
-    const systemPrompt = sortedSystemParts.map((p) => p.content).join('\n\n');
-
     const sortedContextParts = [...rootAgent.contextParts].sort(
       (a, b) => b.priority - a.priority,
     );
-    const contextContent = sortedContextParts.map((p) => p.content).join('\n\n');
 
-    const fullSystem = contextContent ? `${systemPrompt}\n\n${contextContent}` : systemPrompt;
+    // Build system prompt as simple string concatenation
+    const allParts = [...sortedSystemParts, ...sortedContextParts];
+    const system = allParts.length > 0 
+      ? allParts.map((p) => p.content).join('\n\n') 
+      : undefined;
 
     // validate model is present
     if (!rootAgent.props.model) {
@@ -90,9 +92,10 @@ export async function renderSubagent(
       client,
       model: rootAgent.props.model,
       maxTokens: rootAgent.props.maxTokens ?? 2048,
-      system: fullSystem || undefined,
+      system,
       tools: rootAgent.tools,
       sdkTools: rootAgent.sdkTools,
+      mcpServers: rootAgent.mcpServers.length > 0 ? rootAgent.mcpServers : undefined,
       messages: rootAgent.messages,
       stream: rootAgent.props.stream ?? false,
       maxIterations: rootAgent.props.maxIterations ?? 5,

@@ -10,6 +10,7 @@ import type {
   ContextInstance,
   MessageInstance,
   ToolsContainerInstance,
+  MCPServerInstance,
   AgentComponentProps,
   ToolComponentProps,
   SdkToolComponentProps,
@@ -17,6 +18,7 @@ import type {
   ContextComponentProps,
   MessageComponentProps,
   ToolsContainerProps,
+  MCPServerComponentProps,
 } from './types.ts';
 import { isAgentInstance, isInstance } from './types.ts';
 import type { CompactionControl, Model } from '../types/index.ts';
@@ -41,7 +43,8 @@ export type ElementType =
   | 'system'
   | 'context'
   | 'message'
-  | 'tools';
+  | 'tools'
+  | 'mcp_server';
 
 // props union type
 export type ElementProps =
@@ -51,7 +54,8 @@ export type ElementProps =
   | SystemComponentProps
   | ContextComponentProps
   | MessageComponentProps
-  | ToolsContainerProps;
+  | ToolsContainerProps
+  | MCPServerComponentProps;
 
 // create an instance from element type and props
 export function createInstance(
@@ -80,6 +84,8 @@ export function createInstance(
       return createMessageInstance(props as MessageComponentProps);
     case 'tools':
       return createToolsContainerInstance(props as ToolsContainerProps);
+    case 'mcp_server':
+      return createMCPServerInstance(props as MCPServerComponentProps);
     default:
       throw new Error(`Unknown element type: ${type}`);
   }
@@ -111,6 +117,7 @@ function createAgentInstance(props: AgentComponentProps, rootContainer?: unknown
     sdkTools: [],
     contextParts: [],
     messages: [],
+    mcpServers: [],
     children: [],
     pendingUpdates: [],
     parent: null,
@@ -200,6 +207,20 @@ function createToolsContainerInstance(_props: ToolsContainerProps): ToolsContain
   };
 }
 
+function createMCPServerInstance(props: MCPServerComponentProps): MCPServerInstance {
+  return {
+    type: 'mcp_server',
+    config: {
+      type: 'url',
+      name: props.name,
+      url: props.url,
+      authorization_token: props.authorization_token,
+      tool_configuration: props.tool_configuration,
+    },
+    parent: null,
+  };
+}
+
 export function createSubagentInstance(
   props: AgentComponentProps,
   inherited: PropagatedSettings = {},
@@ -233,6 +254,7 @@ export function createSubagentInstance(
     sdkTools: [],
     contextParts: [],
     messages: [],
+    mcpServers: [],
     children: [],
     parent: null,
   };

@@ -3,7 +3,7 @@ import type {} from 'react/jsx-runtime';
 import type {} from 'react/jsx-dev-runtime';
 import type { ReactNode } from 'react';
 import type { InternalTool } from '@agentry/core';
-import type { BetaToolUnion } from '@anthropic-ai/sdk/resources/beta';
+import type { BetaToolUnion, BetaRequestMCPServerToolConfiguration } from '@anthropic-ai/sdk/resources/beta';
 import type { AgentProps } from './Agent.tsx';
 
 // Element type definitions matching our reconciler's ElementType
@@ -28,6 +28,15 @@ export interface AgentryElements {
 
   // Tools container element
   tools: { children?: ReactNode };
+
+  // MCP server element
+  mcp_server: {
+    name: string;
+    url: string;
+    authorization_token?: string;
+    tool_configuration?: BetaRequestMCPServerToolConfiguration;
+    key?: string;
+  };
 }
 
 // Extend React's JSX namespace - THE KEY PATTERN

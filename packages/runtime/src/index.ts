@@ -30,6 +30,7 @@ export {
   Message,
   Tools,
   WebSearch,
+  MCP,
   defineTool,
   type AgentProps,
   type ToolProps,
@@ -38,6 +39,7 @@ export {
   type MessageProps,
   type ToolsProps,
   type WebSearchProps,
+  type MCPProps,
 } from '@agentry/components';
 
 // re-export useful types from core

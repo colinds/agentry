@@ -9,6 +9,7 @@ import type {
   BetaContentBlock,
   BetaContentBlockParam,
   BetaTextBlockParam,
+  BetaRequestMCPServerURLDefinition,
 } from '@anthropic-ai/sdk/resources/beta';
 import { unstable_scheduleCallback, unstable_ImmediatePriority } from 'scheduler';
 import type {
@@ -22,6 +23,7 @@ import type {
   CompactionControl,
   Model,
 } from '../types/index.ts';
+import { ANTHROPIC_BETAS, type AnthropicBeta } from '../constants.ts';
 import type { AgentInstance } from '../instances/index.ts';
 import { initialState, transition, extractToolUses, extractText } from '../types/index.ts';
 import { toApiTool, executeTool } from '../tools/index.ts';
@@ -54,8 +56,10 @@ interface CreateMessageParams {
   system?: string;
   messages: BetaMessageParam[];
   tools?: BetaToolUnion[];
+  mcp_servers?: BetaRequestMCPServerURLDefinition[];
   stop_sequences?: string[];
   temperature?: number;
+  betas?: string[];
 }
 
 // events emitted by the execution engine
@@ -75,6 +79,7 @@ export interface ExecutionEngineConfig {
   system?: string;
   tools: InternalTool[];
   sdkTools: BetaToolUnion[];
+  mcpServers?: BetaRequestMCPServerURLDefinition[];
   messages: BetaMessageParam[];
   stream?: boolean;
   maxIterations?: number;
@@ -147,11 +152,25 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
   // build the API params
   #buildParams(): CreateMessageParams {
-    // combine our tools with SDK tools (cast to satisfy type checker)
     const tools = [
       ...this.#config.tools.map(toApiTool),
       ...this.#config.sdkTools,
     ] as BetaToolUnion[];
+
+    const mcpServers = this.#config.mcpServers;
+    if (mcpServers?.length) {
+      for (const server of mcpServers) {
+        tools.push({
+          type: 'mcp_toolset',
+          mcp_server_name: server.name,
+        } as BetaToolUnion);
+      }
+    }
+
+    const betas: AnthropicBeta[] = [];
+    if (mcpServers?.length) {
+      betas.push(ANTHROPIC_BETAS.MCP_CLIENT);
+    } 
 
     return {
       model: this.#config.model,
@@ -159,8 +178,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       system: this.#config.system,
       messages: this.#messages,
       tools: tools.length > 0 ? tools : undefined,
+      mcp_servers: mcpServers?.length ? mcpServers : undefined,
       stop_sequences: this.#config.stopSequences,
       temperature: this.#config.temperature,
+      betas: betas.length > 0 ? betas : undefined,
     };
   }
 
@@ -261,6 +282,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       tools: params.tools?.map(t => ('name' in t ? t.name : t.type)),
       messageCount: params.messages.length,
       system: params.system ? `${params.system.substring(0, 80)}...` : undefined,
+      mcpServers: params.mcp_servers?.map(s => s.name),
     });
 
     let response: BetaMessage;
@@ -277,6 +299,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       stopReason: response.stop_reason,
       toolUses: extractToolUses(response).map(t => t.name),
       textLength: extractText(response).length,
+      cacheCreation: response.usage.cache_creation_input_tokens,
+      cacheRead: response.usage.cache_read_input_tokens,
     });
 
     return response;

@@ -51,44 +51,47 @@ function shallowEqual(a: unknown, b: unknown): boolean {
 /**
  * Calculate changed props between old and new props
  */
-export function diffProps(
-  oldProps: ElementProps,
-  newProps: ElementProps,
-): { changes: Partial<ElementProps>; hasChanges: boolean; needsReconstruction: boolean } {
-  const changes: Partial<ElementProps> = {};
+export function diffProps<T>(
+  oldProps: T,
+  newProps: T,
+): { changes: Partial<T>; hasChanges: boolean; needsReconstruction: boolean } {
+  const changes: Record<string, unknown> = {};
   let hasChanges = false;
   let needsReconstruction = false;
 
+  const oldRecord = oldProps as Record<string, unknown>;
+  const newRecord = newProps as Record<string, unknown>;
+
   // Check for new/changed props
-  for (const key of Object.keys(newProps) as (keyof ElementProps)[]) {
+  for (const key of Object.keys(newRecord)) {
     // Skip reserved props
     if ((RESERVED_PROPS as readonly string[]).includes(key)) continue;
 
     // Check if this prop triggers reconstruction
     if ((RECONSTRUCTION_PROPS as readonly string[]).includes(key)) {
-      if (!shallowEqual(oldProps[key], newProps[key])) {
+      if (!shallowEqual(oldRecord[key], newRecord[key])) {
         needsReconstruction = true;
       }
     }
 
     // Check equality
-    if (!shallowEqual(oldProps[key], newProps[key])) {
-      (changes as Record<string, unknown>)[key] = newProps[key];
+    if (!shallowEqual(oldRecord[key], newRecord[key])) {
+      changes[key] = newRecord[key];
       hasChanges = true;
     }
   }
 
   // Check for removed props (important for HMR)
-  for (const key of Object.keys(oldProps) as (keyof ElementProps)[]) {
+  for (const key of Object.keys(oldRecord)) {
     if ((RESERVED_PROPS as readonly string[]).includes(key)) continue;
-    if (!Object.prototype.hasOwnProperty.call(newProps, key)) {
+    if (!Object.prototype.hasOwnProperty.call(newRecord, key)) {
       // Prop was removed - set to undefined to signal removal
-      (changes as Record<string, unknown>)[key] = undefined;
+      changes[key] = undefined;
       hasChanges = true;
     }
   }
 
-  return { changes, hasChanges, needsReconstruction };
+  return { changes: changes as Partial<T>, hasChanges, needsReconstruction };
 }
 
 /**

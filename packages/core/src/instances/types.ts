@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import type { BetaMessageParam, BetaToolUnion } from '@anthropic-ai/sdk/resources/beta';
+import type { BetaMessageParam, BetaToolUnion, BetaRequestMCPServerURLDefinition } from '@anthropic-ai/sdk/resources/beta';
 import type { AgentProps, InternalTool, AgentResult, AgentStreamEvent } from '../types/index.ts';
 import type { ExecutionEngine } from '../execution/index.ts';
 
@@ -21,6 +21,7 @@ export interface AgentInstance extends BaseInstance {
   sdkTools: BetaToolUnion[];
   contextParts: Array<{ content: string; priority: number }>;
   messages: BetaMessageParam[];
+  mcpServers: BetaRequestMCPServerURLDefinition[];
   // child instances
   children: Instance[];
   // pending updates during execution
@@ -63,6 +64,12 @@ export interface MessageInstance extends BaseInstance {
   message: BetaMessageParam;
 }
 
+// MCP server instance (matches BetaRequestMCPServerURLDefinition)
+export interface MCPServerInstance extends BaseInstance {
+  type: 'mcp_server';
+  config: BetaRequestMCPServerURLDefinition;
+}
+
 // tools container instance
 export interface ToolsContainerInstance extends BaseInstance {
   type: 'tools_container';
@@ -83,6 +90,7 @@ export interface SubagentInstance extends BaseInstance {
   sdkTools: BetaToolUnion[];
   contextParts: Array<{ content: string; priority: number }>;
   messages: BetaMessageParam[];
+  mcpServers: BetaRequestMCPServerURLDefinition[];
 }
 
 // all instance types
@@ -94,7 +102,8 @@ export type Instance =
   | SystemInstance
   | ContextInstance
   | MessageInstance
-  | ToolsContainerInstance;
+  | ToolsContainerInstance
+  | MCPServerInstance;
 
 // pending update types
 export type PendingUpdate =
@@ -123,16 +132,25 @@ export interface SdkToolComponentProps {
 export interface SystemComponentProps {
   children: React.ReactNode;
   priority?: number;
+  cache?: 'ephemeral';
 }
 
 export interface ContextComponentProps {
   children: React.ReactNode;
   priority?: number;
+  cache?: 'ephemeral';
 }
 
 export interface MessageComponentProps {
   role: 'user' | 'assistant';
   children: React.ReactNode;
+}
+
+export interface MCPServerComponentProps {
+  name: string;
+  url: string;
+  authorization_token?: string;
+  tool_configuration?: BetaRequestMCPServerURLDefinition['tool_configuration'];
 }
 
 export interface ToolsContainerProps {
@@ -170,6 +188,10 @@ export function isToolsContainerInstance(instance: Instance): instance is ToolsC
 
 export function isSubagentInstance(instance: Instance): instance is SubagentInstance {
   return instance.type === 'subagent';
+}
+
+export function isMCPServerInstance(instance: Instance): instance is MCPServerInstance {
+  return instance.type === 'mcp_server';
 }
 
 // type guard to check if unknown is an Instance
