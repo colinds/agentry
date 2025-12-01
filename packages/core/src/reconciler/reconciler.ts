@@ -1,5 +1,5 @@
+import { createContext } from 'react';
 import ReactReconciler from 'react-reconciler';
-import type Anthropic from '@anthropic-ai/sdk';
 import {
   type Instance,
   type AgentInstance,
@@ -22,7 +22,6 @@ import { debug } from '../debug.ts';
 import {
   diffProps,
   disposeOnIdle,
-  HostTransitionContext,
 } from './utils.ts';
 
 function createReconciler<
@@ -88,7 +87,7 @@ interface HostConfig {
   childSet: never;
   timeoutHandle: ReturnType<typeof setTimeout>;
   noTimeout: -1;
-  TransitionStatus: never;
+  TransitionStatus: null;
 }
 
 // the host config implementation
@@ -118,20 +117,19 @@ export const reconciler = /* @__PURE__ */ createReconciler<
   warnsIfNotActing: false,
   noTimeout: -1 as const,
 
-  // newer reconciler requirements
-  NotPendingTransition: null as HostConfig['TransitionStatus'],
-  // proper transition context (instead of null workaround)
-  HostTransitionContext: HostTransitionContext as unknown as ReactReconciler.ReactContext<HostConfig['TransitionStatus']>,
+  NotPendingTransition: null,
+  // The reconciler types use the internal ReactContext with all the hidden properties
+  // so we have to cast from the public React.Context type
+  HostTransitionContext: createContext<HostConfig['TransitionStatus']>(
+    null,
+  ) as unknown as ReactReconciler.ReactContext<HostConfig['TransitionStatus']>,
 
   setCurrentUpdatePriority() {},
 
-  getCurrentUpdatePriority() {
-    return 16; // DefaultEventPriority
-  },
+  // todo(investigate): why not 32 / DefaultEventPriority?
+  getCurrentUpdatePriority: () => 1,
 
-  resolveUpdatePriority() {
-    return 16; // DefaultEventPriority
-  },
+  resolveUpdatePriority: () => 1,
 
   resetFormInstance() {},
 
@@ -143,7 +141,7 @@ export const reconciler = /* @__PURE__ */ createReconciler<
 
   resolveEventType: () => null,
 
-  resolveEventTimeStamp: () => Date.now(),
+  resolveEventTimeStamp: () => -1.1,
 
   maySuspendCommit: () => false,
 
@@ -205,13 +203,9 @@ export const reconciler = /* @__PURE__ */ createReconciler<
 
   preparePortalMount() {},
 
-  scheduleTimeout(fn, delay) {
-    return setTimeout(fn, delay);
-  },
+  scheduleTimeout: setTimeout,
 
-  cancelTimeout(id) {
-    clearTimeout(id);
-  },
+  cancelTimeout: clearTimeout,
 
   getInstanceFromNode: () => null,
 

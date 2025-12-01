@@ -25,7 +25,6 @@ export {
   // utilities
   diffProps,
   disposeOnIdle,
-  HostTransitionContext,
 } from './reconciler/index.ts';
 
 // test utilities

@@ -9,5 +9,4 @@ export {
 export {
   diffProps,
   disposeOnIdle,
-  HostTransitionContext,
 } from './utils.ts';

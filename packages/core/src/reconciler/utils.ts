@@ -88,8 +88,3 @@ export function disposeOnIdle(cleanup: () => void): void {
   scheduleOnIdle(cleanup);
 }
 
-/**
- * Create the HostTransitionContext properly (instead of null workaround)
- */
-export const HostTransitionContext = React.createContext<null>(null);
-
