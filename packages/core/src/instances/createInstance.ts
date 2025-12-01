@@ -21,7 +21,9 @@ import type {
   MCPServerComponentProps,
 } from './types.ts';
 import { isAgentInstance, isInstance } from './types.ts';
-import type { CompactionControl, Model } from '../types/index.ts';
+import type { AgentProps, CompactionControl, Model } from '../types/index.ts';
+
+type RequiredAgentProps = { [K in keyof Required<AgentProps>]: AgentProps[K] };
 
 // settings that propagate from parent to child
 interface PropagatedSettings {
@@ -100,6 +102,7 @@ function createAgentInstance(props: AgentComponentProps, rootContainer?: unknown
     props: {
       model: props.model,
       name: props.name,
+      description: props.description,
       maxTokens: props.maxTokens ?? 4096,
       maxIterations: props.maxIterations,
       stopSequences: props.stopSequences,
@@ -109,7 +112,8 @@ function createAgentInstance(props: AgentComponentProps, rootContainer?: unknown
       onMessage: props.onMessage,
       onComplete: props.onComplete,
       onError: props.onError,
-    },
+      onStepFinish: props.onStepFinish,
+    } satisfies RequiredAgentProps,
     client,
     engine: null,
     systemParts: [],
@@ -235,6 +239,7 @@ export function createSubagentInstance(
     props: {
       model: props.model ?? inherited.model, // inherit model from parent if not specified
       name: props.name,
+      description: props.description,
       // inherit with fallback to defaults (halve numeric values for subagents)
       maxTokens: props.maxTokens ?? (inherited.maxTokens ? Math.floor(inherited.maxTokens / 2) : 4096),
       maxIterations: props.maxIterations ?? (inherited.maxIterations ? Math.floor(inherited.maxIterations / 2) : undefined),
@@ -246,7 +251,8 @@ export function createSubagentInstance(
       onMessage: props.onMessage,
       onComplete: props.onComplete,
       onError: props.onError,
-    },
+      onStepFinish: props.onStepFinish,
+    } satisfies RequiredAgentProps,
     systemParts: [],
     tools: [],
     sdkTools: [],

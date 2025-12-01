@@ -72,6 +72,12 @@ function SubagentComponent({ config }: { config: Subagent }) {
       name={config.name} 
       description={config.description} 
       temperature={config.temperature}
+      onStepFinish={(result) => {
+        console.log(`\n📝 [Subagent "${config.name}"] Step ${result.stepNumber} finished`);
+        console.log(`   Finish reason: ${result.finishReason}`);
+        console.log(`   Tool calls: ${result.toolCalls.map((tc) => tc.name).join(', ') || 'none'}`);
+        console.log(`   Tokens: ${result.usage.totalTokens}`);
+      }}
     >
       <System>{config.systemPrompt}</System>
       <Tools>
@@ -82,11 +88,11 @@ function SubagentComponent({ config }: { config: Subagent }) {
             setSubagents((prev) => [...prev, { ...subagent, id: `${subagent.name}_${Date.now()}` }]);
           }}
         />
+        {/* Render nested subagents */}
+        {subagents.map((s) => (
+          <SubagentComponent key={s.id} config={s} />
+        ))}
       </Tools>
-      {/* Render nested subagents */}
-      {subagents.map((s) => (
-        <SubagentComponent key={s.id} config={s} />
-      ))}
     </Agent>
   );
 }
@@ -104,6 +110,12 @@ function Factory() {
       maxTokens={2048}
       temperature={0.7}
       stream={true}
+      onStepFinish={(result) => {
+        console.log(`\n📝 [Factory] Step ${result.stepNumber} finished`);
+        console.log(`   Finish reason: ${result.finishReason}`);
+        console.log(`   Tool calls: ${result.toolCalls.map((tc) => tc.name).join(', ') || 'none'}`);
+        console.log(`   Tokens: ${result.usage.totalTokens}`);
+      }}
     >
       <System>
         You are a factory agent that creates specialized subagents.
@@ -130,12 +142,12 @@ function Factory() {
             setSubagents((prev) => [...prev, { ...subagent, id: `${subagent.name}_${Date.now()}` }]);
           }}
         />
+        {/* Render created subagents */}
+        {subagents.map((s) => (
+          <SubagentComponent key={s.id} config={s} />
+        ))}
       </Tools>
 
-      {/* Render created subagents */}
-      {subagents.map((s) => (
-        <SubagentComponent key={s.id} config={s} />
-      ))}
 
       <Message role="user">
         Write a function that adds two numbers. The coder must:
