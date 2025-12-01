@@ -24,7 +24,15 @@ export {
   type ToolUnion,
   type PendingToolCall,
   type ToolExecutionResult,
+  type SdkTool,
+  type CodeExecutionTool,
+  type WebSearchTool,
+  type MemoryTool,
+  type MemoryHandlers,
   isRunnableTool,
+  isCodeExecutionTool,
+  isWebSearchTool,
+  isMemoryTool,
 } from './tools.ts'
 
 export {

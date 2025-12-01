@@ -455,10 +455,7 @@ function collectFromChild(agent: AgentLike, child: Instance): void {
     agent.tools.push(child.tool)
     agent.pendingUpdates.push({ type: 'tool_added', tool: child.tool })
   } else if (isSdkToolInstance(child)) {
-    debug(
-      'reconciler',
-      `SDK tool added: ${'name' in child.tool ? child.tool.name : child.tool.type}`,
-    )
+    debug('reconciler', `SDK tool added: ${child.tool.name}`)
     agent.sdkTools.push(child.tool)
     agent.pendingUpdates.push({ type: 'sdk_tool_added', tool: child.tool })
   } else if (isSystemInstance(child)) {
@@ -510,15 +507,14 @@ function uncollectFromChild(agent: AgentLike, child: Instance): void {
       })
     }
   } else if (isSdkToolInstance(child)) {
-    debug(
-      'reconciler',
-      `SDK tool removed: ${'name' in child.tool ? child.tool.name : child.tool.type}`,
-    )
+    debug('reconciler', `SDK tool removed: ${child.tool.name}`)
     const index = agent.sdkTools.indexOf(child.tool)
     if (index >= 0) {
       agent.sdkTools.splice(index, 1)
-      const toolName = 'name' in child.tool ? child.tool.name : child.tool.type
-      agent.pendingUpdates.push({ type: 'sdk_tool_removed', toolName })
+      agent.pendingUpdates.push({
+        type: 'sdk_tool_removed',
+        toolName: child.tool.name,
+      })
     }
   } else if (isSystemInstance(child)) {
     const index = agent.systemParts.findIndex(

@@ -109,9 +109,6 @@ export function getAllRegisteredTools(handle: AgentHandle): {
       if ('name' in tool && typeof tool.name === 'string') {
         return tool.name
       }
-      if ('type' in tool && typeof tool.type === 'string') {
-        return tool.type
-      }
       return 'unknown'
     }),
   }

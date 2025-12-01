@@ -1,10 +1,9 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import type {
   BetaMessageParam,
-  BetaToolUnion,
   BetaRequestMCPServerURLDefinition,
 } from '@anthropic-ai/sdk/resources/beta'
-import type { AgentProps, InternalTool } from '../types/index.ts'
+import type { AgentProps, InternalTool, SdkTool } from '../types/index.ts'
 import type { ExecutionEngine } from '../execution/index.ts'
 
 export interface BaseInstance {
@@ -23,7 +22,7 @@ export interface AgentInstance extends BaseAgentInstance {
   engine: ExecutionEngine | null
   systemParts: Array<{ content: string; priority: number }>
   tools: InternalTool[]
-  sdkTools: BetaToolUnion[]
+  sdkTools: SdkTool[]
   contextParts: Array<{ content: string; priority: number }>
   messages: BetaMessageParam[]
   mcpServers: BetaRequestMCPServerURLDefinition[]
@@ -37,7 +36,7 @@ export interface ToolInstance extends BaseInstance {
 
 export interface SdkToolInstance extends BaseInstance {
   type: 'sdk_tool'
-  tool: BetaToolUnion
+  tool: SdkTool
 }
 
 export interface SystemInstance extends BaseInstance {
@@ -76,7 +75,7 @@ export interface SubagentInstance extends BaseAgentInstance {
   reactChildren: React.ReactNode | null
   systemParts: Array<{ content: string; priority: number }>
   tools: InternalTool[]
-  sdkTools: BetaToolUnion[]
+  sdkTools: SdkTool[]
   contextParts: Array<{ content: string; priority: number }>
   messages: BetaMessageParam[]
   mcpServers: BetaRequestMCPServerURLDefinition[]
@@ -98,7 +97,7 @@ export type Instance =
 export type PendingUpdate =
   | { type: 'tool_added'; tool: InternalTool }
   | { type: 'tool_removed'; toolName: string }
-  | { type: 'sdk_tool_added'; tool: BetaToolUnion }
+  | { type: 'sdk_tool_added'; tool: SdkTool }
   | { type: 'sdk_tool_removed'; toolName: string }
   | { type: 'system_updated'; content: string; priority: number }
   | { type: 'context_updated'; content: string; priority: number }
@@ -114,7 +113,7 @@ export interface ToolComponentProps {
 }
 
 export interface SdkToolComponentProps {
-  tool: BetaToolUnion
+  tool: SdkTool
 }
 
 export interface SystemComponentProps {

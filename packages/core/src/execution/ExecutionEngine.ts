@@ -10,6 +10,7 @@ import type {
   BetaContentBlockParam,
   BetaTextBlockParam,
   BetaRequestMCPServerURLDefinition,
+  BetaMemoryTool20250818,
 } from '@anthropic-ai/sdk/resources/beta'
 import { yieldToSchedulerImmediate } from '../scheduler.ts'
 import type {
@@ -28,8 +29,16 @@ import type {
 } from '../types/index.ts'
 import { ANTHROPIC_BETAS, type AnthropicBeta } from '../constants.ts'
 import type { AgentInstance } from '../instances/index.ts'
-import { transition, extractToolUses, extractText } from '../types/index.ts'
+import {
+  transition,
+  extractToolUses,
+  extractText,
+  isMemoryTool,
+  isCodeExecutionTool,
+} from '../types/index.ts'
+import type { SdkTool } from '../types/index.ts'
 import { toApiTool, executeTool } from '../tools/index.ts'
+import { executeMemoryTool } from '../tools/memoryTool.ts'
 import { debug } from '../debug.ts'
 import { flushSync } from '../reconciler/renderer.ts'
 import type { AgentStore } from '../store.ts'
@@ -79,7 +88,7 @@ export interface ExecutionEngineConfig {
   maxTokens: number
   system?: string
   tools: InternalTool[]
-  sdkTools: BetaToolUnion[]
+  sdkTools: SdkTool[]
   mcpServers?: BetaRequestMCPServerURLDefinition[]
   messages: BetaMessageParam[]
   stream?: boolean
@@ -94,6 +103,21 @@ export interface ExecutionEngineConfig {
 }
 
 const DEFAULT_TOKEN_THRESHOLD = 100_000
+
+/**
+ * Convert SdkTool to Anthropic API format (BetaToolUnion)
+ * Strips memoryHandlers from MemoryTool before sending to API
+ */
+function toApiSdkTool(sdkTool: SdkTool): BetaToolUnion {
+  if (isMemoryTool(sdkTool)) {
+    // Strip memoryHandlers - it's not part of the API contract
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { memoryHandlers, ...apiTool } = sdkTool
+    return apiTool as BetaMemoryTool20250818
+  }
+  // CodeExecutionTool and WebSearchTool are already in the correct format
+  return sdkTool as BetaToolUnion
+}
 
 const DEFAULT_SUMMARY_PROMPT = `You have been working on the task described above but have not yet completed it. Write a continuation summary that will allow you (or another instance of yourself) to resume work efficiently in a future context window where the conversation history will be replaced with this summary. Your summary should be structured, concise, and actionable. Include:
 1. Task Overview
@@ -156,7 +180,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   #buildParams(): CreateMessageParams {
     const tools = [
       ...this.#config.tools.map(toApiTool),
-      ...this.#config.sdkTools,
+      ...this.#config.sdkTools.map(toApiSdkTool),
     ] as BetaToolUnion[]
 
     const mcpServers = this.#config.mcpServers
@@ -172,6 +196,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const betas: AnthropicBeta[] = []
     if (mcpServers?.length) {
       betas.push(ANTHROPIC_BETAS.MCP_CLIENT)
+    }
+    if (this.#config.sdkTools.some(isCodeExecutionTool)) {
+      betas.push(ANTHROPIC_BETAS.CODE_EXECUTION)
+    }
+    if (this.#config.sdkTools.some(isMemoryTool)) {
+      betas.push(ANTHROPIC_BETAS.CONTEXT_MANAGEMENT)
     }
 
     return {
@@ -382,12 +412,38 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         const tool = this.#config.tools.find((t) => t.name === toolCall.name)
 
         if (!tool) {
-          // check if it's an SDK tool (handled by Anthropic)
+          // check if it's an SDK tool
           const sdkTool = this.#config.sdkTools.find(
             (t) => 'name' in t && t.name === toolCall.name,
           )
 
           if (sdkTool) {
+            // Memory tool requires client-side handlers
+            if (isMemoryTool(sdkTool) && sdkTool.memoryHandlers) {
+              const { result, isError } = await executeMemoryTool(
+                sdkTool,
+                toolCall.input as Parameters<typeof executeMemoryTool>[1],
+              )
+
+              const executionTime = performance.now() - startTime
+              this.#toolExecutionTimes.set(toolCall.id, executionTime)
+
+              this.emit('stream', {
+                type: 'tool_result',
+                toolId: toolCall.id,
+                result,
+                isError,
+              })
+
+              return {
+                type: 'tool_result' as const,
+                tool_use_id: toolCall.id,
+                content: result,
+                is_error: isError ? true : undefined,
+              }
+            }
+
+            // Other SDK tools are handled by Anthropic server-side
             const executionTime = performance.now() - startTime
             this.#toolExecutionTimes.set(toolCall.id, executionTime)
             return {

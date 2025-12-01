@@ -8,6 +8,12 @@ export { Message, type MessageProps } from './Message.tsx'
 export { Tools, type ToolsProps } from './Tools.tsx'
 
 export { WebSearch, type WebSearchProps } from './built-ins/WebSearch.tsx'
+export { CodeExecution } from './built-ins/CodeExecution.tsx'
+export {
+  Memory,
+  type MemoryProps,
+  type MemoryHandlers,
+} from './built-ins/Memory.tsx'
 
 export { MCP, type MCPProps } from './MCP.tsx'
 

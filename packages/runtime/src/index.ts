@@ -26,6 +26,7 @@ export {
   Message,
   Tools,
   WebSearch,
+  CodeExecution,
   MCP,
   defineTool,
   type AgentProps,

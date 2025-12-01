@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { BetaWebSearchTool20250305 } from '@anthropic-ai/sdk/resources/beta'
+import type { WebSearchTool } from '@agentry/core'
 
 export interface WebSearchProps {
   /** maximum number of searches allowed */
@@ -33,18 +33,17 @@ export interface WebSearchProps {
  */
 export function WebSearch(props: WebSearchProps): ReactNode {
   // build user location with required 'type' field if provided
-  const userLocation: BetaWebSearchTool20250305['user_location'] =
-    props.userLocation
-      ? {
-          type: 'approximate',
-          city: props.userLocation.city,
-          region: props.userLocation.region,
-          country: props.userLocation.country,
-          timezone: props.userLocation.timezone,
-        }
-      : undefined
+  const userLocation: WebSearchTool['user_location'] = props.userLocation
+    ? {
+        type: 'approximate',
+        city: props.userLocation.city,
+        region: props.userLocation.region,
+        country: props.userLocation.country,
+        timezone: props.userLocation.timezone,
+      }
+    : undefined
 
-  const tool: BetaWebSearchTool20250305 = {
+  const tool: WebSearchTool = {
     type: 'web_search_20250305',
     name: 'web_search',
     max_uses: props.maxUses,
