@@ -1,13 +1,13 @@
-import Anthropic from '@anthropic-ai/sdk';
-import type { ReactNode } from 'react';
-import { AgentHandle } from './handles/index.ts';
-import type { AgentResult } from '@agentry/core';
+import Anthropic from '@anthropic-ai/sdk'
+import type { ReactNode } from 'react'
+import { AgentHandle } from './handles/index.ts'
+import type { AgentResult } from '@agentry/core'
 
 export interface RenderOptions {
   /** anthropic client instance */
-  client?: Anthropic;
+  client?: Anthropic
   /** execution mode */
-  mode?: 'batch' | 'interactive';
+  mode?: 'batch' | 'interactive'
 }
 
 /**
@@ -50,28 +50,27 @@ export interface RenderOptions {
 export async function render(
   element: ReactNode,
   options?: RenderOptions & { mode?: 'batch' },
-): Promise<AgentResult>;
+): Promise<AgentResult>
 export async function render(
   element: ReactNode,
   options: RenderOptions & { mode: 'interactive' },
-): Promise<AgentHandle>;
+): Promise<AgentHandle>
 export async function render(
   element: ReactNode,
   options: RenderOptions = {},
 ): Promise<AgentResult | AgentHandle> {
-  const { client, mode = 'batch' } = options;
+  const { mode = 'batch' } = options
 
-  const handle = new AgentHandle(element, client);
+  const handle = createAgent(element, options)
 
   if (mode === 'interactive') {
-    return handle;
+    return handle
   }
 
-  // batch mode - run to completion
   try {
-    return await handle.run();
+    return await handle.run()
   } finally {
-    handle.close();
+    handle.close()
   }
 }
 
@@ -80,6 +79,9 @@ export async function render(
  *
  * useful when you want to configure the agent before sending messages
  */
-export function createAgent(element: ReactNode, options?: { client?: Anthropic }): AgentHandle {
-  return new AgentHandle(element, options?.client);
+export function createAgent(
+  element: ReactNode,
+  options?: { client?: Anthropic },
+): AgentHandle {
+  return new AgentHandle(element, options?.client)
 }

@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
+import type { ReactNode } from 'react'
 
 export interface SystemProps {
-  children: ReactNode;
+  children: ReactNode
   /** priority for context compaction (higher = more important) */
-  priority?: number;
+  priority?: number
 }
 
 /**
@@ -18,5 +18,5 @@ export interface SystemProps {
  * ```
  */
 export function System({ children, priority = 1000 }: SystemProps): ReactNode {
-  return <system priority={priority}>{children}</system>;
+  return <system priority={priority}>{children}</system>
 }

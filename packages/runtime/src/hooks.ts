@@ -1,37 +1,32 @@
-import * as React from 'react';
-import { useStore } from 'zustand';
+import * as React from 'react'
+import { useStore } from 'zustand'
 import {
   createAgentStore,
   type AgentStore,
   type AgentStoreState,
   type AgentState,
   type BetaMessageParam,
-} from '@agentry/core';
+} from '@agentry/core'
 
-// Re-export store types and factory from core
-export { createAgentStore, type AgentStore, type AgentStoreState };
-
-// ============================================================================
-// AgentContext - React context for accessing the store
-// ============================================================================
+export { createAgentStore, type AgentStore, type AgentStoreState }
 
 /**
  * Context for accessing the agent store from within components
  */
-export const AgentContext = React.createContext<AgentStore | null>(null);
+export const AgentContext = React.createContext<AgentStore | null>(null)
 
 /**
  * Get the agent store from context (throws if not found)
  */
 function useAgentStore(): AgentStore {
-  const store = React.useContext(AgentContext);
+  const store = React.useContext(AgentContext)
   if (!store) {
     throw new Error(
       'Agent hooks must be used within an AgentProvider. ' +
-        'Make sure your component is a child of <Agent>.'
-    );
+        'Make sure your component is a child of <Agent>.',
+    )
   }
-  return store;
+  return store
 }
 
 /**
@@ -41,15 +36,11 @@ export function AgentProvider({
   store,
   children,
 }: {
-  store: AgentStore;
-  children: React.ReactNode;
+  store: AgentStore
+  children: React.ReactNode
 }): React.JSX.Element {
-  return React.createElement(AgentContext.Provider, { value: store }, children);
+  return React.createElement(AgentContext.Provider, { value: store }, children)
 }
-
-// ============================================================================
-// Hooks - Clean selector-based reads
-// ============================================================================
 
 /**
  * Hook to access the current execution state
@@ -63,8 +54,8 @@ export function AgentProvider({
  * ```
  */
 export function useExecutionState(): AgentState {
-  const store = useAgentStore();
-  return useStore(store, (s) => s.executionState);
+  const store = useAgentStore()
+  return useStore(store, (s) => s.executionState)
 }
 
 /**
@@ -82,8 +73,8 @@ export function useExecutionState(): AgentState {
  * ```
  */
 export function useMessages(): BetaMessageParam[] {
-  const store = useAgentStore();
-  return useStore(store, (s) => s.messages);
+  const store = useAgentStore()
+  return useStore(store, (s) => s.messages)
 }
 
 /**
@@ -99,12 +90,11 @@ export function useMessages(): BetaMessageParam[] {
  * ```
  */
 export function useAgentState(): AgentStoreState {
-  const store = useAgentStore();
-  return useStore(store);
+  const store = useAgentStore()
+  return useStore(store)
 }
 
 /**
  * Hook to access the raw store (for transient updates or subscriptions)
- * Following R3F's useStore pattern
  */
-export { useAgentStore };
+export { useAgentStore }

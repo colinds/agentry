@@ -1,27 +1,26 @@
-import type { z } from 'zod';
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta';
-import type { SubagentInstance, InternalTool } from '@agentry/core';
-import { renderSubagent } from './renderSubagent.ts';
+import type { z } from 'zod'
+import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
+import type { SubagentInstance, InternalTool } from '@agentry/core'
+import { renderSubagent } from './renderSubagent.ts'
 
 /**
  * create a synthetic tool from a subagent
  *
  * when parent invokes this tool, it spawns the child agent
  */
-export function createSubagentTool(
-  subagent: SubagentInstance,
-): InternalTool {
+export function createSubagentTool(subagent: SubagentInstance): InternalTool {
   return {
     name: subagent.name,
-    description: subagent.description ?? `Delegate task to ${subagent.name} agent`,
+    description:
+      subagent.description ?? `Delegate task to ${subagent.name} agent`,
     inputSchema: {
       safeParse: (input: unknown) => {
-        const obj = input as { task?: unknown; context?: unknown };
+        const obj = input as { task?: unknown; context?: unknown }
         if (typeof obj.task !== 'string') {
           return {
             success: false,
             error: { issues: [{ path: ['task'], message: 'Required field' }] },
-          };
+          }
         }
         return {
           success: true,
@@ -29,35 +28,39 @@ export function createSubagentTool(
             task: obj.task,
             context: typeof obj.context === 'string' ? obj.context : undefined,
           },
-        };
+        }
       },
     } as z.ZodType,
     jsonSchema: {
       type: 'object',
       properties: {
-        task: { type: 'string', description: 'Task for the subagent to perform' },
+        task: {
+          type: 'string',
+          description: 'Task for the subagent to perform',
+        },
         context: { type: 'string', description: 'Additional context' },
       },
       required: ['task'],
     },
     handler: async (input, toolContext) => {
-      const { task, context: additionalContext } = input as { task: string; context?: string };
-      // build child's initial message
+      const { task, context: additionalContext } = input as {
+        task: string
+        context?: string
+      }
       const childMessages: BetaMessageParam[] = [
         {
           role: 'user' as const,
           content: additionalContext ? `${additionalContext}\n\n${task}` : task,
         },
-      ];
+      ]
 
-      // spawn the subagent
       const result = await renderSubagent(subagent, {
         client: toolContext.client,
         signal: toolContext.signal,
         initialMessages: childMessages,
-      });
+      })
 
-      return result.content;
+      return result.content
     },
-  };
+  }
 }

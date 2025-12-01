@@ -1,101 +1,89 @@
-import type Anthropic from '@anthropic-ai/sdk';
-import type { BetaMessageParam, BetaToolUnion, BetaRequestMCPServerURLDefinition } from '@anthropic-ai/sdk/resources/beta';
-import type { AgentProps, InternalTool, AgentResult, AgentStreamEvent } from '../types/index.ts';
-import type { ExecutionEngine } from '../execution/index.ts';
+import type Anthropic from '@anthropic-ai/sdk'
+import type {
+  BetaMessageParam,
+  BetaToolUnion,
+  BetaRequestMCPServerURLDefinition,
+} from '@anthropic-ai/sdk/resources/beta'
+import type { AgentProps, InternalTool } from '../types/index.ts'
+import type { ExecutionEngine } from '../execution/index.ts'
 
-// base instance type
 export interface BaseInstance {
-  type: string;
-  parent: Instance | null;
+  type: string
+  parent: Instance | null
 }
 
 export interface BaseAgentInstance extends BaseInstance {
-  pendingUpdates: PendingUpdate[];
+  pendingUpdates: PendingUpdate[]
 }
 
-// agent instance - the root container for an agent
 export interface AgentInstance extends BaseAgentInstance {
-  type: 'agent';
-  props: AgentProps;
-  client: Anthropic;
-  engine: ExecutionEngine | null;
-  // collected from children
-  systemParts: Array<{ content: string; priority: number }>;
-  tools: InternalTool[];
-  sdkTools: BetaToolUnion[];
-  contextParts: Array<{ content: string; priority: number }>;
-  messages: BetaMessageParam[];
-  mcpServers: BetaRequestMCPServerURLDefinition[];
-  // child instances
-  children: Instance[];
+  type: 'agent'
+  props: AgentProps
+  client: Anthropic
+  engine: ExecutionEngine | null
+  systemParts: Array<{ content: string; priority: number }>
+  tools: InternalTool[]
+  sdkTools: BetaToolUnion[]
+  contextParts: Array<{ content: string; priority: number }>
+  messages: BetaMessageParam[]
+  mcpServers: BetaRequestMCPServerURLDefinition[]
+  children: Instance[]
 }
 
-// tool instance - wraps a RunnableTool
 export interface ToolInstance extends BaseInstance {
-  type: 'tool';
-  tool: InternalTool;
+  type: 'tool'
+  tool: InternalTool
 }
 
-// sdk tool instance - wraps a BetaToolUnion (WebSearch, MCP, etc.)
 export interface SdkToolInstance extends BaseInstance {
-  type: 'sdk_tool';
-  tool: BetaToolUnion;
+  type: 'sdk_tool'
+  tool: BetaToolUnion
 }
 
-// system prompt instance
 export interface SystemInstance extends BaseInstance {
-  type: 'system';
-  content: string;
-  priority: number;
+  type: 'system'
+  content: string
+  priority: number
 }
 
-// context instance
 export interface ContextInstance extends BaseInstance {
-  type: 'context';
-  content: string;
-  priority: number;
+  type: 'context'
+  content: string
+  priority: number
 }
 
-// message instance
 export interface MessageInstance extends BaseInstance {
-  type: 'message';
-  message: BetaMessageParam;
+  type: 'message'
+  message: BetaMessageParam
 }
 
-// MCP server instance (matches BetaRequestMCPServerURLDefinition)
 export interface MCPServerInstance extends BaseInstance {
-  type: 'mcp_server';
-  config: BetaRequestMCPServerURLDefinition;
+  type: 'mcp_server'
+  config: BetaRequestMCPServerURLDefinition
 }
 
-// tools container instance
 export interface ToolsContainerInstance extends BaseInstance {
-  type: 'tools_container';
-  children: Instance[];
+  type: 'tools_container'
+  children: Instance[]
 }
 
-// subagent instance - child agent that becomes a tool
 export interface SubagentInstance extends BaseAgentInstance {
-  type: 'subagent';
-  name: string;
-  description?: string;
-  props: AgentProps;
-  children: Instance[];
-  // Store the React children so they can be rendered in the isolated container with AgentProvider
-  // Following react-three-fiber's pattern where Provider receives children as a prop
-  reactChildren: React.ReactNode | null;
-  // collected state (same as AgentInstance but not used until spawned)
-  systemParts: Array<{ content: string; priority: number }>;
-  tools: InternalTool[];
-  sdkTools: BetaToolUnion[];
-  contextParts: Array<{ content: string; priority: number }>;
-  messages: BetaMessageParam[];
-  mcpServers: BetaRequestMCPServerURLDefinition[];
+  type: 'subagent'
+  name: string
+  description?: string
+  props: AgentProps
+  children: Instance[]
+  reactChildren: React.ReactNode | null
+  systemParts: Array<{ content: string; priority: number }>
+  tools: InternalTool[]
+  sdkTools: BetaToolUnion[]
+  contextParts: Array<{ content: string; priority: number }>
+  messages: BetaMessageParam[]
+  mcpServers: BetaRequestMCPServerURLDefinition[]
 }
 
-export type AgentLike = AgentInstance | SubagentInstance;
+export type AgentLike = AgentInstance | SubagentInstance
 
-// all instance types
 export type Instance =
   | AgentInstance
   | SubagentInstance
@@ -105,9 +93,8 @@ export type Instance =
   | ContextInstance
   | MessageInstance
   | ToolsContainerInstance
-  | MCPServerInstance;
+  | MCPServerInstance
 
-// pending update types
 export type PendingUpdate =
   | { type: 'tool_added'; tool: InternalTool }
   | { type: 'tool_removed'; toolName: string }
@@ -115,97 +102,108 @@ export type PendingUpdate =
   | { type: 'sdk_tool_removed'; toolName: string }
   | { type: 'system_updated'; content: string; priority: number }
   | { type: 'context_updated'; content: string; priority: number }
-  | { type: 'message_added'; message: BetaMessageParam };
+  | { type: 'message_added'; message: BetaMessageParam }
 
-// props for each component type
 export interface AgentComponentProps extends AgentProps {
-  client?: Anthropic;
-  children?: React.ReactNode;
+  client?: Anthropic
+  children?: React.ReactNode
 }
 
 export interface ToolComponentProps {
-  tool: InternalTool;
+  tool: InternalTool
 }
 
 export interface SdkToolComponentProps {
-  tool: BetaToolUnion;
+  tool: BetaToolUnion
 }
 
 export interface SystemComponentProps {
-  children: React.ReactNode;
-  priority?: number;
-  cache?: 'ephemeral';
+  children: React.ReactNode
+  priority?: number
+  cache?: 'ephemeral'
 }
 
 export interface ContextComponentProps {
-  children: React.ReactNode;
-  priority?: number;
-  cache?: 'ephemeral';
+  children: React.ReactNode
+  priority?: number
+  cache?: 'ephemeral'
 }
 
 export interface MessageComponentProps {
-  role: 'user' | 'assistant';
-  children: React.ReactNode;
+  role: 'user' | 'assistant'
+  children: React.ReactNode
 }
 
 export interface MCPServerComponentProps {
-  name: string;
-  url: string;
-  authorization_token?: string;
-  tool_configuration?: BetaRequestMCPServerURLDefinition['tool_configuration'];
+  name: string
+  url: string
+  authorization_token?: string
+  tool_configuration?: BetaRequestMCPServerURLDefinition['tool_configuration']
 }
 
 export interface ToolsContainerProps {
-  children?: React.ReactNode;
+  children?: React.ReactNode
 }
 
-// helper to check instance types
 export function isAgentInstance(instance: Instance): instance is AgentInstance {
-  return instance.type === 'agent';
+  return instance.type === 'agent'
 }
 
 export function isToolInstance(instance: Instance): instance is ToolInstance {
-  return instance.type === 'tool';
+  return instance.type === 'tool'
 }
 
-export function isSdkToolInstance(instance: Instance): instance is SdkToolInstance {
-  return instance.type === 'sdk_tool';
+export function isSdkToolInstance(
+  instance: Instance,
+): instance is SdkToolInstance {
+  return instance.type === 'sdk_tool'
 }
 
-export function isSystemInstance(instance: Instance): instance is SystemInstance {
-  return instance.type === 'system';
+export function isSystemInstance(
+  instance: Instance,
+): instance is SystemInstance {
+  return instance.type === 'system'
 }
 
-export function isContextInstance(instance: Instance): instance is ContextInstance {
-  return instance.type === 'context';
+export function isContextInstance(
+  instance: Instance,
+): instance is ContextInstance {
+  return instance.type === 'context'
 }
 
-export function isMessageInstance(instance: Instance): instance is MessageInstance {
-  return instance.type === 'message';
+export function isMessageInstance(
+  instance: Instance,
+): instance is MessageInstance {
+  return instance.type === 'message'
 }
 
-export function isToolsContainerInstance(instance: Instance): instance is ToolsContainerInstance {
-  return instance.type === 'tools_container';
+export function isToolsContainerInstance(
+  instance: Instance,
+): instance is ToolsContainerInstance {
+  return instance.type === 'tools_container'
 }
 
-export function isSubagentInstance(instance: Instance): instance is SubagentInstance {
-  return instance.type === 'subagent';
+export function isSubagentInstance(
+  instance: Instance,
+): instance is SubagentInstance {
+  return instance.type === 'subagent'
 }
 
 export function isAgentLike(instance: Instance): instance is AgentLike {
-  return instance.type === 'agent' || instance.type === 'subagent';
+  return instance.type === 'agent' || instance.type === 'subagent'
 }
 
-export function isMCPServerInstance(instance: Instance): instance is MCPServerInstance {
-  return instance.type === 'mcp_server';
+export function isMCPServerInstance(
+  instance: Instance,
+): instance is MCPServerInstance {
+  return instance.type === 'mcp_server'
 }
 
-// type guard to check if unknown is an Instance
 export function isInstance(value: unknown): value is Instance {
   return (
     typeof value === 'object' &&
     value !== null &&
     'type' in value &&
     'parent' in value
-  );
+  )
 }

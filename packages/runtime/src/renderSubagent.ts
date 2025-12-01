@@ -1,12 +1,12 @@
-import type Anthropic from '@anthropic-ai/sdk';
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta';
-import type { SubagentInstance, AgentResult } from '@agentry/core';
-import { SubagentHandle } from './handles/index.ts';
+import type Anthropic from '@anthropic-ai/sdk'
+import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
+import type { SubagentInstance, AgentResult } from '@agentry/core'
+import { SubagentHandle } from './handles/index.ts'
 
 export interface RenderSubagentOptions {
-  client: Anthropic;
-  signal?: AbortSignal;
-  initialMessages?: BetaMessageParam[];
+  client: Anthropic
+  signal?: AbortSignal
+  initialMessages?: BetaMessageParam[]
 }
 
 /**
@@ -19,14 +19,11 @@ export async function renderSubagent(
   subagent: SubagentInstance,
   options: RenderSubagentOptions,
 ): Promise<AgentResult> {
-  // Create SubagentHandle from subagent - this unifies the execution path
-  const handle = new SubagentHandle(subagent, options);
+  const handle = new SubagentHandle(subagent, options)
 
   try {
-    // Run the subagent using the unified execution path
-    return await handle.run();
+    return await handle.run()
   } finally {
-    // Cleanup - this handles abort signal, container unmounting, etc.
-    handle.close();
+    handle.close()
   }
 }

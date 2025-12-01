@@ -1,12 +1,15 @@
-import type { ReactNode } from 'react';
-import type { AgentComponentProps } from '@agentry/core';
+import type { ReactNode } from 'react'
+import type { AgentComponentProps } from '@agentry/core'
 
-export interface AgentProps extends Omit<AgentComponentProps, 'client' | 'model'> {
+export interface AgentProps extends Omit<
+  AgentComponentProps,
+  'client' | 'model'
+> {
   // model is optional for child agents (they inherit from parent)
-  model?: AgentComponentProps['model'];
-  name?: string;
-  description?: string;
-  children?: ReactNode;
+  model?: AgentComponentProps['model']
+  name?: string
+  description?: string
+  children?: ReactNode
 }
 
 /**
@@ -23,5 +26,5 @@ export interface AgentProps extends Omit<AgentComponentProps, 'client' | 'model'
  * ```
  */
 export function Agent({ children, ...props }: AgentProps): ReactNode {
-  return <agent {...props}>{children}</agent>;
+  return <agent {...props}>{children}</agent>
 }

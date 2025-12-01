@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
+import type { ReactNode } from 'react'
 
 export interface ToolsProps {
-  children?: ReactNode;
+  children?: ReactNode
 }
 
 /**
@@ -19,5 +19,5 @@ export interface ToolsProps {
  * ```
  */
 export function Tools({ children }: ToolsProps): ReactNode {
-  return <tools>{children}</tools>;
+  return <tools>{children}</tools>
 }

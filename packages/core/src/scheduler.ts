@@ -3,7 +3,7 @@ import {
   unstable_NormalPriority,
   unstable_ImmediatePriority,
   unstable_IdlePriority,
-} from 'scheduler';
+} from 'scheduler'
 
 /**
  * Yield to React's scheduler with normal priority
@@ -11,8 +11,8 @@ import {
  */
 export async function yieldToScheduler(): Promise<void> {
   await new Promise<void>((resolve) => {
-    unstable_scheduleCallback(unstable_NormalPriority, () => resolve());
-  });
+    unstable_scheduleCallback(unstable_NormalPriority, () => resolve())
+  })
 }
 
 /**
@@ -21,8 +21,8 @@ export async function yieldToScheduler(): Promise<void> {
  */
 export async function yieldToSchedulerImmediate(): Promise<void> {
   await new Promise<void>((resolve) => {
-    unstable_scheduleCallback(unstable_ImmediatePriority, () => resolve());
-  });
+    unstable_scheduleCallback(unstable_ImmediatePriority, () => resolve())
+  })
 }
 
 /**
@@ -32,10 +32,9 @@ export async function yieldToSchedulerImmediate(): Promise<void> {
 export function scheduleOnIdle(callback: () => void): void {
   unstable_scheduleCallback(unstable_IdlePriority, () => {
     try {
-      callback();
+      callback()
     } catch {
-      // no-op - ignore errors in idle callbacks
+      // no-op: ignore errors in idle callbacks
     }
-  });
+  })
 }
-

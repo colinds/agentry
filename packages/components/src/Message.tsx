@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import type { ReactNode } from 'react'
 
 export interface MessageProps {
-  role: 'user' | 'assistant';
-  children: ReactNode;
+  role: 'user' | 'assistant'
+  children: ReactNode
 }
 
 /**
@@ -18,5 +18,5 @@ export interface MessageProps {
  * ```
  */
 export function Message({ role, children }: MessageProps): ReactNode {
-  return <message role={role}>{children}</message>;
+  return <message role={role}>{children}</message>
 }

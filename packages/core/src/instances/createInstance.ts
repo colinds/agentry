@@ -1,5 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
-import type React from 'react';
+import Anthropic from '@anthropic-ai/sdk'
+import type React from 'react'
 import type {
   Instance,
   AgentInstance,
@@ -19,25 +19,23 @@ import type {
   MessageComponentProps,
   ToolsContainerProps,
   MCPServerComponentProps,
-} from './types.ts';
-import { isAgentInstance, isInstance } from './types.ts';
-import type { AgentProps, CompactionControl, Model } from '../types/index.ts';
+} from './types.ts'
+import { isAgentInstance, isInstance } from './types.ts'
+import type { AgentProps, CompactionControl, Model } from '../types/index.ts'
 
-type RequiredAgentProps = { [K in keyof Required<AgentProps>]: AgentProps[K] };
+type RequiredAgentProps = { [K in keyof Required<AgentProps>]: AgentProps[K] }
 
-// settings that propagate from parent to child
 interface PropagatedSettings {
-  stream?: boolean;
-  temperature?: number;
-  stopSequences?: string[];
-  compactionControl?: CompactionControl;
-  maxTokens?: number;
-  maxIterations?: number;
-  insideAgent?: boolean;
-  model?: Model;
+  stream?: boolean
+  temperature?: number
+  stopSequences?: string[]
+  compactionControl?: CompactionControl
+  maxTokens?: number
+  maxIterations?: number
+  insideAgent?: boolean
+  model?: Model
 }
 
-// element types we support
 export type ElementType =
   | 'agent'
   | 'tool'
@@ -46,9 +44,8 @@ export type ElementType =
   | 'context'
   | 'message'
   | 'tools'
-  | 'mcp_server';
+  | 'mcp_server'
 
-// props union type
 export type ElementProps =
   | AgentComponentProps
   | ToolComponentProps
@@ -57,9 +54,8 @@ export type ElementProps =
   | ContextComponentProps
   | MessageComponentProps
   | ToolsContainerProps
-  | MCPServerComponentProps;
+  | MCPServerComponentProps
 
-// create an instance from element type and props
 export function createInstance(
   type: ElementType,
   props: ElementProps,
@@ -70,32 +66,34 @@ export function createInstance(
     case 'agent':
       // check if this is a child agent (we're nested inside another agent)
       if (hostContext.insideAgent) {
-        return createSubagentInstance(props as AgentComponentProps, hostContext);
+        return createSubagentInstance(props as AgentComponentProps, hostContext)
       }
-      // This is the root agent from JSX - use its explicit props, not inherited
-      return createAgentInstance(props as AgentComponentProps, rootContainer);
+      // This is the root agent
+      return createAgentInstance(props as AgentComponentProps, rootContainer)
     case 'tool':
-      return createToolInstance(props as ToolComponentProps);
+      return createToolInstance(props as ToolComponentProps)
     case 'sdk_tool':
-      return createSdkToolInstance(props as SdkToolComponentProps);
+      return createSdkToolInstance(props as SdkToolComponentProps)
     case 'system':
-      return createSystemInstance(props as SystemComponentProps);
+      return createSystemInstance(props as SystemComponentProps)
     case 'context':
-      return createContextInstance(props as ContextComponentProps);
+      return createContextInstance(props as ContextComponentProps)
     case 'message':
-      return createMessageInstance(props as MessageComponentProps);
+      return createMessageInstance(props as MessageComponentProps)
     case 'tools':
-      return createToolsContainerInstance(props as ToolsContainerProps);
+      return createToolsContainerInstance(props as ToolsContainerProps)
     case 'mcp_server':
-      return createMCPServerInstance(props as MCPServerComponentProps);
+      return createMCPServerInstance(props as MCPServerComponentProps)
     default:
-      throw new Error(`Unknown element type: ${type}`);
+      throw new Error(`Unknown element type: ${type}`)
   }
 }
 
-function createAgentInstance(props: AgentComponentProps, rootContainer?: unknown): AgentInstance {
-  // create or use provided client
-  const client = props.client ?? new Anthropic();
+function createAgentInstance(
+  props: AgentComponentProps,
+  rootContainer?: unknown,
+): AgentInstance {
+  const client = props.client ?? new Anthropic()
 
   const instance: AgentInstance = {
     type: 'agent',
@@ -125,14 +123,18 @@ function createAgentInstance(props: AgentComponentProps, rootContainer?: unknown
     children: [],
     pendingUpdates: [],
     parent: null,
-  };
-
-  // If this is the root agent (first child of container), update container's model for propagation
-  if (rootContainer && isInstance(rootContainer) && isAgentInstance(rootContainer) && props.model) {
-    rootContainer.props.model = props.model;
   }
 
-  return instance;
+  if (
+    rootContainer &&
+    isInstance(rootContainer) &&
+    isAgentInstance(rootContainer) &&
+    props.model
+  ) {
+    rootContainer.props.model = props.model
+  }
+
+  return instance
 }
 
 function createToolInstance(props: ToolComponentProps): ToolInstance {
@@ -140,7 +142,7 @@ function createToolInstance(props: ToolComponentProps): ToolInstance {
     type: 'tool',
     tool: props.tool,
     parent: null,
-  };
+  }
 }
 
 function createSdkToolInstance(props: SdkToolComponentProps): SdkToolInstance {
@@ -148,7 +150,7 @@ function createSdkToolInstance(props: SdkToolComponentProps): SdkToolInstance {
     type: 'sdk_tool',
     tool: props.tool,
     parent: null,
-  };
+  }
 }
 
 function createSystemInstance(props: SystemComponentProps): SystemInstance {
@@ -157,7 +159,7 @@ function createSystemInstance(props: SystemComponentProps): SystemInstance {
     content: reactNodeToString(props.children),
     priority: props.priority ?? 1000, // high priority by default
     parent: null,
-  };
+  }
 }
 
 function createContextInstance(props: ContextComponentProps): ContextInstance {
@@ -166,29 +168,26 @@ function createContextInstance(props: ContextComponentProps): ContextInstance {
     content: reactNodeToString(props.children),
     priority: props.priority ?? 500, // medium priority by default
     parent: null,
-  };
+  }
 }
 
-// utility to convert ReactNode to string
 function reactNodeToString(node: React.ReactNode): string {
   if (node === null || node === undefined) {
-    return '';
+    return ''
   }
   if (typeof node === 'string') {
-    return node;
+    return node
   }
   if (typeof node === 'number') {
-    return String(node);
+    return String(node)
   }
   if (typeof node === 'boolean') {
-    return '';
+    return ''
   }
   if (Array.isArray(node)) {
-    return node.map(reactNodeToString).join('');
+    return node.map(reactNodeToString).join('')
   }
-  // For other ReactNode types (ReactElement, ReactPortal, etc.), convert to string
-  // This handles the common case where children are text with interpolated expressions
-  return String(node);
+  return String(node)
 }
 
 function createMessageInstance(props: MessageComponentProps): MessageInstance {
@@ -199,18 +198,22 @@ function createMessageInstance(props: MessageComponentProps): MessageInstance {
       content: reactNodeToString(props.children),
     },
     parent: null,
-  };
+  }
 }
 
-function createToolsContainerInstance(_props: ToolsContainerProps): ToolsContainerInstance {
+function createToolsContainerInstance(
+  _props: ToolsContainerProps, // eslint-disable-line @typescript-eslint/no-unused-vars
+): ToolsContainerInstance {
   return {
     type: 'tools_container',
     children: [],
     parent: null,
-  };
+  }
 }
 
-function createMCPServerInstance(props: MCPServerComponentProps): MCPServerInstance {
+function createMCPServerInstance(
+  props: MCPServerComponentProps,
+): MCPServerInstance {
   return {
     type: 'mcp_server',
     config: {
@@ -221,7 +224,7 @@ function createMCPServerInstance(props: MCPServerComponentProps): MCPServerInsta
       tool_configuration: props.tool_configuration,
     },
     parent: null,
-  };
+  }
 }
 
 export function createSubagentInstance(
@@ -229,7 +232,7 @@ export function createSubagentInstance(
   inherited: PropagatedSettings = {},
 ): SubagentInstance {
   if (!props.name) {
-    throw new Error('Child agents must have a name property');
+    throw new Error('Child agents must have a name property')
   }
 
   return {
@@ -237,12 +240,18 @@ export function createSubagentInstance(
     name: props.name,
     description: props.description,
     props: {
-      model: props.model ?? inherited.model, // inherit model from parent if not specified
+      model: props.model ?? inherited.model,
       name: props.name,
       description: props.description,
       // inherit with fallback to defaults (halve numeric values for subagents)
-      maxTokens: props.maxTokens ?? (inherited.maxTokens ? Math.floor(inherited.maxTokens / 2) : 4096),
-      maxIterations: props.maxIterations ?? (inherited.maxIterations ? Math.floor(inherited.maxIterations / 2) : undefined),
+      maxTokens:
+        props.maxTokens ??
+        (inherited.maxTokens ? Math.floor(inherited.maxTokens / 2) : 4096),
+      maxIterations:
+        props.maxIterations ??
+        (inherited.maxIterations
+          ? Math.floor(inherited.maxIterations / 2)
+          : undefined),
       stopSequences: props.stopSequences ?? inherited.stopSequences,
       temperature: props.temperature ?? inherited.temperature,
       stream: props.stream ?? inherited.stream ?? true,
@@ -263,5 +272,5 @@ export function createSubagentInstance(
     pendingUpdates: [],
     parent: null,
     reactChildren: props.children || null,
-  };
+  }
 }

@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
+import type { ReactNode } from 'react'
 
 export interface ContextProps {
-  children: ReactNode;
+  children: ReactNode
   /** priority for context compaction (higher = more important) */
-  priority?: number;
+  priority?: number
 }
 
 /**
@@ -20,5 +20,5 @@ export interface ContextProps {
  * ```
  */
 export function Context({ children, priority = 500 }: ContextProps): ReactNode {
-  return <context priority={priority}>{children}</context>;
+  return <context priority={priority}>{children}</context>
 }

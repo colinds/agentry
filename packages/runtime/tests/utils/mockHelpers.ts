@@ -1,4 +1,4 @@
-import { mockToolUse, mockText, type MockResponse } from '@agentry/core';
+import { mockToolUse, mockText, type MockResponse } from '@agentry/core'
 
 /**
  * Create a mock response sequence for subagent execution
@@ -7,7 +7,7 @@ import { mockToolUse, mockText, type MockResponse } from '@agentry/core';
 export function mockSubagentExecution(
   subagentName: string,
   subagentInput: unknown,
-  parentContinuation: string
+  parentContinuation: string,
 ): MockResponse[] {
   return [
     // Parent calls subagent tool
@@ -19,7 +19,7 @@ export function mockSubagentExecution(
     {
       content: [mockText(parentContinuation)],
     },
-  ];
+  ]
 }
 
 /**
@@ -28,7 +28,7 @@ export function mockSubagentExecution(
  */
 export function mockToolSequence(
   calls: Array<{ name: string; input: unknown; id?: string }>,
-  finalResponse: string
+  finalResponse: string,
 ): MockResponse[] {
   return [
     ...calls.map((call) => ({
@@ -38,12 +38,12 @@ export function mockToolSequence(
     {
       content: [mockText(finalResponse)],
     },
-  ];
+  ]
 }
 
 /**
  * Create a simple text response (convenience helper)
  */
 export function mockSimpleResponse(text: string): MockResponse[] {
-  return [{ content: [mockText(text)] }];
+  return [{ content: [mockText(text)] }]
 }

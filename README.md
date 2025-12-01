@@ -1,6 +1,6 @@
 # Agentry
 
-A **React reconciler-based framework** for declarative AI agent orchestration. Treat agent systems like React treats UI—components describe *what* the system should be, the reconciler determines *how* to execute it.
+A **React reconciler-based framework** for declarative AI agent orchestration. Treat agent systems like React treats UI—components describe _what_ the system should be, the reconciler determines _how_ to execute it.
 
 ## Philosophy
 
@@ -9,8 +9,8 @@ Separate React's reconciliation from agent execution (inspired by react-three-fi
 ## Quick Start
 
 ```tsx
-import { render, Agent, System, Tools, Tool } from '@agentry/runtime';
-import { z } from 'zod';
+import { render, Agent, System, Tools, Tool } from '@agentry/runtime'
+import { z } from 'zod'
 
 const result = await render(
   <Agent model="claude-haiku-4-5" maxTokens={1024}>
@@ -25,15 +25,20 @@ const result = await render(
           b: z.number(),
         })}
         handler={async ({ operation, a, b }) => {
-          const ops = { add: a + b, subtract: a - b, multiply: a * b, divide: a / b };
-          return String(ops[operation]);
+          const ops = {
+            add: a + b,
+            subtract: a - b,
+            multiply: a * b,
+            divide: a / b,
+          }
+          return String(ops[operation])
         }}
       />
     </Tools>
-  </Agent>
-);
+  </Agent>,
+)
 
-console.log(result.content);
+console.log(result.content)
 ```
 
 ## Features
@@ -72,7 +77,7 @@ Define tools directly in JSX with `inputSchema`:
     location: z.string().describe('City name'),
   })}
   handler={async ({ location }) => {
-    return `Weather in ${location}: 72°F, sunny`;
+    return `Weather in ${location}: 72°F, sunny`
   }}
 />
 ```
@@ -83,7 +88,7 @@ Tools can be added/removed during execution using React's state:
 
 ```tsx
 function DynamicAgent() {
-  const [hasAdvanced, setHasAdvanced] = useState(false);
+  const [hasAdvanced, setHasAdvanced] = useState(false)
 
   return (
     <Agent model="claude-haiku-4-5">
@@ -93,8 +98,8 @@ function DynamicAgent() {
           description="Unlock advanced features"
           inputSchema={z.object({})}
           handler={async () => {
-            setHasAdvanced(true);  // Triggers re-render, adds new tool
-            return 'Advanced features unlocked!';
+            setHasAdvanced(true) // Triggers re-render, adds new tool
+            return 'Advanced features unlocked!'
           }}
         />
         {hasAdvanced && (
@@ -107,7 +112,7 @@ function DynamicAgent() {
         )}
       </Tools>
     </Agent>
-  );
+  )
 }
 ```
 
@@ -116,21 +121,21 @@ function DynamicAgent() {
 Access agent state from within components:
 
 ```tsx
-import { useExecutionState, useMessages } from '@agentry/runtime';
+import { useExecutionState, useMessages } from '@agentry/runtime'
 
 function ExecutionMonitor() {
-  const state = useExecutionState();
-  const messages = useMessages();
+  const state = useExecutionState()
+  const messages = useMessages()
 
   useEffect(() => {
-    console.log(`Status: ${state.status}, Messages: ${messages.length}`);
-  }, [state.status, messages.length]);
+    console.log(`Status: ${state.status}, Messages: ${messages.length}`)
+  }, [state.status, messages.length])
 
-  return null;
+  return null
 }
 
 // Use inside Agent tree
-<Agent model="claude-haiku-4-5">
+;<Agent model="claude-haiku-4-5">
   <ExecutionMonitor />
   <System>You are helpful</System>
 </Agent>
@@ -169,13 +174,13 @@ Nested `<Agent>` components automatically become tools:
 
 See `packages/examples/src/`:
 
-| Example | Description |
-|---------|-------------|
-| `basic.tsx` | Simple calculator tool |
-| `hooks.tsx` | Hooks, composition, subagents, dynamic tools |
-| `dynamic-tools.tsx` | Tools unlocked via state |
-| `subagents.tsx` | Manager delegating to specialists |
-| `interactive.tsx` | Multi-turn conversations |
+| Example             | Description                                  |
+| ------------------- | -------------------------------------------- |
+| `basic.tsx`         | Simple calculator tool                       |
+| `hooks.tsx`         | Hooks, composition, subagents, dynamic tools |
+| `dynamic-tools.tsx` | Tools unlocked via state                     |
+| `subagents.tsx`     | Manager delegating to specialists            |
+| `interactive.tsx`   | Multi-turn conversations                     |
 
 Run an example:
 

@@ -1,2 +1,1 @@
-export { TEST_MODEL, MODEL } from './constants.ts';
-
+export { TEST_MODEL, MODEL } from './constants.ts'

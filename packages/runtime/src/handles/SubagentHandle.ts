@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import Anthropic from '@anthropic-ai/sdk'
 import {
   createContainer,
   createAgentStore,
@@ -6,29 +6,28 @@ import {
   type BetaMessageParam,
   type SubagentInstance,
   isAgentInstance,
-} from '@agentry/core';
-import { AbstractAgentHandle } from './AbstractAgentHandle.ts';
+} from '@agentry/core'
+import { AbstractAgentHandle } from './AbstractAgentHandle.ts'
 
 /**
  * Handle for controlling a subagent at runtime
  * Used internally by renderSubagent to unify execution paths
  */
 export class SubagentHandle extends AbstractAgentHandle {
-  private subagent: SubagentInstance;
-  private abortHandler: (() => void) | undefined = undefined;
-  private abortSignal: AbortSignal | undefined = undefined;
+  private subagent: SubagentInstance
+  private abortHandler: (() => void) | undefined = undefined
+  private abortSignal: AbortSignal | undefined = undefined
 
   constructor(
     subagent: SubagentInstance,
     options: {
-      client: Anthropic;
-      signal?: AbortSignal;
-      initialMessages?: BetaMessageParam[];
+      client: Anthropic
+      signal?: AbortSignal
+      initialMessages?: BetaMessageParam[]
     },
   ) {
-    const { client, signal, initialMessages = [] } = options;
+    const { client, signal, initialMessages = [] } = options
 
-    // Convert SubagentInstance to AgentInstance
     const rootAgent: AgentInstance = {
       type: 'agent',
       props: { ...subagent.props },
@@ -43,67 +42,60 @@ export class SubagentHandle extends AbstractAgentHandle {
       children: [],
       pendingUpdates: subagent.pendingUpdates,
       parent: null,
-    };
-
-    const containerInfo = createContainer(rootAgent);
-    const store = createAgentStore();
-
-    // Initialize store with initial messages so React children can access them
-    if (initialMessages.length > 0) {
-      store.setState({ messages: [...initialMessages] });
     }
 
-    super(client, containerInfo, store);
+    const containerInfo = createContainer(rootAgent)
+    const store = createAgentStore()
 
-    this.subagent = subagent;
+    if (initialMessages.length > 0) {
+      store.setState({ messages: [...initialMessages] })
+    }
 
-    // Wire up abort signal if provided
+    super(client, containerInfo, store)
+
+    this.subagent = subagent
+
     if (signal) {
       const abortHandler = () => {
         if (rootAgent.engine) {
-          rootAgent.engine.abort();
+          rootAgent.engine.abort()
         }
-      };
-      signal.addEventListener('abort', abortHandler);
-      this.abortHandler = abortHandler;
-      this.abortSignal = signal;
+      }
+      signal.addEventListener('abort', abortHandler)
+      this.abortHandler = abortHandler
+      this.abortSignal = signal
     }
 
-    // Store the instance immediately (no rendering needed)
-    this.instance = rootAgent;
+    this.instance = rootAgent
   }
 
   protected shouldEmitEvents(): boolean {
-    return false;
+    return false
   }
 
   protected override async prepareAgent(): Promise<AgentInstance> {
-    const agent = this.instance;
+    const agent = this.instance
     if (!agent || !isAgentInstance(agent)) {
-      throw new Error('Subagent instance not found');
+      throw new Error('Subagent instance not found')
     }
 
-    // Validate model is present
     if (!agent.props.model) {
       throw new Error(
         `Subagent has no model. ` +
           `Either specify a model on the subagent or ensure the parent agent has a model to inherit.`,
-      );
+      )
     }
 
-    // Render the subagent's React children with AgentProvider
     if (this.subagent.reactChildren) {
-      await this.renderWithProvider(this.subagent.reactChildren);
+      await this.renderWithProvider(this.subagent.reactChildren)
     }
 
-    return agent;
+    return agent
   }
 
   protected override cleanup(): void {
-    // Cleanup abort signal handler
     if (this.abortSignal && this.abortHandler) {
-      this.abortSignal.removeEventListener('abort', this.abortHandler);
+      this.abortSignal.removeEventListener('abort', this.abortHandler)
     }
   }
 }
-

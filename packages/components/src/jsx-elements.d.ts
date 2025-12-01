@@ -1,61 +1,60 @@
-import type {} from 'react';
-import type {} from 'react/jsx-runtime';
-import type {} from 'react/jsx-dev-runtime';
-import type { ReactNode } from 'react';
-import type { InternalTool } from '@agentry/core';
-import type { BetaToolUnion, BetaRequestMCPServerToolConfiguration } from '@anthropic-ai/sdk/resources/beta';
-import type { AgentProps } from './Agent.tsx';
+import type {} from 'react'
+import type {} from 'react/jsx-runtime'
+import type {} from 'react/jsx-dev-runtime'
+import type { ReactNode } from 'react'
+import type { InternalTool } from '@agentry/core'
+import type {
+  BetaToolUnion,
+  BetaRequestMCPServerToolConfiguration,
+} from '@anthropic-ai/sdk/resources/beta'
+import type { AgentProps } from './Agent.tsx'
 
-// Element type definitions matching our reconciler's ElementType
 export interface AgentryElements {
-  // Agent element - model is optional for child agents (they inherit from parent)
-  agent: Omit<AgentProps, 'model'> & { model?: AgentProps['model']; children?: ReactNode };
+  agent: Omit<AgentProps, 'model'> & {
+    model?: AgentProps['model']
+    children?: ReactNode
+  }
 
-  // Tool element
-  tool: { tool: InternalTool<any>; key?: string };
+  tool: { tool: InternalTool<unknown>; key?: string }
 
-  // SDK tool element (WebSearch, etc.)
-  sdk_tool: { tool: BetaToolUnion; key?: string };
+  sdk_tool: { tool: BetaToolUnion; key?: string }
 
-  // System prompt element
-  system: { children: ReactNode; priority?: number };
+  system: { children: ReactNode; priority?: number }
 
-  // Context element
-  context: { children: ReactNode; priority?: number };
+  context: { children: ReactNode; priority?: number }
 
-  // Message element
-  message: { role: 'user' | 'assistant'; children: ReactNode };
+  message: { role: 'user' | 'assistant'; children: ReactNode }
 
-  // Tools container element
-  tools: { children?: ReactNode };
+  tools: { children?: ReactNode }
 
-  // MCP server element
   mcp_server: {
-    name: string;
-    url: string;
-    authorization_token?: string;
-    tool_configuration?: BetaRequestMCPServerToolConfiguration;
-    key?: string;
-  };
+    name: string
+    url: string
+    authorization_token?: string
+    tool_configuration?: BetaRequestMCPServerToolConfiguration
+    key?: string
+  }
 }
 
-// Extend React's JSX namespace - THE KEY PATTERN
 declare module 'react' {
   namespace JSX {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface IntrinsicElements extends AgentryElements {}
   }
 }
 
 declare module 'react/jsx-runtime' {
   namespace JSX {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface IntrinsicElements extends AgentryElements {}
   }
 }
 
 declare module 'react/jsx-dev-runtime' {
   namespace JSX {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface IntrinsicElements extends AgentryElements {}
   }
 }
 
-export {};
+export {}

@@ -1,16 +1,16 @@
-import type { z } from 'zod';
-import type { InternalTool, ToolContext, ToolResult } from '../types/index.ts';
+import type { z } from 'zod'
+import type { InternalTool, ToolContext, ToolResult } from '../types/index.ts'
 
 /**
  * Convert a Zod schema to JSON schema format for the Anthropic API
  */
 export function zodToJsonSchema(schema: unknown): Record<string, unknown> {
-  const zodSchema = schema as { toJSONSchema?: () => Record<string, unknown> };
-  const jsonSchemaRaw = zodSchema.toJSONSchema?.() || {};
+  const zodSchema = schema as { toJSONSchema?: () => Record<string, unknown> }
+  const jsonSchemaRaw = zodSchema.toJSONSchema?.() || {}
   return {
     type: 'object' as const,
     ...jsonSchemaRaw,
-  };
+  }
 }
 
 /**
@@ -33,12 +33,15 @@ export function zodToJsonSchema(schema: unknown): Record<string, unknown> {
  * ```
  */
 export function defineTool<TSchema extends z.ZodType>(options: {
-  name: string;
-  description: string;
-  parameters: TSchema;
-  handler: (input: z.output<TSchema>, context: ToolContext) => Promise<ToolResult> | ToolResult;
+  name: string
+  description: string
+  parameters: TSchema
+  handler: (
+    input: z.output<TSchema>,
+    context: ToolContext,
+  ) => Promise<ToolResult> | ToolResult
 }): InternalTool<z.output<TSchema>> {
-  const { name, description, parameters, handler } = options;
+  const { name, description, parameters, handler } = options
 
   return {
     name,
@@ -46,24 +49,24 @@ export function defineTool<TSchema extends z.ZodType>(options: {
     inputSchema: parameters,
     jsonSchema: zodToJsonSchema(parameters),
     handler,
-  } as InternalTool<z.output<TSchema>>;
+  } as InternalTool<z.output<TSchema>>
 }
 
 /**
  * convert an InternalTool to the format expected by the Anthropic API
  */
 export function toApiTool(tool: InternalTool): {
-  type: 'custom';
-  name: string;
-  description: string;
-  input_schema: Record<string, unknown>;
+  type: 'custom'
+  name: string
+  description: string
+  input_schema: Record<string, unknown>
 } {
   return {
     type: 'custom',
     name: tool.name,
     description: tool.description,
     input_schema: tool.jsonSchema as Record<string, unknown>,
-  };
+  }
 }
 
 /**
@@ -72,13 +75,28 @@ export function toApiTool(tool: InternalTool): {
 export function parseToolInput<TInput>(
   tool: InternalTool<TInput>,
   input: unknown,
-): { success: true; data: TInput } | { success: false; error: { issues: Array<{ path: Array<string | number>; message: string }> } } {
-  const schema = tool.inputSchema as { safeParse: (input: unknown) => { success: boolean; data?: TInput; error?: { issues: Array<{ path: Array<string | number>; message: string }> } } };
-  const result = schema.safeParse(input);
-  if (result.success) {
-    return { success: true, data: result.data as TInput };
+):
+  | { success: true; data: TInput }
+  | {
+      success: false
+      error: {
+        issues: Array<{ path: Array<string | number>; message: string }>
+      }
+    } {
+  const schema = tool.inputSchema as {
+    safeParse: (input: unknown) => {
+      success: boolean
+      data?: TInput
+      error?: {
+        issues: Array<{ path: Array<string | number>; message: string }>
+      }
+    }
   }
-  return { success: false, error: result.error! };
+  const result = schema.safeParse(input)
+  if (result.success) {
+    return { success: true, data: result.data as TInput }
+  }
+  return { success: false, error: result.error! }
 }
 
 /**
@@ -89,27 +107,26 @@ export async function executeTool<TInput>(
   input: unknown,
   context: ToolContext,
 ): Promise<{ result: ToolResult; isError: boolean }> {
-  // parse and validate input
-  const parseResult = parseToolInput(tool, input);
+  const parseResult = parseToolInput(tool, input)
 
   if (!parseResult.success) {
     const errorMessage = parseResult.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-      .join(', ');
+      .join(', ')
     return {
       result: `Validation error: ${errorMessage}`,
       isError: true,
-    };
+    }
   }
 
   try {
-    const result = await tool.handler(parseResult.data, context);
-    return { result, isError: false };
+    const result = await tool.handler(parseResult.data, context)
+    return { result, isError: false }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error)
     return {
       result: `Error: ${message}`,
       isError: true,
-    };
+    }
   }
 }

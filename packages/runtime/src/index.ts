@@ -1,14 +1,11 @@
-// initialize subagent tool factory
-import { setSubagentToolFactory } from '@agentry/core';
-import { createSubagentTool } from './createSubagentTool.ts';
-setSubagentToolFactory(createSubagentTool);
+import { setSubagentToolFactory } from '@agentry/core'
+import { createSubagentTool } from './createSubagentTool.ts'
+setSubagentToolFactory(createSubagentTool)
 
-// runtime API
-export { render, createAgent, type RenderOptions } from './render.ts';
-export { AgentHandle, type AgentHandleEvents } from './handles/index.ts';
-export { renderSubagent, type RenderSubagentOptions } from './renderSubagent.ts';
+export { render, createAgent, type RenderOptions } from './render.ts'
+export { AgentHandle, type AgentHandleEvents } from './handles/index.ts'
+export { renderSubagent, type RenderSubagentOptions } from './renderSubagent.ts'
 
-// hooks (React-friendly API for accessing agent state)
 export {
   useExecutionState,
   useMessages,
@@ -19,9 +16,8 @@ export {
   createAgentStore,
   type AgentStore,
   type AgentStoreState,
-} from './hooks.ts';
+} from './hooks.ts'
 
-// re-export components for convenience
 export {
   Agent,
   Tool,
@@ -40,9 +36,8 @@ export {
   type ToolsProps,
   type WebSearchProps,
   type MCPProps,
-} from '@agentry/components';
+} from '@agentry/components'
 
-// re-export useful types from core
 export type {
   AgentResult,
   AgentStreamEvent,
@@ -57,4 +52,4 @@ export type {
   StepToolCall,
   StepToolResult,
   StepUsage,
-} from '@agentry/core';
+} from '@agentry/core'

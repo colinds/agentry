@@ -1,16 +1,14 @@
-import type { ReactNode } from 'react';
-import type { InternalTool } from '@agentry/core';
-import { zodToJsonSchema } from '@agentry/core';
+import type { ReactNode } from 'react'
+import type { InternalTool } from '@agentry/core'
+import { zodToJsonSchema } from '@agentry/core'
 
 export interface ToolProps<TInput = unknown> {
-  // either spread a defined tool or pass it directly
-  tool?: InternalTool<TInput>;
-  // or use the individual props
-  name?: string;
-  description?: string;
-  inputSchema?: InternalTool<TInput>['inputSchema'];
-  jsonSchema?: Record<string, unknown>;
-  handler?: InternalTool<TInput>['handler'];
+  tool?: InternalTool<TInput>
+  name?: string
+  description?: string
+  inputSchema?: InternalTool<TInput>['inputSchema']
+  jsonSchema?: Record<string, unknown>
+  handler?: InternalTool<TInput>['handler']
 }
 
 /**
@@ -29,7 +27,7 @@ export interface ToolProps<TInput = unknown> {
  * // or spread:
  * <Tool {...searchTool} />
  * ```
- * 
+ *
  * @example using inline props
  * ```tsx
  * <Tool
@@ -41,16 +39,13 @@ export interface ToolProps<TInput = unknown> {
  * ```
  */
 export function Tool<TInput = unknown>(props: ToolProps<TInput>): ReactNode {
-  // if tool prop is provided, use it directly
-  // otherwise construct from individual props
   const tool: InternalTool<TInput> = props.tool ?? {
     name: props.name!,
     description: props.description!,
     inputSchema: props.inputSchema!,
-    // Auto-generate jsonSchema from inputSchema if not provided
     jsonSchema: props.jsonSchema ?? zodToJsonSchema(props.inputSchema),
     handler: props.handler!,
-  };
+  }
 
-  return <tool tool={tool} key={tool.name} />;
+  return <tool tool={tool as InternalTool<unknown>} key={tool.name} />
 }

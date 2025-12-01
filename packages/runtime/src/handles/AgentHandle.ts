@@ -1,15 +1,15 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { createElement, type ReactNode } from 'react';
+import Anthropic from '@anthropic-ai/sdk'
+import { createElement, type ReactNode } from 'react'
 import {
   createContainer,
   updateContainer,
   createAgentStore,
   type AgentInstance,
   isAgentInstance,
-} from '@agentry/core';
-import { MODEL } from '@agentry/shared';
-import { AgentProvider } from '../hooks.ts';
-import { AbstractAgentHandle } from './AbstractAgentHandle.ts';
+} from '@agentry/core'
+import { MODEL } from '@agentry/shared'
+import { AgentProvider } from '../hooks.ts'
+import { AbstractAgentHandle } from './AbstractAgentHandle.ts'
 
 /**
  * Handle for controlling a regular agent at runtime
@@ -17,13 +17,12 @@ import { AbstractAgentHandle } from './AbstractAgentHandle.ts';
  * Provides methods to send messages, stream responses, and control execution
  */
 export class AgentHandle extends AbstractAgentHandle {
-  private element: ReactNode;
+  private element: ReactNode
 
   constructor(element: ReactNode, client?: Anthropic) {
-    const anthropicClient = client ?? new Anthropic();
-    const store = createAgentStore();
+    const anthropicClient = client ?? new Anthropic()
+    const store = createAgentStore()
 
-    // Create root agent instance as container
     const rootAgent: AgentInstance = {
       type: 'agent',
       props: {
@@ -42,45 +41,44 @@ export class AgentHandle extends AbstractAgentHandle {
       children: [],
       pendingUpdates: [],
       parent: null,
-    };
+    }
 
-    const containerInfo = createContainer(rootAgent);
+    const containerInfo = createContainer(rootAgent)
 
-    super(anthropicClient, containerInfo, store);
-    this.element = element;
+    super(anthropicClient, containerInfo, store)
+    this.element = element
   }
 
-  // Update the rendered element
   update(element: ReactNode): void {
-    this.element = element;
-    const wrappedElement = this.wrapWithProvider(element);
-    updateContainer(wrappedElement, this.containerInfo);
+    this.element = element
+    const wrappedElement = this.wrapWithProvider(element)
+    updateContainer(wrappedElement, this.containerInfo)
   }
 
-  // Wrap element with provider
   private wrapWithProvider(element: ReactNode): ReactNode {
-    return createElement(AgentProvider, { store: this.store, children: element });
+    return createElement(AgentProvider, {
+      store: this.store,
+      children: element,
+    })
   }
 
   protected shouldEmitEvents(): boolean {
-    return true;
+    return true
   }
 
-  protected async prepareAgent(firstMessage?: string): Promise<AgentInstance> {
-    // Render element to collect state (renderWithProvider handles AgentProvider wrapping)
-    await this.renderWithProvider(this.element);
+  protected async prepareAgent(): Promise<AgentInstance> {
+    await this.renderWithProvider(this.element)
 
-    const container = this.containerInfo.container;
+    const container = this.containerInfo.container
     if (!isAgentInstance(container)) {
-      throw new Error('Root container is not an agent instance');
+      throw new Error('Root container is not an agent instance')
     }
 
-    const agent = container.children[0];
+    const agent = container.children[0]
     if (!agent || !isAgentInstance(agent)) {
-      throw new Error('No agent element found in tree');
+      throw new Error('No agent element found in tree')
     }
 
-    return agent;
+    return agent
   }
 }
-

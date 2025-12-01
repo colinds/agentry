@@ -1,4 +1,3 @@
-// message types
 export {
   type BetaMessage,
   type BetaMessageParam,
@@ -13,9 +12,8 @@ export {
   isTextBlock,
   extractText,
   extractToolUses,
-} from './messages.ts';
+} from './messages.ts'
 
-// tool types
 export {
   type ToolResult,
   type ToolContext,
@@ -27,9 +25,8 @@ export {
   type PendingToolCall,
   type ToolExecutionResult,
   isRunnableTool,
-} from './tools.ts';
+} from './tools.ts'
 
-// state types
 export {
   type AgentState,
   type StateTransition,
@@ -37,9 +34,8 @@ export {
   transition,
   canAcceptMessages,
   isProcessing,
-} from './state.ts';
+} from './state.ts'
 
-// agent types
 export {
   type Model,
   type AgentProps,
@@ -48,12 +44,11 @@ export {
   type AgentResult,
   type CollectedAgentState,
   emptyCollectedState,
-} from './agent.ts';
+} from './agent.ts'
 
-// lifecycle types
 export {
   type OnStepFinishResult,
   type StepToolCall,
   type StepToolResult,
   type StepUsage,
-} from './lifecycle.ts';
+} from './lifecycle.ts'
