@@ -48,7 +48,6 @@ function ProjectManager() {
           inputSchema={z.object({
             language: z
               .string()
-              .optional()
               .describe(
                 'Preferred programming language (e.g., python, javascript)',
               ),

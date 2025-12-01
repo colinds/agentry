@@ -13,6 +13,7 @@ export {
   useAgentStore,
   AgentProvider,
   AgentContext,
+  InsideAgentContext,
   createAgentStore,
   type AgentStore,
   type AgentStoreState,

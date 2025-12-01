@@ -13,6 +13,8 @@ export interface AgentryElements {
   agent: Omit<AgentProps, 'model'> & {
     model?: AgentProps['model']
     children?: ReactNode
+    /** Deferred children - stored but not reconciled during parent render */
+    deferredChildren?: ReactNode
   }
 
   tool: { tool: InternalTool<unknown>; key?: string }

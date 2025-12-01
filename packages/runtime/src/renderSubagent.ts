@@ -1,12 +1,10 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
 import type { SubagentInstance, AgentResult } from '@agentry/core'
 import { SubagentHandle } from './handles/index.ts'
 
 export interface RenderSubagentOptions {
   client: Anthropic
   signal?: AbortSignal
-  initialMessages?: BetaMessageParam[]
 }
 
 /**

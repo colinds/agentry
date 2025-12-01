@@ -3,16 +3,11 @@ import {
   createContainer,
   createAgentStore,
   type AgentInstance,
-  type BetaMessageParam,
   type SubagentInstance,
   isAgentInstance,
 } from '@agentry/core'
 import { AbstractAgentHandle } from './AbstractAgentHandle.ts'
 
-/**
- * Handle for controlling a subagent at runtime
- * Used internally by renderSubagent to unify execution paths
- */
 export class SubagentHandle extends AbstractAgentHandle {
   private subagent: SubagentInstance
   private abortHandler: (() => void) | undefined = undefined
@@ -23,10 +18,9 @@ export class SubagentHandle extends AbstractAgentHandle {
     options: {
       client: Anthropic
       signal?: AbortSignal
-      initialMessages?: BetaMessageParam[]
     },
   ) {
-    const { client, signal, initialMessages = [] } = options
+    const { client, signal } = options
 
     const rootAgent: AgentInstance = {
       type: 'agent',
@@ -37,7 +31,7 @@ export class SubagentHandle extends AbstractAgentHandle {
       tools: [...subagent.tools],
       sdkTools: [...subagent.sdkTools],
       contextParts: [...subagent.contextParts],
-      messages: [...subagent.messages, ...initialMessages],
+      messages: [],
       mcpServers: [...subagent.mcpServers],
       children: [],
       pendingUpdates: subagent.pendingUpdates,
@@ -46,10 +40,6 @@ export class SubagentHandle extends AbstractAgentHandle {
 
     const containerInfo = createContainer(rootAgent)
     const store = createAgentStore()
-
-    if (initialMessages.length > 0) {
-      store.setState({ messages: [...initialMessages] })
-    }
 
     super(client, containerInfo, store)
 
@@ -73,6 +63,14 @@ export class SubagentHandle extends AbstractAgentHandle {
     return false
   }
 
+  /**
+   * Prepare the subagent for execution by rendering deferred children.
+   *
+   * This is the "resume" phase for deferred children - similar to how React
+   * resumes deferred Offscreen trees. We use renderWithProvider to reconcile
+   * the previously stored children, now wrapped in AgentProvider for correct
+   * hook context.
+   */
   protected override async prepareAgent(): Promise<AgentInstance> {
     const agent = this.instance
     if (!agent || !isAgentInstance(agent)) {
@@ -86,8 +84,13 @@ export class SubagentHandle extends AbstractAgentHandle {
       )
     }
 
+    // Render deferred children with AgentProvider for correct hook context
     if (this.subagent.reactChildren) {
       await this.renderWithProvider(this.subagent.reactChildren)
+    }
+
+    for (const msg of this.subagent.messages) {
+      agent.messages.push(msg)
     }
 
     return agent

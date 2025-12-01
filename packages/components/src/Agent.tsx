@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import type { AgentComponentProps } from '@agentry/core'
+import { useContext, type ReactNode } from 'react'
+import { InsideAgentContext, type AgentComponentProps } from '@agentry/core'
 
 export interface AgentProps extends Omit<
   AgentComponentProps,
@@ -13,7 +13,9 @@ export interface AgentProps extends Omit<
 }
 
 /**
- * agent component - the root container for an AI agent
+ * Agent component - the root container for an AI agent
+ *
+ * For nested agents (subagents), children are deferred until execution time.
  *
  * @example
  * ```tsx
@@ -26,5 +28,18 @@ export interface AgentProps extends Omit<
  * ```
  */
 export function Agent({ children, ...props }: AgentProps): ReactNode {
-  return <agent {...props}>{children}</agent>
+  const isNested = useContext(InsideAgentContext)
+
+  if (isNested) {
+    // defer children - pass as prop so reconciler stores them without reconciling
+    // children will be rendered later in SubagentHandle.prepareAgent() with proper context
+    return <agent {...props} deferredChildren={children} />
+  }
+
+  // root agent - render children normally, but wrap in InsideAgentContext so we can detect nested agents
+  return (
+    <InsideAgentContext.Provider value={true}>
+      <agent {...props}>{children}</agent>
+    </InsideAgentContext.Provider>
+  )
 }

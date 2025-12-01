@@ -228,7 +228,7 @@ function createMCPServerInstance(
 }
 
 export function createSubagentInstance(
-  props: AgentComponentProps,
+  props: AgentComponentProps & { deferredChildren?: React.ReactNode },
   inherited: PropagatedSettings = {},
 ): SubagentInstance {
   if (!props.name) {
@@ -271,6 +271,6 @@ export function createSubagentInstance(
     children: [],
     pendingUpdates: [],
     parent: null,
-    reactChildren: props.children || null,
+    reactChildren: props.deferredChildren ?? props.children ?? null,
   }
 }

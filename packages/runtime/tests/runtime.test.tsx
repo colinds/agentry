@@ -12,6 +12,41 @@ import {
 import { createStepMockClient, mockText, mockToolUse } from '@agentry/core'
 import { TEST_MODEL } from '@agentry/shared'
 
+test('root agent sees pre-loaded JSX messages', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('3+3 equals 6.')] },
+  ])
+
+  const runPromise = render(
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <System>You continue conversations</System>
+      {/* pre-loaded conversation history */}
+      <Message role="user">What is 2+2?</Message>
+      <Message role="assistant">2+2 equals 4.</Message>
+      <Message role="user">And what is 3+3?</Message>
+    </Agent>,
+    { client },
+  )
+
+  // wait for API call to be queued
+  await controller.waitForNextCall()
+
+  // check what messages were sent to the API
+  const call = controller.peekNextCall()
+  expect(call).not.toBeNull()
+
+  const messages = call!.params.messages
+  expect(messages.length).toBe(3)
+  expect(messages[0]).toEqual({ role: 'user', content: 'What is 2+2?' })
+  expect(messages[1]).toEqual({ role: 'assistant', content: '2+2 equals 4.' })
+  expect(messages[2]).toEqual({ role: 'user', content: 'And what is 3+3?' })
+
+  await controller.nextTurn()
+  const result = await runPromise
+
+  expect(result.content).toBe('3+3 equals 6.')
+})
+
 test('render creates an agent and executes in batch mode', async () => {
   const { client, controller } = createStepMockClient([
     { content: [mockText('Hello, world!')] },

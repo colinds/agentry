@@ -2,18 +2,15 @@ import * as React from 'react'
 import { useStore } from 'zustand'
 import {
   createAgentStore,
+  AgentContext,
+  InsideAgentContext,
   type AgentStore,
   type AgentStoreState,
   type AgentState,
   type BetaMessageParam,
 } from '@agentry/core'
 
-export { createAgentStore, type AgentStore, type AgentStoreState }
-
-/**
- * Context for accessing the agent store from within components
- */
-export const AgentContext = React.createContext<AgentStore | null>(null)
+export { createAgentStore, AgentContext, InsideAgentContext, type AgentStore, type AgentStoreState }
 
 /**
  * Get the agent store from context (throws if not found)

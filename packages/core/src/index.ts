@@ -6,6 +6,8 @@ export {
   type AgentStoreState,
 } from './store.ts'
 
+export { AgentContext, InsideAgentContext } from './context.ts'
+
 export {
   defineTool,
   toApiTool,

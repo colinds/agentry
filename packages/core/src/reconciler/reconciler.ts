@@ -280,17 +280,7 @@ export const reconciler = createReconciler<
 
   unhideTextInstance() {},
 
-  clearContainer(_container) {
-    if (isAgentInstance(_container)) {
-      _container.children = []
-      _container.systemParts = []
-      _container.tools = []
-      _container.sdkTools = []
-      _container.contextParts = []
-      _container.messages = []
-      _container.mcpServers = []
-    }
-  },
+  clearContainer() {},
 })
 
 function appendChild(parent: Instance, child: Instance): void {

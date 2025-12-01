@@ -376,6 +376,150 @@ test('subagents can be mounted during execution via state change', async () => {
   }
 })
 
+test('subagent sees pre-loaded JSX messages', async () => {
+  function PreloadedAgent() {
+    return (
+      <Agent
+        name="preloaded"
+        stream={false}
+        description="Agent with pre-loaded messages"
+      >
+        <System>You continue conversations</System>
+        {/* these JSX messages should be visible to the subagent */}
+        <Message role="user">What is 2+2?</Message>
+        <Message role="assistant">2+2 equals 4.</Message>
+        <Message role="user">And what is 3+3?</Message>
+      </Agent>
+    )
+  }
+
+  const { client, controller } = createStepMockClient([
+    // parent calls the subagent
+    {
+      content: [mockToolUse('preloaded', { task: 'continue' })],
+      stop_reason: 'tool_use',
+    },
+    // subagent responds (should see JSX messages + task)
+    { content: [mockText('3+3 equals 6.')] },
+    // parent finishes
+    { content: [mockText('Done')] },
+  ])
+
+  const runPromise = render(
+    <Agent model={TEST_MODEL} stream={false}>
+      <System>You delegate tasks</System>
+      <Tools>
+        <PreloadedAgent />
+      </Tools>
+      <Message role="user">Call preloaded agent</Message>
+    </Agent>,
+    { client },
+  )
+
+  // parent turn - calls preloaded
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+
+  // peek at the subagent's API call before resolving
+  const subagentCall = controller.peekNextCall()
+  expect(subagentCall).not.toBeNull()
+
+  const messages = subagentCall!.params.messages
+
+  // should have 4 messages: 3 JSX + 1 task from parent
+  expect(messages.length).toBe(4)
+  expect(messages[0]).toEqual({ role: 'user', content: 'What is 2+2?' })
+  expect(messages[1]).toEqual({ role: 'assistant', content: '2+2 equals 4.' })
+  expect(messages[2]).toEqual({ role: 'user', content: 'And what is 3+3?' })
+  expect(messages[3]!.role).toBe('user')
+  expect(messages[3]!.content).toContain('continue') // the task from parent
+
+  // finish execution
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  await controller.nextTurn()
+
+  await runPromise
+})
+
+test('useMessages works inside subagent children', async () => {
+  // tracks messages seen by hook inside subagent's children
+  const subagentMessagesRef: { current: string[] } = { current: [] }
+
+  // component rendered inside subagent that uses useMessages
+  function SubagentBody() {
+    const messages = useMessages()
+    // eslint-disable-next-line react-hooks/immutability
+    subagentMessagesRef.current = messages.map((m) => {
+      if (typeof m.content === 'string') return m.content
+      return JSON.stringify(m.content)
+    })
+    return null
+  }
+
+  function SubagentWithHook() {
+    return (
+      <Agent
+        name="hooked"
+        stream={false}
+        description="Agent with hook in children"
+      >
+        <System>You use hooks</System>
+        <Message role="user">Pre-loaded message</Message>
+        {/* SubagentBody uses useMessages - should see subagent's messages */}
+        <SubagentBody />
+      </Agent>
+    )
+  }
+
+  const { client, controller } = createStepMockClient([
+    // parent calls subagent
+    {
+      content: [mockToolUse('hooked', { task: 'test hooks' })],
+      stop_reason: 'tool_use',
+    },
+    // subagent responds
+    { content: [mockText('Hook test complete')] },
+    // parent finishes
+    { content: [mockText('Done')] },
+  ])
+
+  const runPromise = render(
+    <Agent model={TEST_MODEL} stream={false}>
+      <System>Parent</System>
+      <Tools>
+        <SubagentWithHook />
+      </Tools>
+      <Message role="user">Call the hooked agent</Message>
+    </Agent>,
+    { client },
+  )
+
+  // parent turn
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+
+  // subagent turn
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+
+  // finish
+  await controller.nextTurn()
+  await runPromise
+
+  // SubagentBody should have seen the subagent's messages (JSX + task)
+  // NOT the parent's messages
+  expect(subagentMessagesRef.current.length).toBeGreaterThan(0)
+  expect(subagentMessagesRef.current).toContain('Pre-loaded message')
+  expect(subagentMessagesRef.current.some((m) => m.includes('test hooks'))).toBe(
+    true,
+  )
+  // should NOT contain parent messages
+  expect(
+    subagentMessagesRef.current.some((m) => m.includes('Call the hooked agent')),
+  ).toBe(false)
+})
+
 test('tools can be unmounted during execution via state change', async () => {
   const temporaryCalledRef: { current: boolean } = { current: false }
   const disablerCalledRef: { current: boolean } = { current: false }

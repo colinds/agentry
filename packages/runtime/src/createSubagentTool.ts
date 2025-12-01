@@ -1,5 +1,4 @@
 import type { z } from 'zod'
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
 import type { SubagentInstance, InternalTool } from '@agentry/core'
 import { renderSubagent } from './renderSubagent.ts'
 
@@ -47,17 +46,15 @@ export function createSubagentTool(subagent: SubagentInstance): InternalTool {
         task: string
         context?: string
       }
-      const childMessages: BetaMessageParam[] = [
-        {
-          role: 'user' as const,
-          content: additionalContext ? `${additionalContext}\n\n${task}` : task,
-        },
-      ]
+
+      subagent.messages.push({
+        role: 'user' as const,
+        content: additionalContext ? `${additionalContext}\n\n${task}` : task,
+      })
 
       const result = await renderSubagent(subagent, {
         client: toolContext.client,
         signal: toolContext.signal,
-        initialMessages: childMessages,
       })
 
       return result.content
