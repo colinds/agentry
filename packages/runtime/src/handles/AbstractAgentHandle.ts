@@ -8,6 +8,7 @@ import {
   updateContainer,
   ExecutionEngine,
   createEngineConfig,
+  isProcessing,
   type ContainerInfo,
   type AgentInstance,
   type AgentResult,
@@ -347,7 +348,12 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
   // Close and cleanup
   close(): void {
-    this.abort();
+    // Only abort if execution is still in progress
+    const state = this.store.getState().executionState;
+    if (isProcessing(state)) {
+      this.abort();
+    }
+
     this.cleanup();
     flushSync(() => {
       unmountContainer(this.containerInfo);
@@ -360,6 +366,14 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
    */
   protected cleanup(): void {
     // Default: no additional cleanup
+  }
+
+  /**
+   * Test-only method to access containerInfo for testing purposes
+   * @internal This method is only intended for use in tests
+   */
+  __getContainerInfo(): ContainerInfo {
+    return this.containerInfo;
   }
 }
 

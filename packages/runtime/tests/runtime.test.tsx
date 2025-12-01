@@ -1,21 +1,24 @@
 import { test, expect } from 'bun:test';
 import { z } from 'zod';
 import { render, defineTool, Agent, System, Tools, Tool, Message } from '../src/index.ts';
-import { createMockClient, mockText, mockToolUse } from '@agentry/core';
+import { createStepMockClient, mockText, mockToolUse } from '@agentry/core';
 import { TEST_MODEL } from '@agentry/shared';
 
 test('render creates an agent and executes in batch mode', async () => {
-  const client = createMockClient([
+  const { client, controller } = createStepMockClient([
     { content: [mockText('Hello, world!')] },
   ]);
 
-  const result = await render(
+  const runPromise = render(
     <Agent model={TEST_MODEL} maxTokens={100} maxIterations={1} stream={false}>
       <System>You are a test assistant. Be very brief.</System>
       <Message role="user">Say hello in 3 words</Message>
     </Agent>,
     { client },
   );
+
+  await controller.nextTurn();
+  const result = await runPromise;
 
   expect(result).toBeDefined();
   expect(result.content).toBe('Hello, world!');
@@ -39,14 +42,14 @@ test('render handles tools correctly', async () => {
     },
   });
 
-  const client = createMockClient([
+  const { client, controller } = createStepMockClient([
     // First response: model calls the tool
     { content: [mockToolUse('get_info', { query: 'testing' })], stop_reason: 'tool_use' },
     // Second response: model responds with final text
     { content: [mockText('I found info about testing.')] },
   ]);
 
-  const result = await render(
+  const runPromise = render(
     <Agent model={TEST_MODEL} maxTokens={500} stream={false}>
       <System>You are a test assistant. Use the get_info tool.</System>
       <Tools>
@@ -57,34 +60,45 @@ test('render handles tools correctly', async () => {
     { client },
   );
 
+  await controller.nextTurn();
+  await controller.waitForNextCall();
+  await controller.nextTurn();
+  const result = await runPromise;
+
   expect(toolCalled).toBe(true);
   expect(result.content).toBe('I found info about testing.');
   expect(result.messages.length).toBeGreaterThan(2);
 });
 
 test('interactive mode allows multiple turns', async () => {
-  const client = createMockClient([
+  const { client, controller } = createStepMockClient([
     { content: [mockText('Hi there!')] },
     { content: [mockText('One, two, three.')] },
   ]);
 
-  const agent = await render(
+  const agentPromise = render(
     <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
     { mode: 'interactive', client },
   );
 
+  const agent = await agentPromise;
+
   try {
     // send first message
-    const result1 = await agent.sendMessage('Say hi');
+    const sendPromise1 = agent.sendMessage('Say hi');
+    await controller.nextTurn();
+    const result1 = await sendPromise1;
     expect(result1.content).toBe('Hi there!');
 
     // check we have messages from the first turn
     expect(agent.messages.length).toBeGreaterThanOrEqual(2);
 
     // send second message
-    const result2 = await agent.sendMessage('Count to three');
+    const sendPromise2 = agent.sendMessage('Count to three');
+    await controller.nextTurn();
+    const result2 = await sendPromise2;
     expect(result2.content).toBe('One, two, three.');
 
     // messages should have accumulated
@@ -95,16 +109,18 @@ test('interactive mode allows multiple turns', async () => {
 });
 
 test('stream() accepts message parameter for first turn', async () => {
-  const client = createMockClient([
+  const { client, controller } = createStepMockClient([
     { content: [mockText('Hi there!')] },
   ]);
 
-  const agent = await render(
+  const agentPromise = render(
     <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
     { mode: 'interactive', client },
   );
+
+  const agent = await agentPromise;
 
   try {
     let result;
@@ -112,9 +128,13 @@ test('stream() accepts message parameter for first turn', async () => {
     // Use stream() with message parameter on first turn
     // The stream() method returns an async iterator that yields events
     // and finally returns the result
-    for await (const event of agent.stream('Say hi')) {
-      result = event;
-    }
+    const streamPromise = (async () => {
+      for await (const event of agent.stream('Say hi')) {
+        result = event;
+      }
+    })();
+    await controller.nextTurn();
+    await streamPromise;
 
     // Verify message was added to conversation history
     expect(agent.messages.length).toBeGreaterThanOrEqual(2);
@@ -125,28 +145,38 @@ test('stream() accepts message parameter for first turn', async () => {
 });
 
 test('stream() works with message for subsequent turns', async () => {
-  const client = createMockClient([
+  const { client, controller } = createStepMockClient([
     { content: [mockText('Hi there!')] },
     { content: [mockText('One, two, three.')] },
   ]);
 
-  const agent = await render(
+  const agentPromise = render(
     <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
     { mode: 'interactive', client },
   );
 
+  const agent = await agentPromise;
+
   try {
     // First turn with stream() and message parameter
-    for await (const event of agent.stream('Say hi')) {
-      // consume stream
-    }
+    const streamPromise1 = (async () => {
+      for await (const event of agent.stream('Say hi')) {
+        // consume stream
+      }
+    })();
+    await controller.nextTurn();
+    await streamPromise1;
 
     // Second turn with stream() and message parameter
-    for await (const event of agent.stream('Count to three')) {
-      // consume stream
-    }
+    const streamPromise2 = (async () => {
+      for await (const event of agent.stream('Count to three')) {
+        // consume stream
+      }
+    })();
+    await controller.nextTurn();
+    await streamPromise2;
 
     // Verify both messages in history
     expect(agent.messages.length).toBeGreaterThanOrEqual(4);
@@ -158,14 +188,16 @@ test('stream() works with message for subsequent turns', async () => {
 });
 
 test('stream() throws error when called without message on first turn', async () => {
-  const client = createMockClient([]);
+  const { client } = createStepMockClient([]);
 
-  const agent = await render(
+  const agentPromise = render(
     <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
     { mode: 'interactive', client },
   );
+
+  const agent = await agentPromise;
 
   try {
     // Should throw error when no message provided
@@ -185,22 +217,28 @@ test('stream() throws error when called without message on first turn', async ()
 });
 
 test('stream() throws error when called without message on subsequent turns', async () => {
-  const client = createMockClient([
+  const { client, controller } = createStepMockClient([
     { content: [mockText('Hi there!')] },
   ]);
 
-  const agent = await render(
+  const agentPromise = render(
     <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
     { mode: 'interactive', client },
   );
 
+  const agent = await agentPromise;
+
   try {
     // First turn with message
-    for await (const event of agent.stream('Say hi')) {
-      // consume stream
-    }
+    const streamPromise1 = (async () => {
+      for await (const event of agent.stream('Say hi')) {
+        // consume stream
+      }
+    })();
+    await controller.nextTurn();
+    await streamPromise1;
 
     // Second turn without message should also throw
     let errorThrown = false;
@@ -230,7 +268,7 @@ test('handles multiple tool calls in sequence', async () => {
     },
   });
 
-  const client = createMockClient([
+  const { client, controller } = createStepMockClient([
     // First call
     { content: [mockToolUse('increment', {}, 'tool_1')], stop_reason: 'tool_use' },
     // Second call
@@ -239,7 +277,7 @@ test('handles multiple tool calls in sequence', async () => {
     { content: [mockText('Done! Counter is 2.')] },
   ]);
 
-  const result = await render(
+  const runPromise = render(
     <Agent model={TEST_MODEL} maxTokens={500} stream={false}>
       <Tools>
         <Tool {...counterTool} />
@@ -249,12 +287,19 @@ test('handles multiple tool calls in sequence', async () => {
     { client },
   );
 
+  await controller.nextTurn();
+  await controller.waitForNextCall();
+  await controller.nextTurn();
+  await controller.waitForNextCall();
+  await controller.nextTurn();
+  const result = await runPromise;
+
   expect(callCount).toBe(2);
   expect(result.content).toBe('Done! Counter is 2.');
 });
 
 test('respects maxIterations limit', async () => {
-  const client = createMockClient([
+  const { client, controller } = createStepMockClient([
     // Keep requesting tool use forever
     { content: [mockToolUse('test', {})], stop_reason: 'tool_use' },
   ]);
@@ -266,7 +311,7 @@ test('respects maxIterations limit', async () => {
     handler: async () => 'ok',
   });
 
-  const result = await render(
+  const runPromise = render(
     <Agent model={TEST_MODEL} maxTokens={100} maxIterations={3} stream={false}>
       <Tools>
         <Tool {...tool} />
@@ -275,6 +320,14 @@ test('respects maxIterations limit', async () => {
     </Agent>,
     { client },
   );
+
+  // Step through maxIterations (3 turns)
+  await controller.nextTurn();
+  await controller.waitForNextCall();
+  await controller.nextTurn();
+  await controller.waitForNextCall();
+  await controller.nextTurn();
+  const result = await runPromise;
 
   // Should stop after maxIterations even if model keeps calling tools
   expect(result.stopReason).toBe('tool_use');

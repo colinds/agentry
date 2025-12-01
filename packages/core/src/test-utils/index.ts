@@ -1,1 +1,8 @@
-export { createMockClient, mockToolUse, mockText, type MockResponse } from './mockClient.ts';
+export {
+  createStepMockClient,
+  mockToolUse,
+  mockText,
+  type MockResponse,
+  type StepMockController,
+  type PendingCall,
+} from './mockClient.ts';

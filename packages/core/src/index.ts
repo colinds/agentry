@@ -29,7 +29,14 @@ export {
 } from './reconciler/index.ts';
 
 // test utilities
-export { createMockClient, mockToolUse, mockText, type MockResponse } from './test-utils/index.ts';
+export {
+  createStepMockClient,
+  mockToolUse,
+  mockText,
+  type MockResponse,
+  type StepMockController,
+  type PendingCall,
+} from './test-utils/index.ts';
 
 // debug utilities
 export { debug, isDebugEnabled } from './debug.ts';

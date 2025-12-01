@@ -72,6 +72,11 @@ function SubagentComponent({ config }: { config: Subagent }) {
       name={config.name} 
       description={config.description} 
       temperature={config.temperature}
+      onComplete={(result) => {
+        console.log(`\n📝 [Subagent "${config.name}"] Completed`);
+        console.log(`   Result: ${result.content}`);
+        console.log(`   Tokens: ${result.usage.outputTokens}`);
+      }}
       onStepFinish={(result) => {
         console.log(`\n📝 [Subagent "${config.name}"] Step ${result.stepNumber} finished`);
         console.log(`   Finish reason: ${result.finishReason}`);

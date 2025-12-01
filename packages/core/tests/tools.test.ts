@@ -2,13 +2,14 @@ import { test, expect } from 'bun:test';
 import { z } from 'zod';
 import { defineTool, parseToolInput, executeTool, toApiTool, zodToJsonSchema } from '../src/tools/index.ts';
 import { initialState, transition, canAcceptMessages, isProcessing, type InternalTool } from '../src/types/index.ts';
-import { createMockClient } from '../src/test-utils/index.ts';
+import { createStepMockClient } from '../src/test-utils/index.ts';
 import type { ToolContext } from '../src/types/tools.ts';
 
 // Mock ToolContext for tests
+const { client } = createStepMockClient([]);
 const mockContext: ToolContext = {
   agentName: 'test-agent',
-  client: createMockClient([]),
+  client,
 };
 
 test('defineTool creates a type-safe tool', () => {

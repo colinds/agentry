@@ -5,6 +5,9 @@
   "workspaces": [
     "packages/*"
   ],
+  "scripts": {
+    "test": "bun test packages/runtime/tests packages/core/tests"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/react": "^19",
