@@ -11,7 +11,7 @@ import type {
   BetaTextBlockParam,
   BetaRequestMCPServerURLDefinition,
 } from '@anthropic-ai/sdk/resources/beta';
-import { unstable_scheduleCallback, unstable_ImmediatePriority } from 'scheduler';
+import { yieldToSchedulerImmediate } from '../scheduler.ts';
 import type {
   AgentState,
   AgentStreamEvent,
@@ -257,9 +257,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           // 1. flushSync - processes synchronous React work
           // 2. Immediate priority yield - ensures concurrent scheduler commits
           flushSync(() => {});
-          await new Promise<void>(resolve => {
-            unstable_scheduleCallback(unstable_ImmediatePriority, () => resolve());
-          });
+          await yieldToSchedulerImmediate();
 
           // Process any pending updates (dynamic tool adds/removes from setState)
           this.#processPendingUpdates();

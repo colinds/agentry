@@ -43,3 +43,6 @@ export { debug, isDebugEnabled } from './debug.ts';
 
 // constants
 export { ANTHROPIC_BETAS, type AnthropicBeta } from './constants.ts';
+
+// scheduler utilities
+export { yieldToScheduler, yieldToSchedulerImmediate, scheduleOnIdle } from './scheduler.ts';

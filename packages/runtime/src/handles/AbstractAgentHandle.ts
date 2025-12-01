@@ -1,7 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { EventEmitter } from 'eventemitter3';
 import { createElement, type ReactNode } from 'react';
-import { unstable_scheduleCallback, unstable_NormalPriority } from 'scheduler';
 import {
   unmountContainer,
   flushSync,
@@ -9,6 +8,7 @@ import {
   ExecutionEngine,
   createEngineConfig,
   isProcessing,
+  yieldToScheduler,
   type ContainerInfo,
   type AgentInstance,
   type AgentResult,
@@ -164,16 +164,6 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   }
 
   /**
-   * Yield to React's scheduler for pending effects
-   * Should be called after rendering React elements to ensure effects run
-   */
-  protected async yieldToScheduler(): Promise<void> {
-    await new Promise<void>((resolve) => {
-      unstable_scheduleCallback(unstable_NormalPriority, () => resolve());
-    });
-  }
-
-  /**
    * Render React children with AgentProvider wrapper
    * Uses flushSync for consistent synchronous completion, then yields to scheduler
    * This ensures React effects complete before execution starts
@@ -193,7 +183,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     });
 
     // Yield to React's scheduler for pending effects
-    await this.yieldToScheduler();
+    await yieldToScheduler();
   }
 
   /**

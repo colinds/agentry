@@ -28,5 +28,5 @@
     "noPropertyAccessFromIndexSignature": false
   },
   "include": ["packages/**/*", "examples/**/*", "index.ts"],
-  "exclude": ["anthropic-sdk-typescript", "node_modules"]
+  "exclude": ["node_modules"]
 }

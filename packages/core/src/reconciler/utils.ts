@@ -1,7 +1,5 @@
 import * as React from 'react';
-import type { ElementProps } from '../instances/index.ts';
-import type { AgentInstance, Instance } from '../instances/types.ts';
-import { unstable_IdlePriority as idlePriority, unstable_scheduleCallback as scheduleCallback } from 'scheduler';
+import { scheduleOnIdle } from '../scheduler.ts';
 
 // Props that should be skipped during diffing (React internal + callbacks)
 const RESERVED_PROPS = [
@@ -87,13 +85,7 @@ export function diffProps<T>(
  * Schedule disposal during idle time
  */
 export function disposeOnIdle(cleanup: () => void): void {
-  scheduleCallback(idlePriority, () => {
-    try {
-      cleanup();
-    } catch {
-      // no-op
-    }
-  });
+  scheduleOnIdle(cleanup);
 }
 
 /**

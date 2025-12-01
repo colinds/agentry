@@ -6,12 +6,23 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "bun test packages/runtime/tests packages/core/tests"
+    "test": "bun test ./packages/**/tests",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf node_modules packages/*/node_modules",
+    "example:basic": "bun run packages/examples/src/basic.tsx",
+    "example:chatbot": "bun run packages/examples/src/chatbot.tsx",
+    "example:create-ephemeral-subagent": "bun run packages/examples/src/create-ephemeral-subagent.tsx",
+    "example:create-subagent": "bun run packages/examples/src/create-subagent.tsx",
+    "example:dynamic-tools": "bun run packages/examples/src/dynamic-tools.tsx",
+    "example:hooks": "bun run packages/examples/src/hooks.tsx",
+    "example:interactive": "bun run packages/examples/src/interactive.tsx",
+    "example:mcp": "bun run packages/examples/src/mcp.tsx",
+    "example:subagents": "bun run packages/examples/src/subagents.tsx",
+    "example:web-search": "bun run packages/examples/src/web-search.tsx"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/react": "^19",
-    "react": "19",
+    "@types/react": "^19.2.7",
     "typescript": "^5"
   }
 }
