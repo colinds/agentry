@@ -4,6 +4,7 @@ import type {
   Instance,
   AgentInstance,
   SubagentInstance,
+  AgentToolInstance,
   ToolInstance,
   SdkToolInstance,
   SystemInstance,
@@ -12,6 +13,7 @@ import type {
   ToolsContainerInstance,
   MCPServerInstance,
   AgentComponentProps,
+  AgentToolComponentProps,
   ToolComponentProps,
   SdkToolComponentProps,
   SystemComponentProps,
@@ -25,8 +27,12 @@ import type { AgentProps, CompactionControl, Model } from '../types/index.ts'
 
 type RequiredAgentProps = { [K in keyof Required<AgentProps>]: AgentProps[K] }
 
-interface SubagentCreationProps extends Omit<AgentComponentProps, 'children'> {
-  deferredChildren?: React.ReactNode
+interface SubagentCreationProps extends Omit<
+  AgentComponentProps,
+  'children' | 'model'
+> {
+  model?: AgentComponentProps['model']
+  agentNode?: React.ReactNode
 }
 
 interface PropagatedSettings {
@@ -36,13 +42,13 @@ interface PropagatedSettings {
   compactionControl?: CompactionControl
   maxTokens?: number
   maxIterations?: number
-  insideAgent?: boolean
   model?: Model
   thinking?: AgentProps['thinking']
 }
 
 export type ElementType =
   | 'agent'
+  | 'agent_tool'
   | 'tool'
   | 'sdk_tool'
   | 'system'
@@ -53,6 +59,7 @@ export type ElementType =
 
 export type ElementProps =
   | AgentComponentProps
+  | AgentToolComponentProps
   | ToolComponentProps
   | SdkToolComponentProps
   | SystemComponentProps
@@ -65,16 +72,14 @@ export function createInstance(
   type: ElementType,
   props: ElementProps,
   rootContainer: Instance | unknown,
-  hostContext: PropagatedSettings = {},
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _hostContext: PropagatedSettings = {},
 ): Instance {
   switch (type) {
     case 'agent':
-      // check if this is a child agent (we're nested inside another agent)
-      if (hostContext.insideAgent) {
-        return createSubagentInstance(props as AgentComponentProps, hostContext)
-      }
-      // This is the root agent
       return createAgentInstance(props as AgentComponentProps, rootContainer)
+    case 'agent_tool':
+      return createAgentToolInstance(props as AgentToolComponentProps)
     case 'tool':
       return createToolInstance(props as ToolComponentProps)
     case 'sdk_tool':
@@ -146,6 +151,21 @@ function createToolInstance(props: ToolComponentProps): ToolInstance {
   return {
     type: 'tool',
     tool: props.tool,
+    parent: null,
+  }
+}
+
+function createAgentToolInstance(
+  props: AgentToolComponentProps,
+): AgentToolInstance {
+  const { agentTool } = props
+  return {
+    type: 'agent_tool',
+    name: agentTool.name,
+    description: agentTool.description,
+    parameters: agentTool.parameters,
+    jsonSchema: agentTool.jsonSchema,
+    agent: agentTool.agent,
     parent: null,
   }
 }
@@ -240,12 +260,19 @@ export function createSubagentInstance(
     throw new Error('Child agents must have a name property')
   }
 
+  const model = props.model ?? inherited.model
+  if (!model) {
+    throw new Error(
+      `Subagent "${props.name}" requires a model. Either provide model in props or ensure parent agent has a model.`,
+    )
+  }
+
   return {
     type: 'subagent',
     name: props.name,
     description: props.description,
     props: {
-      model: props.model ?? inherited.model,
+      model,
       name: props.name,
       description: props.description,
       // inherit with fallback to defaults (halve numeric values for subagents)
@@ -276,6 +303,6 @@ export function createSubagentInstance(
     mcpServers: [],
     children: [],
     parent: null,
-    reactChildren: props.deferredChildren ?? null,
+    agentNode: props.agentNode ?? null,
   }
 }

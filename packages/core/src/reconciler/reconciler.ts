@@ -79,8 +79,7 @@ interface PropagatedSettings {
   compactionControl?: CompactionControl
   maxTokens?: number
   maxIterations?: number
-  insideAgent?: boolean // track if we're nested inside an agent
-  model?: Model // model to inherit for subagents
+  model?: Model
   thinking?: AgentProps['thinking']
 }
 
@@ -166,16 +165,11 @@ export const reconciler = createReconciler<
       compactionControl: rootContainer.props.compactionControl,
       maxTokens: rootContainer.props.maxTokens,
       maxIterations: rootContainer.props.maxIterations,
-      insideAgent: false, // root level, not inside an agent yet
-      model: rootContainer.props.model, // propagate model for subagents
+      model: rootContainer.props.model,
       thinking: rootContainer.props.thinking,
     }
   },
-  getChildHostContext(parentHostContext, type, _rootContainer) {
-    void _rootContainer
-    if (type === 'agent') {
-      return { ...parentHostContext, insideAgent: true }
-    }
+  getChildHostContext(parentHostContext) {
     return parentHostContext
   },
   getPublicInstance(instance: HostConfig['instance']) {
@@ -365,9 +359,10 @@ function removeChild(parent: Instance, child: Instance): void {
 }
 
 function collectFromChild(agent: AgentLike, child: Instance): void {
+  const agentName = isAgentInstance(agent) ? agent.props.name : agent.name
   debug(
     'reconciler',
-    `collectFromChild: agent=${isAgentInstance(agent) ? agent.props.name : agent.name}, child.type=${child.type}, isSubagent=${isSubagentInstance(child)}`,
+    `collectFromChild: agent=${agentName}, child.type=${child.type}, isSubagent=${isSubagentInstance(child)}`,
   )
   const handler = handlers.get(child.type)
   if (handler) {

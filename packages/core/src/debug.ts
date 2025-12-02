@@ -27,9 +27,3 @@ export function debug(category: string, message: string, data?: unknown): void {
   }
 }
 
-/**
- * Check if debug mode is enabled
- */
-export function isDebugEnabled(): boolean {
-  return isDebug
-}

@@ -145,7 +145,6 @@ export function createStepMockClient(responses: MockResponse[]): {
   const controller: StepMockController = {
     async nextTurn() {
       if (pendingCalls.length === 0) {
-        // Wait for a call to be queued using a promise
         await new Promise<void>((resolve) => {
           waitForCallResolve = resolve
         })
@@ -194,9 +193,8 @@ export function createStepMockClient(responses: MockResponse[]): {
 
     async waitForNextCall() {
       if (pendingCalls.length > 0) {
-        return // Already have a call queued
+        return
       }
-      // Wait for a call to be queued
       await new Promise<void>((resolve) => {
         waitForCallResolve = resolve
       })
@@ -262,13 +260,13 @@ export function createStepMockClient(responses: MockResponse[]): {
     beta: {
       messages: {
         create: async (params: unknown, options?: { signal?: AbortSignal }) => {
-          // Check for abort signal
+          const p = params as CreateMessageParams
+
           if (options?.signal?.aborted) {
             throw new Error('Request aborted')
           }
 
           return new Promise<BetaMessage>((resolve, reject) => {
-            // Handle abort after promise creation
             if (options?.signal) {
               options.signal.addEventListener('abort', () => {
                 const index = pendingCalls.findIndex((c) => c.params === params)
@@ -288,7 +286,6 @@ export function createStepMockClient(responses: MockResponse[]): {
 
             pendingCalls.push(call)
 
-            // Notify any waiting nextTurn() calls
             if (waitForCallResolve) {
               waitForCallResolve()
             }

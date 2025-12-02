@@ -394,6 +394,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const context: ToolContext = {
       agentName: this.config.agentName ?? 'agent',
       client: this.client,
+      model: this.config.model,
       signal:
         currentState.status === 'streaming'
           ? currentState.abortController.signal

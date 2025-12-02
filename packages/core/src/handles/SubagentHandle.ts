@@ -22,22 +22,22 @@ export class SubagentHandle extends AbstractAgentHandle {
   ) {
     const { client, signal } = options
 
-    const rootAgent: AgentInstance = {
+    const container: AgentInstance = {
       type: 'agent',
       props: { ...subagent.props },
       client,
       engine: null,
-      systemParts: [...subagent.systemParts],
-      tools: [...subagent.tools],
-      sdkTools: [...subagent.sdkTools],
-      contextParts: [...subagent.contextParts],
+      systemParts: [],
+      tools: [],
+      sdkTools: [],
+      contextParts: [],
       messages: [],
-      mcpServers: [...subagent.mcpServers],
+      mcpServers: [],
       children: [],
       parent: null,
     }
 
-    const containerInfo = createContainer(rootAgent)
+    const containerInfo = createContainer(container)
     const store = createAgentStore()
 
     super(client, containerInfo, store)
@@ -46,16 +46,12 @@ export class SubagentHandle extends AbstractAgentHandle {
 
     if (signal) {
       const abortHandler = () => {
-        if (rootAgent.engine) {
-          rootAgent.engine.abort()
-        }
+        this.engine?.abort()
       }
       signal.addEventListener('abort', abortHandler)
       this.abortHandler = abortHandler
       this.abortSignal = signal
     }
-
-    this.instance = rootAgent
   }
 
   protected shouldEmitEvents(): boolean {
@@ -63,27 +59,35 @@ export class SubagentHandle extends AbstractAgentHandle {
   }
 
   protected override async prepareAgent(): Promise<AgentInstance> {
-    const agent = this.instance
-    if (!agent || !isAgentInstance(agent)) {
-      throw new Error('Subagent instance not found')
+    if (!this.subagent.agentNode) {
+      throw new Error('Subagent has no agent element to render')
     }
 
-    if (!agent.props.model) {
+    await this.renderWithProvider(this.subagent.agentNode)
+
+    const container = this.containerInfo.container
+    if (!isAgentInstance(container)) {
+      throw new Error('Subagent container not found')
+    }
+
+    const agentInstance = container.children[0]
+    if (!agentInstance || !isAgentInstance(agentInstance)) {
       throw new Error(
-        `Subagent has no model. ` +
-          `Either specify a model on the subagent or ensure the parent agent has a model to inherit.`,
+        'Agent element did not render an AgentInstance. The agent function must return an <Agent> element.',
       )
     }
 
-    if (this.subagent.reactChildren) {
-      await this.renderWithProvider(this.subagent.reactChildren)
+    if (!agentInstance.props.model && this.subagent.props.model) {
+      agentInstance.props.model = this.subagent.props.model
     }
 
     for (const msg of this.subagent.messages) {
-      agent.messages.push(msg)
+      agentInstance.messages.push(msg)
     }
 
-    return agent
+    agentInstance.client = this.client
+
+    return agentInstance
   }
 
   protected override cleanup(): void {

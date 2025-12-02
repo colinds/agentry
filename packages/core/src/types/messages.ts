@@ -14,24 +14,6 @@ export type {
   BetaTextBlock,
 }
 
-export interface UserMessage {
-  role: 'user'
-  content: string | BetaContentBlock[]
-}
-
-export interface AssistantMessage {
-  role: 'assistant'
-  content: BetaContentBlock[]
-}
-
-export type Message = UserMessage | AssistantMessage
-
-export interface ToolResultContent {
-  type: 'tool_result'
-  tool_use_id: string
-  content: string | BetaContentBlock[]
-  is_error?: boolean
-}
 
 export function isToolUseBlock(
   block: BetaContentBlock,

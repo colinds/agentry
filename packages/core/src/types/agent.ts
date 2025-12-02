@@ -1,10 +1,8 @@
 import type { Model } from '@anthropic-ai/sdk/resources/messages'
 import type {
   BetaMessageParam,
-  BetaToolUnion,
   BetaThinkingConfigParam,
 } from '@anthropic-ai/sdk/resources/beta'
-import type { InternalTool } from './tools.ts'
 import type { OnStepFinishResult } from './lifecycle.ts'
 
 export type { Model }
@@ -55,20 +53,3 @@ export interface AgentResult {
   thinking?: string
 }
 
-export interface CollectedAgentState {
-  systemParts: Array<{ content: string; priority: number }>
-  tools: InternalTool[]
-  sdkTools: BetaToolUnion[]
-  contextParts: Array<{ content: string; priority: number }>
-  messages: BetaMessageParam[]
-}
-
-export function emptyCollectedState(): CollectedAgentState {
-  return {
-    systemParts: [],
-    tools: [],
-    sdkTools: [],
-    contextParts: [],
-    messages: [],
-  }
-}

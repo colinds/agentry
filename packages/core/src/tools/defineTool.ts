@@ -84,6 +84,20 @@ export function parseToolInput<TInput>(
 }
 
 /**
+ * format validation error issues into a human-readable string
+ */
+export function formatValidationError(
+  error: {
+    issues: Array<{ path: Array<string | number>; message: string }>
+  },
+): string {
+  const errorMessage = error.issues
+    .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+    .join(', ')
+  return `Validation error: ${errorMessage}`
+}
+
+/**
  * execute a tool with validated input
  */
 export async function executeTool<TInput>(
@@ -94,11 +108,8 @@ export async function executeTool<TInput>(
   const parseResult = parseToolInput(tool, input)
 
   if (!parseResult.success) {
-    const errorMessage = parseResult.error.issues
-      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-      .join(', ')
     return {
-      result: `Validation error: ${errorMessage}`,
+      result: formatValidationError(parseResult.error),
       isError: true,
     }
   }

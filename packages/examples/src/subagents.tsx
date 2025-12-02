@@ -1,39 +1,30 @@
-import { render, Agent, System, Tools, Message, useMessages } from 'agentry'
+import { render, Agent, System, Tools, Message, AgentTool } from 'agentry'
 import { MODEL } from '@agentry/shared'
+import { z } from 'zod'
 
-function ResearcherAgent() {
-  const messages = useMessages()
-  console.log(
-    `[Researcher] Subagent has ${messages.length} messages: ${JSON.stringify(messages)}`,
-  )
+// Example showing the new AgentTool component for explicit agent nesting
+// AgentTool replaces implicit nesting and provides type-safe parameter passing
 
+function ResearcherAgent({ topic }: { topic: string }) {
   return (
-    <Agent
-      name="researcher"
-      description="Research specialist who finds information"
-    >
-      <System>
-        You are a research expert. Provide thorough, accurate information.
-      </System>
+    <Agent name="researcher">
+      <System>You are a research expert.</System>
+      <Message role="user">Research the topic: {topic}</Message>
     </Agent>
   )
 }
 
-function CoderAgent() {
-  const messages = useMessages()
-  console.log(
-    `[Coder] Subagent has ${messages.length} messages: ${JSON.stringify(messages)}`,
-  )
-
+function CoderAgent({
+  task,
+  language,
+}: {
+  task: string
+  language: 'javascript' | 'typescript' | 'python'
+}) {
   return (
-    <Agent
-      name="coder"
-      description="Code generation specialist"
-      temperature={0.3} // Override: lower temp for coding
-    >
-      <System>
-        You are a coding expert. Write clean, production-ready code.
-      </System>
+    <Agent name="coder" temperature={0.3}>
+      <System>You are a coding expert. Ensure the code is clean and production-ready.</System>
+      <Message role="user">Write {language} code for: {task}</Message>
     </Agent>
   )
 }
@@ -41,12 +32,33 @@ function CoderAgent() {
 const result = await render(
   <Agent model={MODEL} name="manager" maxTokens={4096} temperature={0.7}>
     <System>
-      You are a project manager who delegates tasks to specialists.
+      You are a project manager who delegates tasks to specialists. You have
+      access to a researcher and a coder.
     </System>
 
     <Tools>
-      <ResearcherAgent />
-      <CoderAgent />
+      {/* Researcher agent tool with custom parameters */}
+      <AgentTool
+        name="researcher"
+        description="Research specialist who finds information about a specific topic"
+        parameters={z.object({
+          topic: z.string().describe('The topic to research'),
+        })}
+        agent={(input) => <ResearcherAgent topic={input.topic} />}
+      />
+
+      {/* Coder agent tool with custom parameters */}
+      <AgentTool
+        name="coder"
+        description="Code generation specialist who writes code in a specific language"
+        parameters={z.object({
+          task: z.string().describe('What code to write'),
+          language: z
+            .enum(['javascript', 'typescript', 'python'])
+            .describe('Programming language to use'),
+        })}
+        agent={(input) => <CoderAgent task={input.task} language={input.language} />}
+      />
     </Tools>
 
     <Message role="user">

@@ -7,12 +7,10 @@ import {
   isMessageInstance,
   isMCPServerInstance,
   isToolsContainerInstance,
-  isSubagentInstance,
-  isAgentInstance,
+  isAgentToolInstance,
 } from '../instances/index.ts'
 import { debug } from '../debug.ts'
-import { isCircularReference } from './utils.ts'
-import { createSubagentTool } from '../tools/subagentTool.ts'
+import { createAgentSyntheticTool } from '../tools/agentSyntheticTool.ts'
 
 export interface ChildCollectionHandler {
   add(agent: AgentLike, child: Instance): void
@@ -47,7 +45,6 @@ function createArrayHandler<TItem, TChild extends Instance>(options: {
       const index = array.findIndex((item) => options.matchItem(item, child))
 
       if (index >= 0) {
-        const item = array[index]!
         if (options.onRemove) {
           debug('reconciler', options.onRemove(child))
         }
@@ -78,31 +75,20 @@ function createToolsContainerHandler(
   }
 }
 
-function createSubagentHandler(): ChildCollectionHandler {
+
+function createAgentToolHandler(): ChildCollectionHandler {
   return {
-    add(agent, subagent) {
-      if (!isSubagentInstance(subagent)) return
+    add(agent, child) {
+      if (!isAgentToolInstance(child)) return
 
-      if (isAgentInstance(agent) && agent.props.model) {
-        subagent.props.model = agent.props.model
-      }
-
-      if (isSubagentInstance(agent)) {
-        if (isCircularReference(agent, subagent)) {
-          throw new Error(
-            `Circular subagent reference detected: '${subagent.name}' is an ancestor of '${agent.name}'. ` +
-              `Subagents cannot reference themselves or their ancestors.`,
-          )
-        }
-      }
-
-      const tool = createSubagentTool(subagent)
-      debug('reconciler', `Subagent tool added: ${tool.name}`)
+      // Create synthetic tool from agent tool
+      const tool = createAgentSyntheticTool(child)
+      debug('reconciler', `Agent tool added: ${tool.name}`)
       agent.tools.push(tool)
     },
     remove(agent, child) {
-      if (!isSubagentInstance(child)) return
-      debug('reconciler', `Subagent tool removed: ${child.name}`)
+      if (!isAgentToolInstance(child)) return
+      debug('reconciler', `Agent tool removed: ${child.name}`)
       const index = agent.tools.findIndex((t) => t.name === child.name)
       if (index >= 0) {
         agent.tools.splice(index, 1)
@@ -180,7 +166,7 @@ export function getHandlerRegistry(
       uncollectFromChild,
     )
 
-    const subagentHandler = createSubagentHandler()
+    const agentToolHandler = createAgentToolHandler()
 
     return new Map<Instance['type'], ChildCollectionHandler>([
       ['tool', toolHandler],
@@ -190,7 +176,7 @@ export function getHandlerRegistry(
       ['message', messageHandler],
       ['mcp_server', mcpServerHandler],
       ['tools_container', toolsContainerHandler],
-      ['subagent', subagentHandler],
+      ['agent_tool', agentToolHandler],
     ])
   }
 

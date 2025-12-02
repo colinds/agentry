@@ -3,8 +3,15 @@ import type {
   BetaMessageParam,
   BetaRequestMCPServerURLDefinition,
 } from '@anthropic-ai/sdk/resources/beta'
-import type { AgentProps, InternalTool, SdkTool } from '../types/index.ts'
+import type {
+  AgentProps,
+  InternalTool,
+  SdkTool,
+  AgentToolFunction,
+  InternalAgentTool,
+} from '../types/index.ts'
 import type { ExecutionEngine } from '../execution/index.ts'
+import type { z } from 'zod'
 
 export interface BaseInstance {
   type: string
@@ -68,13 +75,22 @@ export interface SubagentInstance extends BaseInstance {
   description?: string
   props: AgentProps
   children: Instance[]
-  reactChildren: React.ReactNode | null
   systemParts: Array<{ content: string; priority: number }>
   tools: InternalTool[]
   sdkTools: SdkTool[]
   contextParts: Array<{ content: string; priority: number }>
   messages: BetaMessageParam[]
   mcpServers: BetaRequestMCPServerURLDefinition[]
+  agentNode: React.ReactNode | null
+}
+
+export interface AgentToolInstance extends BaseInstance {
+  type: 'agent_tool'
+  name: string
+  description: string
+  parameters: z.ZodType
+  jsonSchema: Record<string, unknown>
+  agent: AgentToolFunction<z.ZodType>
 }
 
 export type AgentLike = AgentInstance | SubagentInstance
@@ -82,6 +98,7 @@ export type AgentLike = AgentInstance | SubagentInstance
 export type Instance =
   | AgentInstance
   | SubagentInstance
+  | AgentToolInstance
   | ToolInstance
   | SdkToolInstance
   | SystemInstance
@@ -97,6 +114,10 @@ export interface AgentComponentProps extends AgentProps {
 
 export interface ToolComponentProps {
   tool: InternalTool
+}
+
+export interface AgentToolComponentProps {
+  agentTool: InternalAgentTool
 }
 
 export interface SdkToolComponentProps {
@@ -183,6 +204,12 @@ export function isMCPServerInstance(
   instance: Instance,
 ): instance is MCPServerInstance {
   return instance.type === 'mcp_server'
+}
+
+export function isAgentToolInstance(
+  instance: Instance,
+): instance is AgentToolInstance {
+  return instance.type === 'agent_tool'
 }
 
 export function isInstance(value: unknown): value is Instance {

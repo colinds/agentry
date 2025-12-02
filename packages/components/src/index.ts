@@ -2,6 +2,7 @@ import './jsx-elements.d.ts'
 
 export { Agent } from './Agent.tsx'
 export { Tool } from './Tool.tsx'
+export { AgentTool } from './AgentTool.tsx'
 export { System } from './System.tsx'
 export { Context } from './Context.tsx'
 export { Message } from './Message.tsx'
