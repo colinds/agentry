@@ -134,56 +134,56 @@ Wrap your summary in <summary></summary> tags.`
  * inspired by BetaToolRunner but with our own interface and React integration
  */
 export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
-  #client: Anthropic
-  #config: ExecutionEngineConfig
-  #store: AgentStore
-  #iterationCount = 0
-  #lastMessage: BetaMessage | null = null
-  #aborted = false
-  #agentInstance: AgentInstance | null = null
-  #toolExecutionTimes = new Map<string, number>()
+  private client: Anthropic
+  private config: ExecutionEngineConfig
+  private store: AgentStore
+  private iterationCount = 0
+  private lastMessage: BetaMessage | null = null
+  private aborted = false
+  private agentInstance: AgentInstance | null = null
+  private toolExecutionTimes = new Map<string, number>()
 
   constructor(config: ExecutionEngineConfig) {
     super()
-    this.#client = config.client
-    this.#config = config
-    this.#store = config.store
-    this.#agentInstance = config.agentInstance ?? null
+    this.client = config.client
+    this.config = config
+    this.store = config.store
+    this.agentInstance = config.agentInstance ?? null
 
     if (config.messages.length > 0) {
-      this.#store.setState({ messages: [...config.messages] })
+      this.store.setState({ messages: [...config.messages] })
     }
   }
 
   get executionState(): AgentState {
-    return this.#store.getState().executionState
+    return this.store.getState().executionState
   }
 
   get messages(): readonly BetaMessageParam[] {
-    return this.#store.getState().messages
+    return this.store.getState().messages
   }
 
   updateConfig(updates: Partial<ExecutionEngineConfig>): void {
-    this.#config = { ...this.#config, ...updates }
+    this.config = { ...this.config, ...updates }
   }
 
   pushMessage(message: BetaMessageParam): void {
-    this.#store.setState((s) => ({ messages: [...s.messages, message] }))
+    this.store.setState((s) => ({ messages: [...s.messages, message] }))
   }
 
-  #transition(event: Parameters<typeof transition>[1]): void {
-    const newState = transition(this.#store.getState().executionState, event)
-    this.#store.setState({ executionState: newState })
+  private transition(event: Parameters<typeof transition>[1]): void {
+    const newState = transition(this.store.getState().executionState, event)
+    this.store.setState({ executionState: newState })
     this.emit('stateChange', newState)
   }
 
-  #buildParams(): CreateMessageParams {
+  private buildParams(): CreateMessageParams {
     const tools = [
-      ...this.#config.tools.map(toApiTool),
-      ...this.#config.sdkTools.map(toApiSdkTool),
+      ...this.config.tools.map(toApiTool),
+      ...this.config.sdkTools.map(toApiSdkTool),
     ] as BetaToolUnion[]
 
-    const mcpServers = this.#config.mcpServers
+    const mcpServers = this.config.mcpServers
     if (mcpServers?.length) {
       for (const server of mcpServers) {
         tools.push({
@@ -197,45 +197,45 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     if (mcpServers?.length) {
       betas.push(ANTHROPIC_BETAS.MCP_CLIENT)
     }
-    if (this.#config.sdkTools.some(isCodeExecutionTool)) {
+    if (this.config.sdkTools.some(isCodeExecutionTool)) {
       betas.push(ANTHROPIC_BETAS.CODE_EXECUTION)
     }
-    if (this.#config.sdkTools.some(isMemoryTool)) {
+    if (this.config.sdkTools.some(isMemoryTool)) {
       betas.push(ANTHROPIC_BETAS.CONTEXT_MANAGEMENT)
     }
 
     return {
-      model: this.#config.model,
-      max_tokens: this.#config.maxTokens,
-      system: this.#config.system,
+      model: this.config.model,
+      max_tokens: this.config.maxTokens,
+      system: this.config.system,
       messages: this.messages as BetaMessageParam[],
       tools: tools.length > 0 ? tools : undefined,
       mcp_servers: mcpServers?.length ? mcpServers : undefined,
-      stop_sequences: this.#config.stopSequences,
-      temperature: this.#config.temperature,
+      stop_sequences: this.config.stopSequences,
+      temperature: this.config.temperature,
       betas: betas.length > 0 ? betas : undefined,
     }
   }
 
   async run(): Promise<AgentResult> {
-    this.#aborted = false
-    this.#iterationCount = 0
+    this.aborted = false
+    this.iterationCount = 0
 
     try {
-      while (!this.#aborted) {
+      while (!this.aborted) {
         if (
-          this.#config.maxIterations !== undefined &&
-          this.#iterationCount >= this.#config.maxIterations
+          this.config.maxIterations !== undefined &&
+          this.iterationCount >= this.config.maxIterations
         ) {
           break
         }
 
-        this.#iterationCount++
+        this.iterationCount++
         const abortController = new AbortController()
-        this.#transition({ type: 'start_streaming', abortController })
+        this.transition({ type: 'start_streaming', abortController })
 
-        const message = await this.#makeApiCall(abortController)
-        this.#lastMessage = message
+        const message = await this.makeApiCall(abortController)
+        this.lastMessage = message
         this.emit('message', message)
 
         const assistantMessage: BetaMessageParam = {
@@ -252,9 +252,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             input: tu.input,
           }))
 
-          this.#transition({ type: 'tools_requested', pendingTools })
+          this.transition({ type: 'tools_requested', pendingTools })
 
-          const toolResults = await this.#executeTools(pendingTools)
+          const toolResults = await this.executeTools(pendingTools)
 
           const toolResultMessage: BetaMessageParam = {
             role: 'user',
@@ -262,49 +262,51 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           }
           this.pushMessage(toolResultMessage)
 
-          this.#transition({ type: 'tools_completed', results: [] })
+          this.transition({ type: 'tools_completed', results: [] })
 
           // force React to commit any pending state updates from tool handlers
           flushSync(() => {})
           await yieldToSchedulerImmediate()
 
-          this.#processPendingUpdates()
+          this.processPendingUpdates()
 
-          await this.#checkAndCompact()
+          await this.checkAndCompact()
 
-          const stepResult = this.#buildStepFinishResult(
+          const stepResult = this.buildStepFinishResult(
             message,
             toolUses,
             toolResults,
           )
           this.emit('stepFinish', stepResult)
         } else {
-          const stepResult = this.#buildStepFinishResult(message, [], [])
+          const stepResult = this.buildStepFinishResult(message, [], [])
           this.emit('stepFinish', stepResult)
           break
         }
       }
 
-      if (!this.#lastMessage) {
+      if (!this.lastMessage) {
         throw new Error('Execution ended without receiving a message')
       }
 
-      const result = this.#buildResult()
-      this.#transition({ type: 'completed', finalMessage: this.#lastMessage })
+      const result = this.buildResult()
+      this.transition({ type: 'completed', finalMessage: this.lastMessage })
       this.emit('complete', result)
       return result
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error))
-      this.#transition({ type: 'error', error: err })
+      this.transition({ type: 'error', error: err })
       this.emit('error', err)
       throw err
     }
   }
 
-  async #makeApiCall(abortController: AbortController): Promise<BetaMessage> {
-    const params = this.#buildParams()
+  private async makeApiCall(
+    abortController: AbortController,
+  ): Promise<BetaMessage> {
+    const params = this.buildParams()
 
-    debug('api', `Request #${this.#iterationCount}`, {
+    debug('api', `Request #${this.iterationCount}`, {
       model: params.model,
       tools: params.tools?.map((t) => ('name' in t ? t.name : t.type)),
       messageCount: params.messages.length,
@@ -315,16 +317,16 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     })
 
     let response: BetaMessage
-    if (this.#config.stream) {
-      response = await this.#streamApiCall(params, abortController)
+    if (this.config.stream) {
+      response = await this.streamApiCall(params, abortController)
     } else {
-      response = await this.#client.beta.messages.create(
+      response = await this.client.beta.messages.create(
         { ...params, stream: false },
         { signal: abortController.signal },
       )
     }
 
-    debug('api', `Response #${this.#iterationCount}`, {
+    debug('api', `Response #${this.iterationCount}`, {
       stopReason: response.stop_reason,
       toolUses: extractToolUses(response).map((t) => t.name),
       textLength: extractText(response).length,
@@ -335,11 +337,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     return response
   }
 
-  async #streamApiCall(
+  private async streamApiCall(
     params: CreateMessageParams,
     abortController: AbortController,
   ): Promise<BetaMessage> {
-    const stream = this.#client.beta.messages.stream(params, {
+    const stream = this.client.beta.messages.stream(params, {
       signal: abortController.signal,
     })
 
@@ -373,26 +375,26 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     return finalMessage
   }
 
-  async #executeTools(
+  private async executeTools(
     pendingTools: PendingToolCall[],
   ): Promise<BetaToolResultBlockParam[]> {
-    this.#transition({ type: 'tools_executing', pendingTools })
+    this.transition({ type: 'tools_executing', pendingTools })
 
     const currentState = this.executionState
     const context: ToolContext = {
-      agentName: this.#config.agentName ?? 'agent',
-      client: this.#client,
+      agentName: this.config.agentName ?? 'agent',
+      client: this.client,
       signal:
         currentState.status === 'streaming'
           ? currentState.abortController.signal
           : undefined,
-      updateTools: this.#agentInstance
+      updateTools: this.agentInstance
         ? (updates: ToolUpdate[]) => {
             for (const update of updates) {
               if (update.type === 'add') {
-                this.#agentInstance!.pendingUpdates.addTool(update.tool)
+                this.agentInstance!.pendingUpdates.addTool(update.tool)
               } else {
-                this.#agentInstance!.pendingUpdates.removeTool(update.toolName)
+                this.agentInstance!.pendingUpdates.removeTool(update.toolName)
               }
             }
           }
@@ -403,11 +405,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       pendingTools.map(async (toolCall) => {
         const startTime = performance.now()
 
-        const tool = this.#config.tools.find((t) => t.name === toolCall.name)
+        const tool = this.config.tools.find((t) => t.name === toolCall.name)
 
         if (!tool) {
           // check if it's an SDK tool
-          const sdkTool = this.#config.sdkTools.find(
+          const sdkTool = this.config.sdkTools.find(
             (t) => 'name' in t && t.name === toolCall.name,
           )
 
@@ -420,7 +422,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
               )
 
               const executionTime = performance.now() - startTime
-              this.#toolExecutionTimes.set(toolCall.id, executionTime)
+              this.toolExecutionTimes.set(toolCall.id, executionTime)
 
               this.emit('stream', {
                 type: 'tool_result',
@@ -439,7 +441,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
             // Other SDK tools are handled by Anthropic server-side
             const executionTime = performance.now() - startTime
-            this.#toolExecutionTimes.set(toolCall.id, executionTime)
+            this.toolExecutionTimes.set(toolCall.id, executionTime)
             return {
               type: 'tool_result' as const,
               tool_use_id: toolCall.id,
@@ -449,7 +451,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           }
 
           const executionTime = performance.now() - startTime
-          this.#toolExecutionTimes.set(toolCall.id, executionTime)
+          this.toolExecutionTimes.set(toolCall.id, executionTime)
           return {
             type: 'tool_result' as const,
             tool_use_id: toolCall.id,
@@ -465,7 +467,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           context,
         )
         const executionTime = performance.now() - startTime
-        this.#toolExecutionTimes.set(toolCall.id, executionTime)
+        this.toolExecutionTimes.set(toolCall.id, executionTime)
 
         debug('tool', `Result: ${toolCall.name}`, {
           isError,
@@ -492,7 +494,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     return results
   }
 
-  #buildStepFinishResult(
+  private buildStepFinishResult(
     message: BetaMessage,
     toolUses: Array<{ id: string; name: string; input: unknown }>,
     toolResults: BetaToolResultBlockParam[],
@@ -518,12 +520,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         toolName: toolUse?.name ?? 'unknown',
         result: tr.content,
         isError: tr.is_error ?? false,
-        executionTime: this.#toolExecutionTimes.get(tr.tool_use_id),
+        executionTime: this.toolExecutionTimes.get(tr.tool_use_id),
       }
     })
 
     return {
-      stepNumber: this.#iterationCount,
+      stepNumber: this.iterationCount,
       text,
       thinking,
       toolCalls,
@@ -543,58 +545,55 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     }
   }
 
-  #processPendingUpdates(): void {
-    if (
-      !this.#agentInstance ||
-      this.#agentInstance.pendingUpdates.size === 0
-    ) {
+  private processPendingUpdates(): void {
+    if (!this.agentInstance || this.agentInstance.pendingUpdates.size === 0) {
       return
     }
 
-    for (const update of this.#agentInstance.pendingUpdates) {
+    for (const update of this.agentInstance.pendingUpdates) {
       if (update.type === 'tool_added') {
-        if (!this.#config.tools.find((t) => t.name === update.tool.name)) {
-          this.#config.tools.push(update.tool)
+        if (!this.config.tools.find((t) => t.name === update.tool.name)) {
+          this.config.tools.push(update.tool)
         }
       } else if (update.type === 'tool_removed') {
-        const index = this.#config.tools.findIndex(
+        const index = this.config.tools.findIndex(
           (t) => t.name === update.toolName,
         )
         if (index >= 0) {
-          this.#config.tools.splice(index, 1)
+          this.config.tools.splice(index, 1)
         }
       } else if (update.type === 'sdk_tool_added') {
-        if (!this.#config.sdkTools.includes(update.tool)) {
-          this.#config.sdkTools.push(update.tool)
+        if (!this.config.sdkTools.includes(update.tool)) {
+          this.config.sdkTools.push(update.tool)
         }
       } else if (update.type === 'sdk_tool_removed') {
-        const index = this.#config.sdkTools.findIndex(
+        const index = this.config.sdkTools.findIndex(
           (t) => 'name' in t && t.name === update.toolName,
         )
         if (index >= 0) {
-          this.#config.sdkTools.splice(index, 1)
+          this.config.sdkTools.splice(index, 1)
         }
       }
     }
 
-    this.#agentInstance.pendingUpdates.clear()
+    this.agentInstance.pendingUpdates.clear()
   }
 
-  async #checkAndCompact(): Promise<boolean> {
-    const compactionControl = this.#config.compactionControl
+  private async checkAndCompact(): Promise<boolean> {
+    const compactionControl = this.config.compactionControl
     if (!compactionControl?.enabled) {
       return false
     }
 
-    if (!this.#lastMessage) {
+    if (!this.lastMessage) {
       return false
     }
 
     const totalTokens =
-      this.#lastMessage.usage.input_tokens +
-      this.#lastMessage.usage.output_tokens +
-      (this.#lastMessage.usage.cache_creation_input_tokens ?? 0) +
-      (this.#lastMessage.usage.cache_read_input_tokens ?? 0)
+      this.lastMessage.usage.input_tokens +
+      this.lastMessage.usage.output_tokens +
+      (this.lastMessage.usage.cache_creation_input_tokens ?? 0) +
+      (this.lastMessage.usage.cache_read_input_tokens ?? 0)
 
     const threshold =
       compactionControl.contextTokenThreshold ?? DEFAULT_TOKEN_THRESHOLD
@@ -603,7 +602,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       return false
     }
 
-    const model = compactionControl.model ?? this.#config.model
+    const model = compactionControl.model ?? this.config.model
     const summaryPrompt =
       compactionControl.summaryPrompt ?? DEFAULT_SUMMARY_PROMPT
 
@@ -626,7 +625,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       }
     }
 
-    const response = await this.#client.beta.messages.create({
+    const response = await this.client.beta.messages.create({
       model,
       messages: [
         ...currentMessages,
@@ -635,7 +634,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           content: [{ type: 'text', text: summaryPrompt }],
         },
       ],
-      max_tokens: this.#config.maxTokens,
+      max_tokens: this.config.maxTokens,
     })
 
     const summaryBlock = response.content.find(
@@ -646,7 +645,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       return false
     }
 
-    this.#store.setState({
+    this.store.setState({
       messages: [
         {
           role: 'user',
@@ -658,42 +657,42 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     return true
   }
 
-  #buildResult(): AgentResult {
-    if (!this.#lastMessage) {
+  private buildResult(): AgentResult {
+    if (!this.lastMessage) {
       throw new Error('No message received')
     }
 
     return {
-      content: extractText(this.#lastMessage),
+      content: extractText(this.lastMessage),
       messages: [...this.messages],
       usage: {
-        inputTokens: this.#lastMessage.usage.input_tokens,
-        outputTokens: this.#lastMessage.usage.output_tokens,
+        inputTokens: this.lastMessage.usage.input_tokens,
+        outputTokens: this.lastMessage.usage.output_tokens,
         cacheCreationInputTokens:
-          this.#lastMessage.usage.cache_creation_input_tokens ?? undefined,
+          this.lastMessage.usage.cache_creation_input_tokens ?? undefined,
         cacheReadInputTokens:
-          this.#lastMessage.usage.cache_read_input_tokens ?? undefined,
+          this.lastMessage.usage.cache_read_input_tokens ?? undefined,
       },
-      stopReason: this.#lastMessage.stop_reason,
+      stopReason: this.lastMessage.stop_reason,
     }
   }
 
   abort(): void {
-    this.#aborted = true
+    this.aborted = true
     const currentState = this.executionState
     if (currentState.status === 'streaming') {
       currentState.abortController.abort()
     }
     const error = new Error('Execution aborted')
-    this.#transition({ type: 'error', error })
+    this.transition({ type: 'error', error })
     this.emit('error', error)
   }
 
   reset(): void {
-    this.#aborted = false
-    this.#iterationCount = 0
-    this.#lastMessage = null
-    this.#store.setState({ messages: [...this.#config.messages] })
-    this.#transition({ type: 'reset' })
+    this.aborted = false
+    this.iterationCount = 0
+    this.lastMessage = null
+    this.store.setState({ messages: [...this.config.messages] })
+    this.transition({ type: 'reset' })
   }
 }
