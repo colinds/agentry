@@ -3,7 +3,6 @@ import { createElement, type ReactNode } from 'react'
 import type { AgentInstance } from '../instances/types.ts'
 import { createContainer, updateContainer } from '../reconciler/renderer.ts'
 import { createAgentStore } from '../store.ts'
-import { PendingUpdatesQueue } from '../instances/PendingUpdatesQueue.ts'
 import { isAgentInstance } from '../instances/types.ts'
 import { AgentProvider } from '../context.ts'
 import { MODEL } from '@agentry/shared'
@@ -37,7 +36,6 @@ export class AgentHandle extends AbstractAgentHandle {
       messages: [],
       mcpServers: [],
       children: [],
-      pendingUpdates: new PendingUpdatesQueue(),
       parent: null,
     }
 

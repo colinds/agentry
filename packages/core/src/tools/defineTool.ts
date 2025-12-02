@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { BetaTool } from '@anthropic-ai/sdk/resources/beta'
 import type { InternalTool, ToolContext, ToolResult } from '../types/index.ts'
 
 /**
@@ -43,17 +44,12 @@ export function defineTool<TSchema extends z.ZodType>(options: {
 /**
  * convert an InternalTool to the format expected by the Anthropic API
  */
-export function toApiTool(tool: InternalTool): {
-  type: 'custom'
-  name: string
-  description: string
-  input_schema: Record<string, unknown>
-} {
+export function toApiTool(tool: InternalTool): BetaTool {
   return {
     type: 'custom',
     name: tool.name,
     description: tool.description,
-    input_schema: tool.jsonSchema as Record<string, unknown>,
+    input_schema: tool.jsonSchema as BetaTool.InputSchema,
   }
 }
 

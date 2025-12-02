@@ -86,18 +86,12 @@ export function isMemoryTool(tool: SdkTool): tool is MemoryTool {
   return 'type' in tool && tool.type === 'memory_20250818'
 }
 
-export type ToolUpdate =
-  | { type: 'add'; tool: InternalTool }
-  | { type: 'remove'; toolName: string }
-
 export interface ToolContext {
   agentName: string
   client: Anthropic
   // abort signal for cancellation
   signal?: AbortSignal
   metadata?: Record<string, unknown>
-  // dynamic tool updates (add/remove tools during execution)
-  updateTools?: (updates: ToolUpdate[]) => void
 }
 
 export interface RunnableTool<TInput = unknown> {

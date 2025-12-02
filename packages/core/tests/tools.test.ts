@@ -187,18 +187,6 @@ test('state machine transitions to completed state', () => {
   }
 })
 
-test('state machine reset returns to idle', () => {
-  let state = initialState()
-  state = transition(state, {
-    type: 'start_streaming',
-    abortController: new AbortController(),
-  })
-  expect(state.status).toBe('streaming')
-
-  state = transition(state, { type: 'reset' })
-  expect(state.status).toBe('idle')
-})
-
 test('canAcceptMessages returns true for idle and completed', () => {
   expect(canAcceptMessages({ status: 'idle' })).toBe(true)
   expect(

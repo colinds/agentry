@@ -10,4 +10,3 @@ export {
   isAgentLike,
   type AgentLike,
 } from './types.ts'
-export { PendingUpdatesQueue } from './PendingUpdatesQueue.ts'

@@ -24,11 +24,6 @@ function createArrayHandler<TItem, TChild extends Instance>(options: {
   extractItem: (child: TChild) => TItem
   matchItem: (item: TItem, child: TChild) => boolean
   typeGuard: (child: Instance) => child is TChild
-  pendingUpdates?: {
-    add: (agent: AgentLike, item: TItem) => void
-    remove: (agent: AgentLike, identifier: string) => void
-    getIdentifier: (item: TItem) => string
-  }
   onAdd?: (child: TChild) => string
   onRemove?: (child: TChild) => string
 }): ChildCollectionHandler {
@@ -44,10 +39,6 @@ function createArrayHandler<TItem, TChild extends Instance>(options: {
       }
 
       array.push(item)
-
-      if (options.pendingUpdates) {
-        options.pendingUpdates.add(agent, item)
-      }
     },
     remove(agent, child) {
       if (!options.typeGuard(child)) return
@@ -62,13 +53,6 @@ function createArrayHandler<TItem, TChild extends Instance>(options: {
         }
 
         array.splice(index, 1)
-
-        if (options.pendingUpdates) {
-          options.pendingUpdates.remove(
-            agent,
-            options.pendingUpdates.getIdentifier(item),
-          )
-        }
       }
     },
   }
@@ -115,7 +99,6 @@ function createSubagentHandler(): ChildCollectionHandler {
       const tool = createSubagentTool(subagent)
       debug('reconciler', `Subagent tool added: ${tool.name}`)
       agent.tools.push(tool)
-      agent.pendingUpdates.addTool(tool)
     },
     remove(agent, child) {
       if (!isSubagentInstance(child)) return
@@ -123,7 +106,6 @@ function createSubagentHandler(): ChildCollectionHandler {
       const index = agent.tools.findIndex((t) => t.name === child.name)
       if (index >= 0) {
         agent.tools.splice(index, 1)
-        agent.pendingUpdates.removeTool(child.name)
       }
     },
   }
@@ -142,11 +124,6 @@ export function getHandlerRegistry(
       extractItem: (child) => child.tool,
       matchItem: (tool, child) => tool.name === child.tool.name,
       typeGuard: isToolInstance,
-      pendingUpdates: {
-        add: (agent, tool) => agent.pendingUpdates.addTool(tool),
-        remove: (agent, toolName) => agent.pendingUpdates.removeTool(toolName),
-        getIdentifier: (tool) => tool.name,
-      },
       onAdd: (child) => `Tool added: ${child.tool.name}`,
       onRemove: (child) => `Tool removed: ${child.tool.name}`,
     })
@@ -156,12 +133,6 @@ export function getHandlerRegistry(
       extractItem: (child) => child.tool,
       matchItem: (tool, child) => tool === child.tool,
       typeGuard: isSdkToolInstance,
-      pendingUpdates: {
-        add: (agent, tool) => agent.pendingUpdates.addSdkTool(tool),
-        remove: (agent, toolName) =>
-          agent.pendingUpdates.removeSdkTool(toolName),
-        getIdentifier: (tool) => tool.name,
-      },
       onAdd: (child) => `SDK tool added: ${child.tool.name}`,
       onRemove: (child) => `SDK tool removed: ${child.tool.name}`,
     })

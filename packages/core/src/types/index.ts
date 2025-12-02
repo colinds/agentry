@@ -17,7 +17,6 @@ export {
 export {
   type ToolResult,
   type ToolContext,
-  type ToolUpdate,
   type RunnableTool,
   type InternalTool,
   type DefineToolOptions,

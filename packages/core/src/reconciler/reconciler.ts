@@ -358,7 +358,6 @@ function removeChild(parent: Instance, child: Instance): void {
       child.messages = []
       child.mcpServers = []
       child.children = []
-      child.pendingUpdates.clear()
     }
   })
 }
@@ -461,11 +460,9 @@ function applyUpdate(
         const index = agent.tools.findIndex((t) => t.name === toolName)
         if (index >= 0) {
           agent.tools.splice(index, 1)
-          agent.pendingUpdates.removeTool(toolName)
         }
         instance.tool = payload.tool
         agent.tools.push(payload.tool)
-        agent.pendingUpdates.addTool(payload.tool)
       }
     }
   }

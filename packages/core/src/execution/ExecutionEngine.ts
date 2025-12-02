@@ -17,10 +17,8 @@ import type {
   AgentState,
   AgentStreamEvent,
   AgentResult,
-  InternalTool,
   PendingToolCall,
   ToolContext,
-  ToolUpdate,
   CompactionControl,
   Model,
   OnStepFinishResult,
@@ -61,6 +59,7 @@ function sanitizeContentBlocks(
   })
 }
 
+// subset of Anthropic's MessageCreateParams
 interface CreateMessageParams {
   model: string
   max_tokens: number
@@ -87,10 +86,6 @@ export interface ExecutionEngineConfig {
   model: Model
   maxTokens: number
   system?: string
-  tools: InternalTool[]
-  sdkTools: SdkTool[]
-  mcpServers?: BetaRequestMCPServerURLDefinition[]
-  messages: BetaMessageParam[]
   stream?: boolean
   maxIterations?: number
   compactionControl?: CompactionControl
@@ -98,7 +93,6 @@ export interface ExecutionEngineConfig {
   temperature?: number
   agentName?: string
   agentInstance?: AgentInstance
-  /** Store - single source of truth for messages and state */
   store: AgentStore
 }
 
@@ -153,10 +147,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.config = config
     this.store = config.store
     this.agentInstance = config.agentInstance ?? null
-
-    if (config.messages.length > 0) {
-      this.store.setState({ messages: [...config.messages] })
-    }
   }
 
   get executionState(): AgentState {
@@ -181,48 +171,23 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.emit('stateChange', newState)
   }
 
-  private updateToolInArray<T extends object>({
-    array,
-    tool,
-  }: {
-    array: T[]
-    tool: T
-  }): void {
-    const toolName = hasName(tool) ? tool.name : ''
-    const index = array.findIndex((t) => hasName(t) && t.name === toolName)
-    if (index >= 0) {
-      array[index] = tool
-    } else {
-      array.push(tool)
-    }
-  }
-
-  private removeToolFromArray<T extends object>({
-    array,
-    toolName,
-  }: {
-    array: T[]
-    toolName: string
-  }): void {
-    const index = array.findIndex((t) => hasName(t) && t.name === toolName)
-    if (index >= 0) {
-      array.splice(index, 1)
-    }
-  }
-
   private buildParams(): CreateMessageParams {
-    const tools = [
-      ...this.config.tools.map(toApiTool),
-      ...this.config.sdkTools.map(toApiSdkTool),
-    ] as BetaToolUnion[]
+    const tools: BetaToolUnion[] = []
 
-    const mcpServers = this.config.mcpServers
+    const {
+      tools: internalTools = [],
+      sdkTools = [],
+      mcpServers = [],
+    } = this.agentInstance ?? {}
+    tools.push(...internalTools.map(toApiTool))
+    tools.push(...sdkTools.map(toApiSdkTool))
+
     if (mcpServers?.length) {
       for (const server of mcpServers) {
         tools.push({
           type: 'mcp_toolset',
           mcp_server_name: server.name,
-        } as BetaToolUnion)
+        })
       }
     }
 
@@ -230,10 +195,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     if (mcpServers?.length) {
       betas.push(ANTHROPIC_BETAS.MCP_CLIENT)
     }
-    if (this.config.sdkTools.some(isCodeExecutionTool)) {
+    if (sdkTools.some(isCodeExecutionTool)) {
       betas.push(ANTHROPIC_BETAS.CODE_EXECUTION)
     }
-    if (this.config.sdkTools.some(isMemoryTool)) {
+    if (sdkTools.some(isMemoryTool)) {
       betas.push(ANTHROPIC_BETAS.CONTEXT_MANAGEMENT)
     }
 
@@ -300,8 +265,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           // force React to commit any pending state updates from tool handlers
           flushSync(() => {})
           await yieldToSchedulerImmediate()
-
-          this.processPendingUpdates()
 
           await this.checkAndCompact()
 
@@ -423,24 +386,16 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         currentState.status === 'streaming'
           ? currentState.abortController.signal
           : undefined,
-      updateTools: this.agentInstance
-        ? (updates: ToolUpdate[]) => {
-            for (const update of updates) {
-              if (update.type === 'add') {
-                this.agentInstance!.pendingUpdates.addTool(update.tool)
-              } else {
-                this.agentInstance!.pendingUpdates.removeTool(update.toolName)
-              }
-            }
-          }
-        : undefined,
     }
+
+    const { tools: internalTools = [], sdkTools = [] } =
+      this.agentInstance ?? {}
 
     const results = await Promise.all(
       pendingTools.map(async (toolCall) => {
         const startTime = performance.now()
 
-        const tool = this.config.tools.find((t) => t.name === toolCall.name)
+        const tool = internalTools.find((t) => t.name === toolCall.name)
 
         if (tool) {
           debug('tool', `Executing: ${toolCall.name}`, {
@@ -479,7 +434,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         }
 
         // check if it's an SDK tool
-        const sdkTool = this.config.sdkTools.find(
+        const sdkTool = sdkTools.find(
           (t) => hasName(t) && t.name === toolCall.name,
         )
 
@@ -604,38 +559,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     }
   }
 
-  private processPendingUpdates(): void {
-    if (!this.agentInstance || this.agentInstance.pendingUpdates.size === 0) {
-      return
-    }
-
-    for (const update of this.agentInstance.pendingUpdates) {
-      if (update.type === 'tool_added') {
-        this.updateToolInArray({
-          array: this.config.tools,
-          tool: update.tool,
-        })
-      } else if (update.type === 'tool_removed') {
-        this.removeToolFromArray({
-          array: this.config.tools,
-          toolName: update.toolName,
-        })
-      } else if (update.type === 'sdk_tool_added') {
-        this.updateToolInArray({
-          array: this.config.sdkTools,
-          tool: update.tool,
-        })
-      } else if (update.type === 'sdk_tool_removed') {
-        this.removeToolFromArray({
-          array: this.config.sdkTools,
-          toolName: update.toolName,
-        })
-      }
-    }
-
-    this.agentInstance.pendingUpdates.clear()
-  }
-
   private async checkAndCompact(): Promise<boolean> {
     const compactionControl = this.config.compactionControl
     if (!compactionControl?.enabled) {
@@ -743,13 +666,5 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const error = new Error('Execution aborted')
     this.transition({ type: 'error', error })
     this.emit('error', error)
-  }
-
-  reset(): void {
-    this.aborted = false
-    this.iterationCount = 0
-    this.lastMessage = null
-    this.store.setState({ messages: [...this.config.messages] })
-    this.transition({ type: 'reset' })
   }
 }

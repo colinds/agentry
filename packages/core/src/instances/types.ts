@@ -5,18 +5,13 @@ import type {
 } from '@anthropic-ai/sdk/resources/beta'
 import type { AgentProps, InternalTool, SdkTool } from '../types/index.ts'
 import type { ExecutionEngine } from '../execution/index.ts'
-import type { PendingUpdatesQueue } from './PendingUpdatesQueue.ts'
 
 export interface BaseInstance {
   type: string
   parent: Instance | null
 }
 
-export interface BaseAgentInstance extends BaseInstance {
-  pendingUpdates: PendingUpdatesQueue
-}
-
-export interface AgentInstance extends BaseAgentInstance {
+export interface AgentInstance extends BaseInstance {
   type: 'agent'
   props: AgentProps
   client: Anthropic
@@ -67,7 +62,7 @@ export interface ToolsContainerInstance extends BaseInstance {
   children: Instance[]
 }
 
-export interface SubagentInstance extends BaseAgentInstance {
+export interface SubagentInstance extends BaseInstance {
   type: 'subagent'
   name: string
   description?: string
@@ -94,15 +89,6 @@ export type Instance =
   | MessageInstance
   | ToolsContainerInstance
   | MCPServerInstance
-
-export type PendingUpdate =
-  | { type: 'tool_added'; tool: InternalTool }
-  | { type: 'tool_removed'; toolName: string }
-  | { type: 'sdk_tool_added'; tool: SdkTool }
-  | { type: 'sdk_tool_removed'; toolName: string }
-  | { type: 'system_updated'; content: string; priority: number }
-  | { type: 'context_updated'; content: string; priority: number }
-  | { type: 'message_added'; message: BetaMessageParam }
 
 export interface AgentComponentProps extends AgentProps {
   client?: Anthropic

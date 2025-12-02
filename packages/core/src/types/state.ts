@@ -16,7 +16,6 @@ export type StateTransition =
   | { type: 'tools_completed'; results: ToolExecutionResult[] }
   | { type: 'completed'; finalMessage: BetaMessage }
   | { type: 'error'; error: Error }
-  | { type: 'reset' }
 
 export function initialState(): AgentState {
   return { status: 'idle' }
@@ -45,9 +44,6 @@ export function transition(
 
     case 'error':
       return { status: 'error', error: event.error }
-
-    case 'reset':
-      return { status: 'idle' }
 
     default:
       return state

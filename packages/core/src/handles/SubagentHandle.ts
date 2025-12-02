@@ -34,7 +34,6 @@ export class SubagentHandle extends AbstractAgentHandle {
       messages: [],
       mcpServers: [...subagent.mcpServers],
       children: [],
-      pendingUpdates: subagent.pendingUpdates,
       parent: null,
     }
 

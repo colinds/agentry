@@ -222,17 +222,11 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
     this.pushMessage({ role: 'user', content })
 
-    if (this.engine) {
-      this.engine.updateConfig({
-        messages: [...this.store.getState().messages],
-      })
-    }
-
     return this.run()
   }
 
   async *stream(
-    message?: string,
+    message: string,
   ): AsyncGenerator<AgentStreamEvent, AgentResult, undefined> {
     if (this.running) {
       throw new Error(
@@ -240,19 +234,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
       )
     }
 
-    if (!message) {
-      throw new Error(
-        'stream() requires a message parameter. Use: agent.stream("your message")',
-      )
-    }
-
     this.pushMessage({ role: 'user', content: message })
-
-    if (this.engine) {
-      this.engine.updateConfig({
-        messages: [...this.store.getState().messages],
-      })
-    }
 
     const events: AgentStreamEvent[] = []
     let resolveNext: ((event: AgentStreamEvent | null) => void) | null = null

@@ -39,7 +39,7 @@ export interface RenderOptions {
  * console.log(result.content);
  *
  * // stream the response
- * for await (const event of agent.stream()) {
+ * for await (const event of agent.stream('What is the weather?')) {
  *   if (event.type === 'text') {
  *     process.stdout.write(event.text);
  *   }
