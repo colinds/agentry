@@ -552,7 +552,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
     for (const update of this.agentInstance.pendingUpdates) {
       if (update.type === 'tool_added') {
-        if (!this.config.tools.find((t) => t.name === update.tool.name)) {
+        const index = this.config.tools.findIndex(
+          (t) => t.name === update.tool.name,
+        )
+        if (index >= 0) {
+          this.config.tools[index] = update.tool
+        } else {
           this.config.tools.push(update.tool)
         }
       } else if (update.type === 'tool_removed') {
@@ -563,7 +568,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           this.config.tools.splice(index, 1)
         }
       } else if (update.type === 'sdk_tool_added') {
-        if (!this.config.sdkTools.includes(update.tool)) {
+        const index = this.config.sdkTools.findIndex(
+          (t) => 'name' in t && t.name === update.tool.name,
+        )
+        if (index >= 0) {
+          this.config.sdkTools[index] = update.tool
+        } else {
           this.config.sdkTools.push(update.tool)
         }
       } else if (update.type === 'sdk_tool_removed') {

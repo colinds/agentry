@@ -421,15 +421,16 @@ function applyUpdate(
     const payload = updatePayload as { tool?: typeof instance.tool }
     if (payload.tool !== undefined) {
       const agent = findParentAgent(instance)
-      if (agent && isAgentInstance(agent)) {
-        const oldIndex = agent.tools.findIndex(
-          (t) => t.name === instance.tool.name,
-        )
-        if (oldIndex >= 0) {
-          agent.tools.splice(oldIndex, 1)
+      if (agent && isAgentLike(agent)) {
+        const toolName = instance.tool.name
+        const index = agent.tools.findIndex((t) => t.name === toolName)
+        if (index >= 0) {
+          agent.tools.splice(index, 1)
+          agent.pendingUpdates.removeTool(toolName)
         }
         instance.tool = payload.tool
         agent.tools.push(payload.tool)
+        agent.pendingUpdates.addTool(payload.tool)
       }
     }
   }

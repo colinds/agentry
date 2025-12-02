@@ -217,6 +217,12 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   protected abstract shouldEmitEvents(): boolean
 
   async sendMessage(content: string): Promise<AgentResult> {
+    if (this.running) {
+      throw new Error(
+        'Agent is already running. Wait for current execution to complete or call abort() first.',
+      )
+    }
+
     this.pushMessage({ role: 'user', content })
 
     if (this.engine) {
