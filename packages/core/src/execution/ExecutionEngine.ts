@@ -104,6 +104,10 @@ export interface ExecutionEngineConfig {
 
 const DEFAULT_TOKEN_THRESHOLD = 100_000
 
+function hasName(t: unknown): t is { name: string } {
+  return typeof t === 'object' && t !== null && 'name' in t
+}
+
 /**
  * Convert SdkTool to Anthropic API format (BetaToolUnion)
  * Strips memoryHandlers from MemoryTool before sending to API
@@ -175,6 +179,35 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const newState = transition(this.store.getState().executionState, event)
     this.store.setState({ executionState: newState })
     this.emit('stateChange', newState)
+  }
+
+  private updateToolInArray<T extends object>({
+    array,
+    tool,
+  }: {
+    array: T[]
+    tool: T
+  }): void {
+    const toolName = hasName(tool) ? tool.name : ''
+    const index = array.findIndex((t) => hasName(t) && t.name === toolName)
+    if (index >= 0) {
+      array[index] = tool
+    } else {
+      array.push(tool)
+    }
+  }
+
+  private removeToolFromArray<T extends object>({
+    array,
+    toolName,
+  }: {
+    array: T[]
+    toolName: string
+  }): void {
+    const index = array.findIndex((t) => hasName(t) && t.name === toolName)
+    if (index >= 0) {
+      array.splice(index, 1)
+    }
   }
 
   private buildParams(): CreateMessageParams {
@@ -407,86 +440,107 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
         const tool = this.config.tools.find((t) => t.name === toolCall.name)
 
-        if (!tool) {
-          // check if it's an SDK tool
-          const sdkTool = this.config.sdkTools.find(
-            (t) => 'name' in t && t.name === toolCall.name,
+        if (tool) {
+          debug('tool', `Executing: ${toolCall.name}`, toolCall.input)
+          const { result, isError } = await executeTool(
+            tool,
+            toolCall.input,
+            context,
           )
 
-          if (sdkTool) {
-            // Memory tool requires client-side handlers
-            if (isMemoryTool(sdkTool) && sdkTool.memoryHandlers) {
-              const { result, isError } = await executeMemoryTool(
-                sdkTool,
-                toolCall.input as Parameters<typeof executeMemoryTool>[1],
-              )
-
-              const executionTime = performance.now() - startTime
-              this.toolExecutionTimes.set(toolCall.id, executionTime)
-
-              this.emit('stream', {
-                type: 'tool_result',
-                toolId: toolCall.id,
-                result,
-                isError,
-              })
-
-              return {
-                type: 'tool_result' as const,
-                tool_use_id: toolCall.id,
-                content: result,
-                is_error: isError ? true : undefined,
-              }
-            }
-
-            // Other SDK tools are handled by Anthropic server-side
-            const executionTime = performance.now() - startTime
-            this.toolExecutionTimes.set(toolCall.id, executionTime)
-            return {
-              type: 'tool_result' as const,
-              tool_use_id: toolCall.id,
-              content: `Tool '${toolCall.name}' is a server-side tool and cannot be executed locally`,
-              is_error: true,
-            }
-          }
+          debug('tool', `Result: ${toolCall.name}`, {
+            isError,
+            result:
+              typeof result === 'string' ? result.substring(0, 100) : result,
+          })
 
           const executionTime = performance.now() - startTime
           this.toolExecutionTimes.set(toolCall.id, executionTime)
+
+          this.emit('stream', {
+            type: 'tool_result',
+            toolId: toolCall.id,
+            result:
+              typeof result === 'string' ? result : JSON.stringify(result),
+            isError,
+          })
+
           return {
             type: 'tool_result' as const,
             tool_use_id: toolCall.id,
-            content: `Error: Tool '${toolCall.name}' not found`,
+            content: result,
+            is_error: isError ? true : undefined,
+          }
+        }
+
+        // check if it's an SDK tool
+        const sdkTool = this.config.sdkTools.find(
+          (t) => hasName(t) && t.name === toolCall.name,
+        )
+
+        if (sdkTool) {
+          // Memory tool requires client-side handlers
+          if (isMemoryTool(sdkTool) && sdkTool.memoryHandlers) {
+            const { result, isError } = await executeMemoryTool(
+              sdkTool,
+              toolCall.input as Parameters<typeof executeMemoryTool>[1],
+            )
+
+            const executionTime = performance.now() - startTime
+            this.toolExecutionTimes.set(toolCall.id, executionTime)
+
+            this.emit('stream', {
+              type: 'tool_result',
+              toolId: toolCall.id,
+              result:
+                typeof result === 'string' ? result : JSON.stringify(result),
+              isError,
+            })
+
+            return {
+              type: 'tool_result' as const,
+              tool_use_id: toolCall.id,
+              content: result,
+              is_error: isError ? true : undefined,
+            }
+          }
+
+          // Other SDK tools are handled by Anthropic server-side
+          const errorMessage = `Tool '${toolCall.name}' is a server-side tool and cannot be executed locally`
+          const executionTime = performance.now() - startTime
+          this.toolExecutionTimes.set(toolCall.id, executionTime)
+
+          this.emit('stream', {
+            type: 'tool_result',
+            toolId: toolCall.id,
+            result: errorMessage,
+            isError: true,
+          })
+
+          return {
+            type: 'tool_result' as const,
+            tool_use_id: toolCall.id,
+            content: errorMessage,
             is_error: true,
           }
         }
 
-        debug('tool', `Executing: ${toolCall.name}`, toolCall.input)
-        const { result, isError } = await executeTool(
-          tool,
-          toolCall.input,
-          context,
-        )
+        const errorMessage = `Error: Tool '${toolCall.name}' not found`
         const executionTime = performance.now() - startTime
         this.toolExecutionTimes.set(toolCall.id, executionTime)
-
-        debug('tool', `Result: ${toolCall.name}`, {
-          isError,
-          result:
-            typeof result === 'string' ? result.substring(0, 100) : result,
-        })
 
         this.emit('stream', {
           type: 'tool_result',
           toolId: toolCall.id,
-          result: typeof result === 'string' ? result : JSON.stringify(result),
-          isError,
+          result: errorMessage,
+          isError: true,
         })
 
         return {
           type: 'tool_result' as const,
           tool_use_id: toolCall.id,
-          content: result,
-          is_error: isError ? true : undefined,
+          content: errorMessage,
+          is_error: true,
         }
       }),
     )
@@ -552,37 +606,25 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
     for (const update of this.agentInstance.pendingUpdates) {
       if (update.type === 'tool_added') {
-        const index = this.config.tools.findIndex(
-          (t) => t.name === update.tool.name,
-        )
-        if (index >= 0) {
-          this.config.tools[index] = update.tool
-        } else {
-          this.config.tools.push(update.tool)
-        }
+        this.updateToolInArray({
+          array: this.config.tools,
+          tool: update.tool,
+        })
       } else if (update.type === 'tool_removed') {
-        const index = this.config.tools.findIndex(
-          (t) => t.name === update.toolName,
-        )
-        if (index >= 0) {
-          this.config.tools.splice(index, 1)
-        }
+        this.removeToolFromArray({
+          array: this.config.tools,
+          toolName: update.toolName,
+        })
       } else if (update.type === 'sdk_tool_added') {
-        const index = this.config.sdkTools.findIndex(
-          (t) => 'name' in t && t.name === update.tool.name,
-        )
-        if (index >= 0) {
-          this.config.sdkTools[index] = update.tool
-        } else {
-          this.config.sdkTools.push(update.tool)
-        }
+        this.updateToolInArray({
+          array: this.config.sdkTools,
+          tool: update.tool,
+        })
       } else if (update.type === 'sdk_tool_removed') {
-        const index = this.config.sdkTools.findIndex(
-          (t) => 'name' in t && t.name === update.toolName,
-        )
-        if (index >= 0) {
-          this.config.sdkTools.splice(index, 1)
-        }
+        this.removeToolFromArray({
+          array: this.config.sdkTools,
+          toolName: update.toolName,
+        })
       }
     }
 
