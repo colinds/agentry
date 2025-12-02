@@ -104,8 +104,7 @@ export interface ToolContext {
 export interface RunnableTool<TInput = unknown> {
   name: string
   description: string
-  inputSchema: z.ZodType<TInput>
-
+  parameters: z.ZodType<TInput>
   handler: (
     input: TInput,
     context: ToolContext,
@@ -116,14 +115,11 @@ export interface InternalTool<TInput = unknown> extends RunnableTool<TInput> {
   jsonSchema: Record<string, unknown>
 }
 
-export interface DefineToolOptions<TSchema extends z.ZodType> {
-  name: string
-  description: string
+export type DefineToolOptions<TSchema extends z.ZodType> = Omit<
+  RunnableTool<z.infer<TSchema>>,
+  'parameters'
+> & {
   parameters: TSchema
-  handler: (
-    input: z.infer<TSchema>,
-    context: ToolContext,
-  ) => Promise<ToolResult> | ToolResult
 }
 
 export type ToolUnion = InternalTool | SdkTool

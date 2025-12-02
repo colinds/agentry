@@ -13,8 +13,9 @@ export {
   toApiTool,
   parseToolInput,
   executeTool,
-  zodToJsonSchema,
 } from './tools/index.ts'
+
+export type { DefineToolOptions } from './types/tools.ts'
 
 export {
   ExecutionEngine,

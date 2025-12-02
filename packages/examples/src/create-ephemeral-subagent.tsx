@@ -74,7 +74,7 @@ function CreateSubagentTool({
     <Tool
       name="create_subagent"
       description="Create a new temporary subagent that will automatically remove itself when done. Requires: name (lowercase with underscores), description (what it does), systemPrompt (full instructions)."
-      inputSchema={z.object({
+      parameters={z.object({
         name: z
           .string()
           .describe(

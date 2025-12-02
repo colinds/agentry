@@ -362,3 +362,93 @@ test('respects maxIterations limit', async () => {
   // should stop after maxIterations even if model keeps calling tools
   expect(result.stopReason).toBe('tool_use')
 })
+
+test('tool schemas in API requests are complete', async () => {
+  const complexTool = defineTool({
+    name: 'complex_operation',
+    description: 'Perform a complex operation with nested data',
+    parameters: z.object({
+      operation: z
+        .enum(['create', 'update', 'delete', 'query'])
+        .describe('the operation to perform'),
+      priority: z.number().int().min(1).max(10).describe('priority level'),
+      description: z.string().optional().describe('optional description'),
+      metadata: z
+        .object({
+          source: z.string().describe('source identifier'),
+          tags: z.array(z.string()).describe('array of tags'),
+          enabled: z.boolean().describe('whether enabled'),
+        })
+        .describe('metadata object'),
+      config: z
+        .object({
+          timeout: z.number().describe('timeout in seconds'),
+          retries: z.number().int().min(0).describe('number of retries'),
+        })
+        .optional()
+        .describe('optional configuration'),
+      items: z
+        .array(
+          z.object({
+            id: z.string().describe('item id'),
+            value: z.number().describe('item value'),
+          }),
+        )
+        .describe('array of items'),
+      status: z
+        .union([
+          z.literal('active'),
+          z.literal('inactive'),
+          z.literal('pending'),
+        ])
+        .describe('status value'),
+    }),
+    handler: async () => 'ok',
+  })
+
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Done')] },
+  ])
+
+  const runPromise = render(
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <System>You are a test assistant.</System>
+      <Tools>
+        <Tool {...complexTool} />
+      </Tools>
+      <Message role="user">Test</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.waitForNextCall()
+
+  const call = controller.peekNextCall()
+  expect(call).not.toBeNull()
+  expect(call!.params.tools).toBeDefined()
+  expect(Array.isArray(call!.params.tools)).toBe(true)
+  expect(call!.params.tools!.length).toBe(1)
+
+  const toolDef = call!.params.tools![0] as {
+    type: string
+    name: string
+    description: string
+    input_schema: Record<string, unknown>
+  }
+
+  expect(toolDef.type).toBe('custom')
+  expect(toolDef.name).toBe('complex_operation')
+  expect(toolDef.description).toBe(
+    'Perform a complex operation with nested data',
+  )
+
+  const inputSchema = toolDef.input_schema
+  expect(inputSchema.type).toBe('object')
+  expect(inputSchema.properties).toBeDefined()
+  expect(inputSchema.required).toBeDefined()
+
+  expect(Bun.deepEquals(complexTool.jsonSchema, inputSchema)).toBe(true)
+
+  await controller.nextTurn()
+  await runPromise
+})

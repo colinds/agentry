@@ -2,7 +2,6 @@ import { z } from 'zod'
 import type { SubagentInstance } from '../instances/index.ts'
 import type { InternalTool } from '../types/index.ts'
 import { renderSubagent } from '../render.ts'
-import { zodToJsonSchema } from '../tools/defineTool.ts'
 
 /**
  * create a synthetic tool from a subagent
@@ -10,7 +9,7 @@ import { zodToJsonSchema } from '../tools/defineTool.ts'
  * when parent invokes this tool, it spawns the child agent
  */
 export function createSubagentTool(subagent: SubagentInstance): InternalTool {
-  const inputSchema = z.object({
+  const parameters = z.object({
     task: z.string().describe('Task for the subagent to perform'),
     context: z.string().describe('Additional context').optional(),
   })
@@ -19,8 +18,8 @@ export function createSubagentTool(subagent: SubagentInstance): InternalTool {
     name: subagent.name,
     description:
       subagent.description ?? `Delegate task to ${subagent.name} agent`,
-    inputSchema,
-    jsonSchema: zodToJsonSchema(inputSchema),
+    parameters,
+    jsonSchema: z.toJSONSchema(parameters),
     handler: async (input, toolContext) => {
       const { task, context: additionalContext } = input as {
         task: string

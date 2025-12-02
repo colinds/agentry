@@ -26,8 +26,8 @@
         "@agentry/core": "workspace:*",
       },
       "peerDependencies": {
-        "react": "^18.0.0 || ^19.0.0",
-        "zod": "^3.0.0",
+        "react": "^19.0.0",
+        "zod": "^4.0.0",
       },
     },
     "packages/components": {
@@ -36,6 +36,7 @@
       "dependencies": {
         "@agentry/core": "workspace:*",
         "@anthropic-ai/sdk": "^0.71.0",
+        "zod": "^4.1.13",
         "zustand": "^5.0.3",
       },
       "peerDependencies": {

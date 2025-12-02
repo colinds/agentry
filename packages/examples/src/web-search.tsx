@@ -34,7 +34,7 @@ function AnalysisTools() {
       <Tool
         name="summarize_findings"
         description="Summarize key findings from web search results into a structured format"
-        inputSchema={z.object({
+        parameters={z.object({
           topic: z.string().describe('The research topic'),
           key_points: z
             .array(z.string())

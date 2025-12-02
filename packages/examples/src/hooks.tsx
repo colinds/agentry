@@ -36,7 +36,7 @@ function ResearchTools({
       <Tool
         name="research_topic"
         description="Research a topic area to discover what capabilities it unlocks"
-        inputSchema={z.object({
+        parameters={z.object({
           topic: z
             .enum(['weather', 'news', 'analytics'])
             .describe('The topic area to research'),
@@ -61,7 +61,7 @@ function ResearchTools({
       <Tool
         name="unlock_capability"
         description="Unlock a discovered capability to gain access to new tools"
-        inputSchema={z.object({
+        parameters={z.object({
           capability: z
             .enum(['WEATHER', 'NEWS', 'ANALYST'])
             .describe('The capability to unlock'),
@@ -97,7 +97,7 @@ function WeatherTools() {
       <Tool
         name="get_weather"
         description="Get current weather for a location"
-        inputSchema={z.object({
+        parameters={z.object({
           location: z.string().describe('The location to check'),
         })}
         handler={async ({ location }) => {
@@ -131,7 +131,7 @@ function NewsTools() {
       <Tool
         name="get_news"
         description="Get latest news headlines by category"
-        inputSchema={z.object({
+        parameters={z.object({
           category: z
             .enum(['tech', 'science', 'business'])
             .describe('News category'),

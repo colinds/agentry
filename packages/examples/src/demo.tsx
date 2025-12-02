@@ -45,7 +45,7 @@ function ProjectManager() {
         <Tool
           name="create_coder"
           description="Spawn a coder subagent for code tasks"
-          inputSchema={z.object({
+          parameters={z.object({
             language: z
               .string()
               .describe(

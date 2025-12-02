@@ -1,17 +1,5 @@
-import type { z } from 'zod'
+import { z } from 'zod'
 import type { InternalTool, ToolContext, ToolResult } from '../types/index.ts'
-
-/**
- * Convert a Zod schema to JSON schema format for the Anthropic API
- */
-export function zodToJsonSchema(schema: unknown): Record<string, unknown> {
-  const zodSchema = schema as { toJSONSchema?: () => Record<string, unknown> }
-  const jsonSchemaRaw = zodSchema.toJSONSchema?.() || {}
-  return {
-    type: 'object' as const,
-    ...jsonSchemaRaw,
-  }
-}
 
 /**
  * define a type-safe tool with Zod schema validation
@@ -37,19 +25,19 @@ export function defineTool<TSchema extends z.ZodType>(options: {
   description: string
   parameters: TSchema
   handler: (
-    input: z.output<TSchema>,
+    input: z.infer<TSchema>,
     context: ToolContext,
   ) => Promise<ToolResult> | ToolResult
-}): InternalTool<z.output<TSchema>> {
+}): InternalTool<z.infer<TSchema>> {
   const { name, description, parameters, handler } = options
 
   return {
     name,
     description,
-    inputSchema: parameters,
-    jsonSchema: zodToJsonSchema(parameters),
+    parameters,
+    jsonSchema: z.toJSONSchema(parameters),
     handler,
-  } as InternalTool<z.output<TSchema>>
+  } as InternalTool<z.infer<TSchema>>
 }
 
 /**
@@ -83,7 +71,7 @@ export function parseToolInput<TInput>(
         issues: Array<{ path: Array<string | number>; message: string }>
       }
     } {
-  const schema = tool.inputSchema as {
+  const schema = tool.parameters as {
     safeParse: (input: unknown) => {
       success: boolean
       data?: TInput

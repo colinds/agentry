@@ -346,7 +346,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       system: params.system
         ? `${params.system.substring(0, 80)}...`
         : undefined,
-      mcpServers: params.mcp_servers?.map((s) => s.name),
+      ...(params.mcp_servers?.length
+        ? { mcpServers: params.mcp_servers?.map((s) => s.name) }
+        : {}),
     })
 
     let response: BetaMessage
@@ -441,7 +443,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         const tool = this.config.tools.find((t) => t.name === toolCall.name)
 
         if (tool) {
-          debug('tool', `Executing: ${toolCall.name}`, toolCall.input)
+          debug('tool', `Executing: ${toolCall.name}`, {
+            input: toolCall.input,
+          })
           const { result, isError } = await executeTool(
             tool,
             toolCall.input,
@@ -450,6 +454,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
           debug('tool', `Result: ${toolCall.name}`, {
             isError,
+            input: toolCall.input,
             result:
               typeof result === 'string' ? result.substring(0, 100) : result,
           })

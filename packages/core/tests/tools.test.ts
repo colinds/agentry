@@ -6,7 +6,6 @@ import {
   parseToolInput,
   executeTool,
   toApiTool,
-  zodToJsonSchema,
 } from '../src/tools/index.ts'
 import {
   initialState,
@@ -154,38 +153,6 @@ test('state machine transitions correctly', () => {
     results: [],
   })
   expect(state.status).toBe('idle')
-})
-
-test('zodToJsonSchema returns object with type field', () => {
-  const schema = z.object({
-    name: z.string(),
-  })
-
-  const jsonSchema = zodToJsonSchema(schema)
-
-  expect(jsonSchema.type).toBe('object')
-})
-
-test('zodToJsonSchema works with defineTool output', () => {
-  const tool = defineTool({
-    name: 'test',
-    description: 'test',
-    parameters: z.object({
-      query: z.string().describe('The query'),
-      count: z.number().optional(),
-    }),
-    handler: async () => 'ok',
-  })
-
-  expect(tool.jsonSchema).toBeDefined()
-  expect(tool.jsonSchema.type).toBe('object')
-})
-
-test('zodToJsonSchema handles empty schema', () => {
-  const schema = z.object({})
-  const jsonSchema = zodToJsonSchema(schema)
-
-  expect(jsonSchema.type).toBe('object')
 })
 
 test('state machine transitions to error state', () => {
