@@ -37,12 +37,14 @@ test('subagent has isolated message context', async () => {
         model={TEST_MODEL}
       >
         <System>You are isolated</System>
+        <Message role="user">Perform isolated task</Message>
       </Agent>
     )
   }
 
   const { client, controller } = createStepMockClient([
     { content: [mockToolUse('isolated', {})], stop_reason: 'tool_use' },
+    { content: [mockText('Isolated task done')] }, // subagent response
     { content: [mockText('Parent continues')] },
   ])
 
@@ -83,12 +85,14 @@ test('onStepFinish callback fires for subagent calls', async () => {
     return (
       <Agent name="subagent" stream={false} description="Test subagent">
         <System>You are a subagent</System>
+        <Message role="user">Complete the task</Message>
       </Agent>
     )
   }
 
   const { client, controller } = createStepMockClient([
     { content: [mockToolUse('subagent', {})], stop_reason: 'tool_use' },
+    { content: [mockText('Task completed')] }, // subagent response
     { content: [mockText('Done')] },
   ])
 
@@ -143,6 +147,7 @@ test('onComplete callback fires when agent finishes', async () => {
         }}
       >
         <System>You complete tasks</System>
+        <Message role="user">Complete this task</Message>
       </Agent>
     )
   }

@@ -60,9 +60,9 @@ export async function render(
   element: ReactNode,
   options: RenderOptions = {},
 ): Promise<AgentResult | AgentHandle> {
-  const { mode = 'batch' } = options
+  const { mode = 'batch', client } = options
 
-  const handle = createAgent(element, options)
+  const handle = new AgentHandle(element, client, mode)
 
   if (mode === 'interactive') {
     return handle

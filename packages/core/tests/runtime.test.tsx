@@ -2,7 +2,7 @@ import { test, expect } from 'bun:test'
 import { z } from 'zod'
 import { render } from '../src/index.ts'
 import { defineTool } from '@agentry/core/tools'
-import { Agent, System, Tools, Tool, Message } from '@agentry/components'
+import { Agent, System, Tools, Tool, Message, AgentTool } from '@agentry/components'
 import {
   createStepMockClient,
   mockText,
@@ -269,6 +269,8 @@ test('handles multiple tool calls in sequence', async () => {
 test('respects maxIterations limit', async () => {
   const { client, controller } = createStepMockClient([
     { content: [mockToolUse('test', {})], stop_reason: 'tool_use' },
+    { content: [mockToolUse('test', {})], stop_reason: 'tool_use' },
+    { content: [mockToolUse('test', {})], stop_reason: 'tool_use' },
   ])
 
   const tool = defineTool({
@@ -387,4 +389,86 @@ test('tool schemas in API requests are complete', async () => {
 
   await controller.nextTurn()
   await runPromise
+})
+
+test('batch mode errors when agent has no messages', async () => {
+  const { client } = createStepMockClient([])
+
+  await expect(
+    render(
+      <Agent model={TEST_MODEL} maxTokens={100}>
+        <System>You are helpful</System>
+        {/* No <Message> components */}
+      </Agent>,
+      { client },
+    ),
+  ).rejects.toThrow('Agent has no messages. In batch mode')
+})
+
+test('interactive mode does NOT error when agent has no messages', async () => {
+  const { client } = createStepMockClient([])
+
+  const agent = await render(
+    <Agent model={TEST_MODEL} maxTokens={100}>
+      <System>You are helpful</System>
+    </Agent>,
+    { client, mode: 'interactive' },
+  )
+
+  // should not throw - agent is created successfully
+  expect(agent).toBeDefined()
+  agent.close()
+})
+
+test('subagent errors when it has no messages', async () => {
+  const SubAgent = () => (
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <System>I am a subagent</System>
+      {/* No <Message> components - should trigger validation error */}
+    </Agent>
+  )
+
+  const { client, controller } = createStepMockClient([
+    {
+      content: [mockToolUse('subagent', {})],
+      stop_reason: 'tool_use',
+    },
+    // second response after tool error is returned
+    { content: [mockText('The subagent tool failed.')] },
+  ])
+
+  const runPromise = render(
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <System>You are helpful</System>
+      <Tools>
+        <AgentTool
+          name="subagent"
+          description="A subagent tool"
+          parameters={z.object({})}
+          agent={() => <SubAgent />}
+        />
+      </Tools>
+      <Message role="user">Use the subagent</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.nextTurn()
+  await controller.nextTurn()
+
+  const result = await runPromise
+
+  // tool should have error result
+  const toolMessages = result.messages.filter(
+    (m) => m.role === 'user' && 'content' in m && Array.isArray(m.content),
+  )
+  const toolResults = toolMessages.flatMap((m) =>
+    Array.isArray(m.content)
+      ? m.content.filter((c) => c.type === 'tool_result')
+      : [],
+  )
+
+  expect(toolResults.length).toBeGreaterThan(0)
+  expect(toolResults[0]?.is_error).toBe(true)
+  expect(toolResults[0]?.content).toContain('Subagent has no messages')
 })

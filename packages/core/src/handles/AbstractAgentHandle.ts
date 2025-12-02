@@ -12,7 +12,11 @@ import {
   updateContainer,
   type ContainerInfo,
 } from '../reconciler/renderer.ts'
-import { ExecutionEngine, createEngineConfig } from '../execution/index.ts'
+import {
+  ExecutionEngine,
+  createEngineConfig,
+  type ExecutionEngineConfig,
+} from '../execution/index.ts'
 import { isProcessing, type AgentState } from '../types/state.ts'
 import { yieldToScheduler } from '../scheduler.ts'
 import { AgentProvider } from '../context.ts'
@@ -65,6 +69,16 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   }
 
   /**
+   * Hook called immediately before starting the execution engine
+   * Subclasses can override to perform validation or setup
+   */
+  protected abstract beforeExecution(
+    agent: AgentInstance,
+    config: ExecutionEngineConfig,
+    messagesToUse: readonly BetaMessageParam[],
+  ): void
+
+  /**
    * Core execution logic - runs an agent instance to completion
    * Handles engine creation, event wiring, execution, and callbacks
    */
@@ -89,6 +103,8 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
       store: this.store,
       overrideMessages: messagesToUse,
     })
+
+    this.beforeExecution(agent, config, messagesToUse)
 
     this.engine = new ExecutionEngine(config)
 

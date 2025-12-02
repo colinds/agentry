@@ -6,7 +6,9 @@ import {
   type SubagentInstance,
   isAgentInstance,
 } from '@agentry/core/instances/types'
+import type { BetaMessageParam } from '../types/messages.ts'
 import { AbstractAgentHandle } from './AbstractAgentHandle.ts'
+import type { ExecutionEngineConfig } from '../execution/ExecutionEngine.ts'
 
 export class SubagentHandle extends AbstractAgentHandle {
   private subagent: SubagentInstance
@@ -56,6 +58,19 @@ export class SubagentHandle extends AbstractAgentHandle {
 
   protected shouldEmitEvents(): boolean {
     return false
+  }
+
+  protected override beforeExecution(
+    _agent: AgentInstance,
+    _config: ExecutionEngineConfig,
+    messages: readonly BetaMessageParam[],
+  ): void {
+    // subagents always need messages
+    if (messages.length === 0) {
+      throw new Error(
+        'Subagent has no messages. Subagents must have at least one <Message> component.',
+      )
+    }
   }
 
   protected override async prepareAgent(): Promise<AgentInstance> {

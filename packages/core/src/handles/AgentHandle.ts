@@ -1,12 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createElement, type ReactNode } from 'react'
 import type { AgentInstance } from '../instances/types.ts'
+import type { BetaMessageParam } from '../types/messages.ts'
 import { createContainer, updateContainer } from '../reconciler/renderer.ts'
 import { createAgentStore } from '../store.ts'
 import { isAgentInstance } from '../instances/types.ts'
 import { AgentProvider } from '../context.ts'
 import { MODEL } from '@agentry/shared'
 import { AbstractAgentHandle } from './AbstractAgentHandle.ts'
+import type { ExecutionEngineConfig } from '../execution/ExecutionEngine.ts'
 
 /**
  * Handle for controlling a regular agent at runtime
@@ -15,8 +17,13 @@ import { AbstractAgentHandle } from './AbstractAgentHandle.ts'
  */
 export class AgentHandle extends AbstractAgentHandle {
   private element: ReactNode
+  private mode: 'batch' | 'interactive'
 
-  constructor(element: ReactNode, client?: Anthropic) {
+  constructor(
+    element: ReactNode,
+    client?: Anthropic,
+    mode: 'batch' | 'interactive' = 'batch',
+  ) {
     const anthropicClient = client ?? new Anthropic()
     const store = createAgentStore()
 
@@ -43,6 +50,7 @@ export class AgentHandle extends AbstractAgentHandle {
 
     super(anthropicClient, containerInfo, store)
     this.element = element
+    this.mode = mode
   }
 
   update(element: ReactNode): void {
@@ -60,6 +68,19 @@ export class AgentHandle extends AbstractAgentHandle {
 
   protected shouldEmitEvents(): boolean {
     return true
+  }
+
+  protected override beforeExecution(
+    _agent: AgentInstance,
+    _config: ExecutionEngineConfig,
+    messages: readonly BetaMessageParam[],
+  ): void {
+    // only validate in batch mode
+    if (this.mode === 'batch' && messages.length === 0) {
+      throw new Error(
+        'Agent has no messages. In batch mode, provide at least one <Message> component.',
+      )
+    }
   }
 
   protected async prepareAgent(): Promise<AgentInstance> {

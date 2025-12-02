@@ -136,6 +136,7 @@ export function createStepMockClient(responses: MockResponse[]): {
   client: Anthropic
   controller: StepMockController
 } {
+  const initialResponseCount = responses.length
   let callCount = 0
   let turnNumber = 0
   const pendingCalls: PendingCall[] = []
@@ -156,8 +157,18 @@ export function createStepMockClient(responses: MockResponse[]): {
         throw new Error('No pending calls to resolve')
       }
 
-      const response =
-        responsesArray[callCount] ?? responsesArray[responsesArray.length - 1]
+      // check if we're out of responses
+      if (callCount >= initialResponseCount) {
+        const errorMessage =
+          `Mock client: No more mock responses available. ` +
+          `The agent tried to make API call #${callCount + 1} but you only provided ` +
+          `${initialResponseCount} mock response(s). ` +
+          `Add more mock responses to your test.`
+        call.reject(new Error(errorMessage))
+        throw new Error(errorMessage)
+      }
+
+      const response = responsesArray[callCount]
       if (!response) {
         call.reject(new Error('No mock responses provided'))
         return

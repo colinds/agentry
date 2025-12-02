@@ -103,6 +103,17 @@ function createAgentInstance(
   props: AgentComponentProps,
   rootContainer?: unknown,
 ): AgentInstance {
+  if (
+    rootContainer &&
+    isInstance(rootContainer) &&
+    isAgentInstance(rootContainer) &&
+    rootContainer.children.length > 0
+  ) {
+    throw new Error(
+      'Cannot nest <Agent>. You can use <AgentTool> to create agents available as tools.',
+    )
+  }
+
   const client = props.client ?? new Anthropic()
 
   const instance: AgentInstance = {

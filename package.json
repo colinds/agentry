@@ -11,7 +11,7 @@
     ]
   },
   "scripts": {
-    "test": "bun test ./packages/**/tests",
+    "test": "bun test --timeout 100 ./packages/**/tests",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf node_modules packages/*/node_modules",
     "lint": "eslint . --max-warnings=0",
