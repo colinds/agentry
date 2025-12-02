@@ -9,7 +9,15 @@
 
 import { useState } from 'react'
 import { z } from 'zod'
-import { render, Agent, System, Message, Tools, Tool } from 'agentry'
+import {
+  render,
+  Agent,
+  System,
+  Message,
+  Tools,
+  Tool,
+  AgentTool,
+} from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 interface Subagent {
@@ -21,25 +29,20 @@ interface Subagent {
 }
 
 /**
- * EphemeralSubagent - A subagent that removes itself when it completes
- *
- * When the subagent completes, it removes itself from the parent's state.
- * The reconciler automatically detects the component removal and queues a
- * tool removal in pendingUpdates. The execution engine processes these
- * updates after tool execution, ensuring the tool is removed before the
- * next step's tool list is evaluated.
+ * The actual agent component for an ephemeral subagent
  */
-function EphemeralSubagent({
+function EphemeralAgent({
   config,
+  task,
   onRemove,
 }: {
   config: Subagent
+  task: string
   onRemove: () => void
 }) {
   return (
     <Agent
       name={config.name}
-      description={config.description}
       temperature={config.temperature}
       onStepFinish={(result) => {
         console.log(
@@ -59,7 +62,32 @@ function EphemeralSubagent({
       }}
     >
       <System>{config.systemPrompt}</System>
+      <Message role="user">{task}</Message>
     </Agent>
+  )
+}
+
+/**
+ * EphemeralSubagent - Wraps the agent as an AgentTool that removes itself on completion
+ */
+function EphemeralSubagent({
+  config,
+  onRemove,
+}: {
+  config: Subagent
+  onRemove: () => void
+}) {
+  return (
+    <AgentTool
+      name={config.name}
+      description={config.description}
+      parameters={z.object({
+        task: z.string().describe('Task for the subagent to perform'),
+      })}
+      agent={(input) => (
+        <EphemeralAgent config={config} task={input.task} onRemove={onRemove} />
+      )}
+    />
   )
 }
 

@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { z } from 'zod'
-import { render, Agent, System, Tools, Tool, Message } from 'agentry'
+import { render, Agent, System, Tools, Tool, Message, AgentTool } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 /**
- * Example: Dynamically Creating Subagents
+ * Example: Dynamically Creating Subagents with AgentTool
  *
  * This example demonstrates how an agent can create new subagents at runtime
- * using a tool. The factory agent creates a coder subagent, which then creates
+ * using AgentTool. The factory agent creates a coder subagent, which then creates
  * a tester subagent to validate the code.
  */
 
@@ -74,16 +74,22 @@ function CreateSubagentTool({
 }
 
 /**
- * Recursive component that renders a subagent and its nested subagents.
- * Each subagent can also create its own subagents, forming a tree structure.
+ * The actual agent component for a dynamically created subagent
  */
-function SubagentComponent({ config }: { config: Subagent }) {
-  const [subagents, setSubagents] = useState<Subagent[]>([])
-
+function DynamicAgent({
+  config,
+  task,
+  subagents,
+  onCreateSubagent,
+}: {
+  config: Subagent
+  task: string
+  subagents: Subagent[]
+  onCreateSubagent: (subagent: Omit<Subagent, 'id'>) => void
+}) {
   return (
     <Agent
       name={config.name}
-      description={config.description}
       temperature={config.temperature}
       onComplete={(result) => {
         console.log(`\n📝 [Subagent "${config.name}"] Completed`)
@@ -106,19 +112,46 @@ function SubagentComponent({ config }: { config: Subagent }) {
         {/* Allow this subagent to create its own subagents */}
         <CreateSubagentTool
           subagents={subagents}
-          onCreate={(subagent) => {
-            setSubagents((prev) => [
-              ...prev,
-              { ...subagent, id: `${subagent.name}_${Date.now()}` },
-            ])
-          }}
+          onCreate={onCreateSubagent}
         />
         {/* Render nested subagents */}
         {subagents.map((s) => (
           <SubagentComponent key={s.id} config={s} />
         ))}
       </Tools>
+      <Message role="user">{task}</Message>
     </Agent>
+  )
+}
+
+/**
+ * Recursive component that wraps a subagent as an AgentTool.
+ * Each subagent can also create its own subagents, forming a tree structure.
+ */
+function SubagentComponent({ config }: { config: Subagent }) {
+  const [subagents, setSubagents] = useState<Subagent[]>([])
+
+  return (
+    <AgentTool
+      name={config.name}
+      description={config.description}
+      parameters={z.object({
+        task: z.string().describe('Task for the subagent to perform'),
+      })}
+      agent={(input) => (
+        <DynamicAgent
+          config={config}
+          task={input.task}
+          subagents={subagents}
+          onCreateSubagent={(subagent) => {
+            setSubagents((prev) => [
+              ...prev,
+              { ...subagent, id: `${subagent.name}_${Date.now()}` },
+            ])
+          }}
+        />
+      )}
+    />
   )
 }
 

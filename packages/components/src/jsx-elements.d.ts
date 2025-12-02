@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { InternalTool } from '@agentry/core/types'
+import type { InternalTool, InternalAgentTool } from '@agentry/core/types'
 import type {
   BetaToolUnion,
   BetaRequestMCPServerToolConfiguration,
@@ -11,10 +11,12 @@ export interface AgentryElements {
     model?: AgentComponentPublicProps['model']
     children?: ReactNode
     /** Deferred children - stored but not reconciled during parent render */
-    deferredChildren?: ReactNode
+    agentNode?: ReactNode
   }
 
   tool: { tool: InternalTool<unknown>; key?: string }
+
+  agent_tool: { agentTool: InternalAgentTool<unknown>; key?: string }
 
   sdk_tool: { tool: BetaToolUnion; key?: string }
 

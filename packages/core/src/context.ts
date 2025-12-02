@@ -9,11 +9,6 @@ import type { AgentStore } from './store.ts'
 export const AgentContext = createContext<AgentStore | null>(null)
 
 /**
- * Context for detecting if we're inside an Agent's children tree.
- */
-export const InsideAgentContext = createContext<boolean>(false)
-
-/**
  * Provider component that makes agent store available to children
  */
 export function AgentProvider({

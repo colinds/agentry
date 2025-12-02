@@ -5,6 +5,7 @@ import type {
   BetaWebSearchTool20250305,
   BetaMemoryTool20250818,
 } from '@anthropic-ai/sdk/resources/beta'
+import type { Model } from './agent.ts'
 
 export interface MemoryHandlers {
   /** Handler for viewing directory contents or file contents */
@@ -89,6 +90,7 @@ export function isMemoryTool(tool: SdkTool): tool is MemoryTool {
 export interface ToolContext {
   agentName: string
   client: Anthropic
+  model?: Model
   // abort signal for cancellation
   signal?: AbortSignal
   metadata?: Record<string, unknown>

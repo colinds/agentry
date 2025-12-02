@@ -28,7 +28,6 @@ export const createSubagentTool = (
         content: additionalContext ? `${additionalContext}\n\n${task}` : task,
       })
 
-      // render/execute the subagent and return the result
       const result = await renderSubagent(subagent, {
         client: toolContext.client,
         signal: toolContext.signal,

@@ -7,6 +7,7 @@ import {
   Agent,
   System,
   Tool,
+  AgentTool,
   Tools,
   Message,
   useMessages,
@@ -29,7 +30,12 @@ test('subagent has isolated message context', async () => {
     subagentMessageCountRef.current = messages.length
 
     return (
-      <Agent name="isolated" stream={false} description="Has isolated messages">
+      <Agent
+        name="isolated"
+        stream={false}
+        description="Has isolated messages"
+        model={TEST_MODEL}
+      >
         <System>You are isolated</System>
       </Agent>
     )
@@ -44,13 +50,20 @@ test('subagent has isolated message context', async () => {
     <Agent model={TEST_MODEL} stream={false}>
       <System>Parent system prompt</System>
       <Tools>
-        <IsolatedAgent />
+        <AgentTool
+          name="isolated"
+          description="Has isolated messages"
+          parameters={z.object({})}
+          agent={() => <IsolatedAgent />}
+        />
       </Tools>
       <Message role="user">Call the isolated agent</Message>
     </Agent>,
     { client },
   )
 
+  await controller.nextTurn()
+  await controller.waitForNextCall()
   await controller.nextTurn()
   await controller.waitForNextCall()
   await controller.nextTurn()
@@ -89,13 +102,20 @@ test('onStepFinish callback fires for subagent calls', async () => {
       }}
     >
       <Tools>
-        <SubAgent />
+        <AgentTool
+          name="subagent"
+          description="Test subagent"
+          parameters={z.object({})}
+          agent={() => <SubAgent />}
+        />
       </Tools>
       <Message role="user">Call subagent</Message>
     </Agent>,
     { client },
   )
 
+  await controller.nextTurn()
+  await controller.waitForNextCall()
   await controller.nextTurn()
   await controller.waitForNextCall()
   await controller.nextTurn()
@@ -129,17 +149,22 @@ test('onComplete callback fires when agent finishes', async () => {
 
   const { client, controller } = createStepMockClient([
     {
-      content: [mockToolUse('completable', { task: 'test' })],
+      content: [mockToolUse('completable', {})],
       stop_reason: 'tool_use',
     },
-    { content: [mockText('Task completed by subagent')] }, // Subagent's response
-    { content: [mockText('All done')] }, // Parent's final response
+    { content: [mockText('Task completed by subagent')] },
+    { content: [mockText('All done')] },
   ])
 
   const runPromise = render(
     <Agent model={TEST_MODEL} stream={false}>
       <Tools>
-        <CompletableAgent />
+        <AgentTool
+          name="completable"
+          description="Agent with onComplete"
+          parameters={z.object({})}
+          agent={() => <CompletableAgent />}
+        />
       </Tools>
       <Message role="user">Run the completable agent</Message>
     </Agent>,
@@ -172,7 +197,16 @@ test('conditionally hidden subagents are not available as tools', async () => {
     const showHidden = false
     return (
       <Agent model={TEST_MODEL} stream={false}>
-        <Tools>{showHidden && <HiddenAgent />}</Tools>
+        <Tools>
+          {showHidden && (
+            <AgentTool
+              name="hidden"
+              description="Hidden agent"
+              parameters={z.object({})}
+              agent={() => <HiddenAgent />}
+            />
+          )}
+        </Tools>
         <Message role="user">Try to use hidden agent</Message>
       </Agent>
     )
@@ -190,11 +224,18 @@ test('conditionally hidden subagents are not available as tools', async () => {
   expect(result.content).toBe('I cannot help with that')
 })
 
-function HelperAgent({ onMount }: { onMount: () => void }) {
+function HelperAgent({
+  onMount,
+  task,
+}: {
+  onMount: () => void
+  task?: string
+}) {
   onMount()
   return (
     <Agent name="helper" stream={false} description="Helper agent">
       <System>I help with tasks</System>
+      <Message role="user">{task || 'Help me'}</Message>
     </Agent>
   )
 }
@@ -224,10 +265,20 @@ test('tools can be mounted during execution via state change', async () => {
         <Tools>
           <Tool {...enabler} />
           {mounted && (
-            <HelperAgent
-              onMount={() => {
-                helperCalledRef.current = true
-              }}
+            <AgentTool
+              name="helper"
+              description="Helper agent"
+              parameters={z.object({
+                task: z.string().optional(),
+              })}
+              agent={(input) => (
+                <HelperAgent
+                  task={input.task}
+                  onMount={() => {
+                    helperCalledRef.current = true
+                  }}
+                />
+              )}
             />
           )}
         </Tools>
@@ -239,7 +290,8 @@ test('tools can be mounted during execution via state change', async () => {
   const { client, controller } = createStepMockClient([
     { content: [mockToolUse('enable_helper', {})], stop_reason: 'tool_use' },
     { content: [mockToolUse('helper', {})], stop_reason: 'tool_use' },
-    { content: [mockText('Task completed')] },
+    { content: [mockText('Helper task completed')], stop_reason: 'end_turn' },
+    { content: [mockText('Task completed')], stop_reason: 'end_turn' },
   ])
 
   const agent = createAgent(<MountingToolTest />, { client })
@@ -251,7 +303,6 @@ test('tools can be mounted during execution via state change', async () => {
     // Resolve first turn - agent calls enable_helper
     await controller.nextTurn()
 
-    // Wait for tool execution to complete (next call queued)
     await controller.waitForNextCall()
 
     // After tool execution, helper should be available (state update processed)
@@ -260,22 +311,18 @@ test('tools can be mounted during execution via state change', async () => {
     expect(tools).toContain('helper')
     expect(enablerCalledRef.current).toBe(true)
 
-    // Resolve second turn - agent calls helper
     await controller.nextTurn()
-
-    // Wait for tool execution to complete
     await controller.waitForNextCall()
 
-    // Helper should have been called
     expect(helperCalledRef.current).toBe(true)
 
-    // Final turn
+    await controller.waitForNextCall()
+    await controller.nextTurn()
+    await controller.waitForNextCall()
     await controller.nextTurn()
 
     const result = await runPromise
     expect(result.content).toBe('Task completed')
-
-    // Final verification
     const finalTools = getRegisteredTools(agent)
     expect(finalTools).toContain('enable_helper')
     expect(finalTools).toContain('helper')
@@ -284,11 +331,18 @@ test('tools can be mounted during execution via state change', async () => {
   }
 })
 
-function ResearcherAgent({ onMount }: { onMount: () => void }) {
+function ResearcherAgent({
+  onMount,
+  task,
+}: {
+  onMount: () => void
+  task?: string
+}) {
   onMount()
   return (
     <Agent name="researcher" stream={false} description="Research specialist">
       <System>You do research</System>
+      <Message role="user">{task || 'Do research'}</Message>
     </Agent>
   )
 }
@@ -318,10 +372,20 @@ test('subagents can be mounted during execution via state change', async () => {
         <Tools>
           <Tool {...coordinator} />
           {hasResearcher && (
-            <ResearcherAgent
-              onMount={() => {
-                researcherCalledRef.current = true
-              }}
+            <AgentTool
+              name="researcher"
+              description="Research specialist"
+              parameters={z.object({
+                task: z.string().optional(),
+              })}
+              agent={(input) => (
+                <ResearcherAgent
+                  task={input.task}
+                  onMount={() => {
+                    researcherCalledRef.current = true
+                  }}
+                />
+              )}
             />
           )}
         </Tools>
@@ -333,7 +397,8 @@ test('subagents can be mounted during execution via state change', async () => {
   const { client, controller } = createStepMockClient([
     { content: [mockToolUse('start_research', {})], stop_reason: 'tool_use' },
     { content: [mockToolUse('researcher', {})], stop_reason: 'tool_use' },
-    { content: [mockText('Work coordinated')] },
+    { content: [mockText('Research completed')], stop_reason: 'end_turn' },
+    { content: [mockText('Work coordinated')], stop_reason: 'end_turn' },
   ])
 
   const agent = createAgent(<MountingSubagentTest />, { client })
@@ -341,23 +406,15 @@ test('subagents can be mounted during execution via state change', async () => {
   try {
     const runPromise = agent.run()
 
-    // Turn 1: Call start_research
     await controller.nextTurn()
-
-    // Wait for tool execution to complete
     await controller.waitForNextCall()
 
-    // After tool execution, researcher should be available (state update processed)
     const tools = getRegisteredTools(agent)
     expect(tools).toContain('start_research')
     expect(tools).toContain('researcher')
     expect(coordinatorCalledRef.current).toBe(true)
-    expect(researcherCalledRef.current).toBe(true)
 
-    // Turn 2: Call researcher
     await controller.nextTurn()
-
-    // Wait for tool execution to complete
     await controller.waitForNextCall()
 
     const tools2 = getRegisteredTools(agent)
@@ -365,7 +422,9 @@ test('subagents can be mounted during execution via state change', async () => {
     expect(tools2).toContain('researcher')
     expect(researcherCalledRef.current).toBe(true)
 
-    // Turn 3: Final response
+    await controller.waitForNextCall()
+    await controller.nextTurn()
+    await controller.waitForNextCall()
     await controller.nextTurn()
 
     const result = await runPromise
@@ -380,18 +439,15 @@ test('subagents can be mounted during execution via state change', async () => {
 })
 
 test('subagent sees pre-loaded JSX messages', async () => {
-  function PreloadedAgent() {
+  function PreloadedAgent({ task }: { task: string }) {
     return (
-      <Agent
-        name="preloaded"
-        stream={false}
-        description="Agent with pre-loaded messages"
-      >
+      <Agent name="preloaded" stream={false}>
         <System>You continue conversations</System>
         {/* these JSX messages should be visible to the subagent */}
         <Message role="user">What is 2+2?</Message>
         <Message role="assistant">2+2 equals 4.</Message>
         <Message role="user">And what is 3+3?</Message>
+        <Message role="user">{task}</Message>
       </Agent>
     )
   }
@@ -412,7 +468,14 @@ test('subagent sees pre-loaded JSX messages', async () => {
     <Agent model={TEST_MODEL} stream={false}>
       <System>You delegate tasks</System>
       <Tools>
-        <PreloadedAgent />
+        <AgentTool
+          name="preloaded"
+          description="Agent with pre-loaded messages"
+          parameters={z.object({
+            task: z.string(),
+          })}
+          agent={(input) => <PreloadedAgent task={input.task} />}
+        />
       </Tools>
       <Message role="user">Call preloaded agent</Message>
     </Agent>,
@@ -460,15 +523,12 @@ test('useMessages works inside subagent children', async () => {
     return null
   }
 
-  function SubagentWithHook() {
+  function SubagentWithHook({ task }: { task: string }) {
     return (
-      <Agent
-        name="hooked"
-        stream={false}
-        description="Agent with hook in children"
-      >
+      <Agent name="hooked" stream={false}>
         <System>You use hooks</System>
         <Message role="user">Pre-loaded message</Message>
+        <Message role="user">{task}</Message>
         {/* SubagentBody uses useMessages - should see subagent's messages */}
         <SubagentBody />
       </Agent>
@@ -491,7 +551,14 @@ test('useMessages works inside subagent children', async () => {
     <Agent model={TEST_MODEL} stream={false}>
       <System>Parent</System>
       <Tools>
-        <SubagentWithHook />
+        <AgentTool
+          name="hooked"
+          description="Agent with hook in children"
+          parameters={z.object({
+            task: z.string(),
+          })}
+          agent={(input) => <SubagentWithHook task={input.task} />}
+        />
       </Tools>
       <Message role="user">Call the hooked agent</Message>
     </Agent>,
@@ -510,7 +577,6 @@ test('useMessages works inside subagent children', async () => {
   await controller.nextTurn()
   await runPromise
 
-  // SubagentBody should have seen the subagent's messages (JSX + task)
   // NOT the parent's messages
   expect(subagentMessagesRef.current.length).toBeGreaterThan(0)
   expect(subagentMessagesRef.current).toContain('Pre-loaded message')
@@ -580,10 +646,7 @@ test('tools can be unmounted during execution via state change', async () => {
   try {
     const runPromise = agent.run()
 
-    // Turn 1: Call temporary tool (should be available)
     await controller.nextTurn()
-
-    // Wait for tool execution to complete
     await controller.waitForNextCall()
 
     const tools = getRegisteredTools(agent)
@@ -591,10 +654,7 @@ test('tools can be unmounted during execution via state change', async () => {
     expect(tools).toContain('disable_tool')
     expect(temporaryCalledRef.current).toBe(true)
 
-    // Turn 2: Call disable_tool (should remove temporary)
     await controller.nextTurn()
-
-    // Wait for tool execution to complete
     await controller.waitForNextCall()
 
     const tools2 = getRegisteredTools(agent)
@@ -602,7 +662,6 @@ test('tools can be unmounted during execution via state change', async () => {
     expect(tools2).not.toContain('temporary')
     expect(disablerCalledRef.current).toBe(true)
 
-    // Turn 3: Final response
     await controller.nextTurn()
 
     const result = await runPromise

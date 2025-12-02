@@ -35,6 +35,12 @@ export {
 } from './tools.ts'
 
 export {
+  type AgentToolFunction,
+  type DefineAgentToolOptions,
+  type InternalAgentTool,
+} from './agentTool.ts'
+
+export {
   type AgentState,
   type StateTransition,
   initialState,

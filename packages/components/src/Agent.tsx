@@ -1,19 +1,16 @@
-import { useContext, type ReactNode } from 'react'
-import { InsideAgentContext } from '@agentry/core/context'
+import type { ReactNode } from 'react'
 import type { AgentComponentProps } from '@agentry/core/instances/types'
 
 export interface AgentComponentPublicProps extends Omit<
   AgentComponentProps,
   'client' | 'model'
 > {
-  // model is optional for child agents (they inherit from parent)
+  // model is optional - required for root agents, inherited for subagents
   model?: AgentComponentProps['model']
 }
 
 /**
  * Agent component - the root container for an AI agent
- *
- * For nested agents (subagents), children are deferred until execution time.
  *
  * @example
  * ```tsx
@@ -21,6 +18,16 @@ export interface AgentComponentPublicProps extends Omit<
  *   <System>You are a helpful assistant</System>
  *   <Tools>
  *     <Tool {...searchTool} />
+ *     <AgentTool
+ *       name="researcher"
+ *       description="Research specialist"
+ *       parameters={z.object({ topic: z.string() })}
+ *       agent={(input) => (
+ *         <Agent name="researcher">
+ *           <System>Research: {input.topic}</System>
+ *         </Agent>
+ *       )}
+ *     />
  *   </Tools>
  * </Agent>
  * ```
@@ -29,18 +36,7 @@ export function Agent({
   children,
   ...props
 }: AgentComponentPublicProps): ReactNode {
-  const isNested = useContext(InsideAgentContext)
-
-  if (isNested) {
-    // defer children - pass as prop so reconciler stores them without reconciling
-    // children will be rendered later in SubagentHandle.prepareAgent() with proper context
-    return <agent {...props} deferredChildren={children} />
-  }
-
-  // root agent - render children normally, but wrap in InsideAgentContext so we can detect nested agents
-  return (
-    <InsideAgentContext.Provider value={true}>
-      <agent {...props}>{children}</agent>
-    </InsideAgentContext.Provider>
-  )
+  // All agents are now root agents - no implicit nesting
+  // Use AgentTool for explicit nested agents
+  return <agent {...props}>{children}</agent>
 }
