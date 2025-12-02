@@ -39,6 +39,7 @@ import type { SdkTool } from '../types/index.ts'
 import { toApiTool, executeTool } from '../tools/index.ts'
 import { executeMemoryTool } from '../tools/memoryTool.ts'
 import { debug } from '../debug.ts'
+import { buildSystemPrompt } from './createEngineConfig.ts'
 import { flushSync } from '../reconciler/renderer.ts'
 import type { AgentStore } from '../store.ts'
 
@@ -206,10 +207,14 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       betas.push(ANTHROPIC_BETAS.CONTEXT_MANAGEMENT)
     }
 
+    const system = this.agentInstance
+      ? buildSystemPrompt(this.agentInstance)
+      : this.config.system // default to static system prompt if no agent instance
+
     const params: CreateMessageParams = {
       model: this.config.model,
       max_tokens: this.config.maxTokens,
-      system: this.config.system,
+      system,
       messages: this.messages as BetaMessageParam[],
       tools: tools.length > 0 ? tools : undefined,
       mcp_servers: mcpServers?.length ? mcpServers : undefined,
