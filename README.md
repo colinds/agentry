@@ -1,15 +1,33 @@
 # Agentry
 
-A **React reconciler-based framework** for declarative AI agent orchestration. Treat agent systems like React treats UI—components describe _what_ the system should be, the reconciler determines _how_ to execute it.
+<div align="center">
 
-## Philosophy
+**A React reconciler-based framework for declarative AI agent orchestration**
 
-Separate React's reconciliation from agent execution (inspired by react-three-fiber). Messages flow reactively, execution happens outside React's scheduler.
+Treat agent systems like React treats UI—components: describe _what_ the system should be, the reconciler determines _how_ to execute it.
+
+</div>
+
+---
+
+## What is Agentry?
+
+Agentry brings React's declarative component model to AI agent orchestration. Just as React separates UI description from rendering, Agentry separates agent system description from execution.
+
+Agentry uses a custom React reconciler to translate your JSX into agent execution plans.
 
 ## Quick Start
 
+### Installation
+
+```bash
+bun add agentry react zod
+```
+
+### Your First Agent
+
 ```tsx
-import { render, Agent, System, Tools, Tool } from 'agentry'
+import { render, Agent, System, Tools, Tool, Message } from 'agentry'
 import { z } from 'zod'
 
 const result = await render(
@@ -19,7 +37,7 @@ const result = await render(
       <Tool
         name="calculator"
         description="Perform calculations"
-        inputSchema={z.object({
+        parameters={z.object({
           operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
           a: z.number(),
           b: z.number(),
@@ -35,6 +53,7 @@ const result = await render(
         }}
       />
     </Tools>
+    <Message role="user">What is 42 + 17?</Message>
   </Agent>,
 )
 
@@ -49,160 +68,167 @@ console.log(result.content)
 - **React hooks** - `useExecutionState()`, `useMessages()` for reactive state
 - **Component composition** - Organize agent logic into reusable components
 - **Streaming support** - Both pull (AsyncIterator) and push (EventEmitter) interfaces
-
-## Installation
-
-```bash
-bun add agentry react zod
-```
-
-## Package Structure
-
-- `@agentry/core` - Types, reconciler, execution engine
-- `@agentry/components` - React components (`<Agent>`, `<Tool>`, `<System>`, etc.)
-- `agentry` - Public API (`render()`, `AgentHandle`, hooks)
-- `@agentry/shared` - Shared constants
+- **Built-in tools** - `<WebSearch />`, `<CodeExecution />`, `<Memory />`, `<MCP />`
 
 ## Examples
 
-### Inline Tool Definition
+See `packages/examples/src/` for comprehensive examples:
 
-Define tools directly in JSX with `inputSchema`:
+| Example                         | Description                             |
+| ------------------------------- | --------------------------------------- |
+| `basic.tsx`                     | Simple calculator tool                  |
+| `interactive.tsx`               | Multi-turn conversations with streaming |
+| `subagents.tsx`                 | Manager delegating to specialists       |
+| `hooks.tsx`                     | Hooks, composition, and dynamic tools   |
+| `dynamic-tools.tsx`             | Tools unlocked via state                |
+| `web-search.tsx`                | Web search workflows                    |
+| `mcp.tsx`                       | MCP server integration                  |
+| `chatbot.tsx`                   | Terminal-based chatbot                  |
+| `create-subagent.tsx`           | Dynamic subagent creation               |
+| `create-ephemeral-subagent.tsx` | Ephemeral subagents                     |
 
-```tsx
-<Tool
-  name="get_weather"
-  description="Get weather for a location"
-  inputSchema={z.object({
-    location: z.string().describe('City name'),
-  })}
-  handler={async ({ location }) => {
-    return `Weather in ${location}: 72°F, sunny`
-  }}
-/>
+Run an example:
+
+```bash
+echo "ANTHROPIC_API_KEY=your-key" > .env
+bun run packages/examples/src/basic.tsx
 ```
 
-### Dynamic Tools with React State
+## Core Concepts
 
-Tools can be added/removed during execution using React's state:
+### Batch vs Interactive Mode
+
+**Batch mode** (default) - Runs to completion:
+
+```tsx
+const result = await render(<Agent>...</Agent>)
+```
+
+**Interactive mode** - Returns a handle for ongoing interaction:
+
+```tsx
+const agent = await render(<Agent>...</Agent>, { mode: 'interactive' })
+await agent.sendMessage('Hello')
+for await (const event of agent.stream('Tell me more')) {
+  if (event.type === 'text') process.stdout.write(event.text)
+}
+agent.close()
+```
+
+### Subagents
+
+Nested `<Agent>` components automatically become tools:
+
+```tsx
+<Agent name="manager" model="claude-haiku-4-5">
+  <Tools>
+    <Agent name="researcher" description="Research specialist">
+      <System>You are a research expert.</System>
+    </Agent>
+  </Tools>
+</Agent>
+```
+
+The manager can call `researcher(task)` and the framework automatically spawns and runs the child agent.
+
+### Dynamic Tools
+
+Tools can be added/removed during execution using React state:
 
 ```tsx
 function DynamicAgent() {
   const [hasAdvanced, setHasAdvanced] = useState(false)
-
   return (
     <Agent model="claude-haiku-4-5">
       <Tools>
         <Tool
           name="unlock_advanced"
-          description="Unlock advanced features"
-          inputSchema={z.object({})}
+          parameters={z.object({})}
           handler={async () => {
-            setHasAdvanced(true) // Triggers re-render, adds new tool
-            return 'Advanced features unlocked!'
+            setHasAdvanced(true) // Adds new tool on next render
+            return 'Unlocked!'
           }}
         />
-        {hasAdvanced && (
-          <Tool
-            name="advanced_analysis"
-            description="Perform advanced analysis"
-            inputSchema={z.object({ data: z.string() })}
-            handler={async ({ data }) => `Analysis of: ${data}`}
-          />
-        )}
+        {hasAdvanced && <Tool name="advanced_analysis" ... />}
       </Tools>
     </Agent>
   )
 }
 ```
 
-### Hooks for State Tracking
+## API Reference
 
-Access agent state from within components:
+### `render(element, options?)`
 
-```tsx
-import { useExecutionState, useMessages } from 'agentry'
-
-function ExecutionMonitor() {
-  const state = useExecutionState()
-  const messages = useMessages()
-
-  useEffect(() => {
-    console.log(`Status: ${state.status}, Messages: ${messages.length}`)
-  }, [state.status, messages.length])
-
-  return null
-}
-
-// Use inside Agent tree
-;<Agent model="claude-haiku-4-5">
-  <ExecutionMonitor />
-  <System>You are helpful</System>
-</Agent>
-```
-
-### Declarative Subagents
-
-Nested `<Agent>` components automatically become tools:
+Renders an agent and returns a result or handle.
 
 ```tsx
-<Agent model="claude-haiku-4-5" name="manager" maxTokens={4096}>
-  <System>You delegate to specialists</System>
-  <Tools>
-    {/* Becomes a tool: researcher(task) */}
-    <Agent
-      name="researcher"
-      description="Research specialist"
-      temperature={0.7}
-    >
-      <System>You are a research expert.</System>
-    </Agent>
+// Batch mode
+const result: AgentResult = await render(<Agent>...</Agent>)
 
-    {/* Becomes a tool: coder(task) */}
-    <Agent
-      name="coder"
-      description="Code generation specialist"
-      temperature={0.3}
-    >
-      <System>You write clean code.</System>
-    </Agent>
-  </Tools>
-</Agent>
+// Interactive mode
+const handle: AgentHandle = await render(<Agent>...</Agent>, {
+  mode: 'interactive',
+})
 ```
 
-### More Examples
+**Options:**
 
-See `packages/examples/src/`:
+- `mode?: 'batch' | 'interactive'` - Execution mode (default: `'batch'`)
+- `client?: Anthropic` - Custom Anthropic client
 
-| Example             | Description                                  |
-| ------------------- | -------------------------------------------- |
-| `basic.tsx`         | Simple calculator tool                       |
-| `hooks.tsx`         | Hooks, composition, subagents, dynamic tools |
-| `dynamic-tools.tsx` | Tools unlocked via state                     |
-| `subagents.tsx`     | Manager delegating to specialists            |
-| `interactive.tsx`   | Multi-turn conversations                     |
+### Components
 
-Run an example:
+- **`<Agent>`** - Root container. Props: `model`, `name`, `description`, `maxTokens`, `temperature`, `stream`, `onComplete`, etc.
+- **`<System>`** - System instructions. Props: `priority?`, `children`
+- **`<Context>`** - Additional context. Props: `priority?`, `children`
+- **`<Message>`** - Conversation message. Props: `role: 'user' | 'assistant'`, `children`
+- **`<Tools>`** - Tool container. Props: `children`
+- **`<Tool>`** - Custom tool. Props: `name`, `description`, `parameters` (Zod schema), `handler`
+- **`<WebSearch />`** - Built-in web search. Props: `maxUses?`, `allowedDomains?`, `blockedDomains?`
+- **`<CodeExecution />`** - Built-in code execution
+- **`<Memory />`** - Built-in memory tool. Props: `onView?`, `onCreate?`, `onDelete?`, etc.
+- **`<MCP />`** - MCP server connection. Props: `name`, `url`, `authorization_token?`
 
-```bash
-echo "ANTHROPIC_API_KEY=your-key" > .env
-bun run packages/examples/src/hooks.tsx
-```
+### Hooks
+
+- **`useExecutionState()`** - Returns current execution state
+- **`useMessages()`** - Returns conversation messages
+- **`useAgentState()`** - Returns full agent state
+
+### AgentHandle (Interactive Mode)
+
+- `sendMessage(content: string): Promise<AgentResult>`
+- `stream(message: string): AsyncGenerator<AgentStreamEvent, AgentResult>`
+- `run(firstMessage?: string): Promise<AgentResult>`
+- `abort(): void`
+- `close(): void`
+- Properties: `state`, `messages`, `isRunning`
+
+### Utilities
+
+- **`defineTool(options)`** - Define a tool programmatically
+- **`createAgent(element, options?)`** - Create an agent handle without running
+
+## Requirements
+
+- Node.js 18+ or Bun
+- React 19+
+- TypeScript 5+
+- Anthropic API Key
 
 ## Development
 
 ```bash
 bun install
-bun tsc --noEmit
+bun run typecheck
+bun test
 ```
 
-## Project Structure
+## License
 
-```
-packages/
-├── agentry/        # Public API package (re-exports from core and components)
-├── core/           # Reconciler, execution engine, types
-├── components/     # React components and hooks
-├── shared/         # Shared constants
-└── examples/       # Example agents
-```
+MIT
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
