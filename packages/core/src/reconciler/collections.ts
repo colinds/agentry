@@ -7,13 +7,9 @@ import {
   isMessageInstance,
   isMCPServerInstance,
   isToolsContainerInstance,
-  isSubagentInstance,
-  isAgentInstance,
   isAgentToolInstance,
 } from '../instances/index.ts'
 import { debug } from '../debug.ts'
-import { isCircularReference } from './utils.ts'
-import { createSubagentTool } from '../tools/subagentTool.ts'
 import { createAgentSyntheticTool } from '../tools/agentSyntheticTool.ts'
 
 export interface ChildCollectionHandler {
@@ -79,38 +75,6 @@ function createToolsContainerHandler(
   }
 }
 
-function createSubagentHandler(): ChildCollectionHandler {
-  return {
-    add(agent, subagent) {
-      if (!isSubagentInstance(subagent)) return
-
-      if (isAgentInstance(agent) && agent.props.model) {
-        subagent.props.model = agent.props.model
-      }
-
-      if (isSubagentInstance(agent)) {
-        if (isCircularReference(agent, subagent)) {
-          throw new Error(
-            `Circular subagent reference detected: '${subagent.name}' is an ancestor of '${agent.name}'. ` +
-              `Subagents cannot reference themselves or their ancestors.`,
-          )
-        }
-      }
-
-      const tool = createSubagentTool(subagent)
-      debug('reconciler', `Subagent tool added: ${tool.name}`)
-      agent.tools.push(tool)
-    },
-    remove(agent, child) {
-      if (!isSubagentInstance(child)) return
-      debug('reconciler', `Subagent tool removed: ${child.name}`)
-      const index = agent.tools.findIndex((t) => t.name === child.name)
-      if (index >= 0) {
-        agent.tools.splice(index, 1)
-      }
-    },
-  }
-}
 
 function createAgentToolHandler(): ChildCollectionHandler {
   return {
@@ -202,7 +166,6 @@ export function getHandlerRegistry(
       uncollectFromChild,
     )
 
-    const subagentHandler = createSubagentHandler()
     const agentToolHandler = createAgentToolHandler()
 
     return new Map<Instance['type'], ChildCollectionHandler>([
@@ -213,7 +176,6 @@ export function getHandlerRegistry(
       ['message', messageHandler],
       ['mcp_server', mcpServerHandler],
       ['tools_container', toolsContainerHandler],
-      ['subagent', subagentHandler],
       ['agent_tool', agentToolHandler],
     ])
   }

@@ -170,7 +170,6 @@ export const reconciler = createReconciler<
     }
   },
   getChildHostContext(parentHostContext) {
-    // No special handling needed - implicit nesting removed
     return parentHostContext
   },
   getPublicInstance(instance: HostConfig['instance']) {
