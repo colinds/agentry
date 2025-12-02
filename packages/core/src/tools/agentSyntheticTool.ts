@@ -5,15 +5,6 @@ import { parseToolInput, formatValidationError } from './defineTool.ts'
 import { renderSubagent } from '../render.ts'
 import { createSubagentInstance } from '../instances/createInstance.ts'
 
-/**
- * Creates a synthetic tool from an AgentToolInstance
- * When the tool is called:
- * 1. Validates input against the schema
- * 2. Calls the agent function with validated input to get the agent element
- * 3. Creates a SubagentInstance with the agent element as deferred children
- * 4. Renders the subagent using renderSubagent
- * 5. Returns the agent's output as the tool result
- */
 export const createAgentSyntheticTool = (
   agentTool: AgentToolInstance,
 ): InternalTool => {
