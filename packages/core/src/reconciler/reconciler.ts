@@ -3,27 +3,27 @@ import ReactReconciler from 'react-reconciler'
 import {
   type Instance,
   type AgentInstance,
-  type SubagentInstance,
   type AgentLike,
   isAgentInstance,
   isSubagentInstance,
   isAgentLike,
-  isToolInstance,
-  isSdkToolInstance,
+  isToolsContainerInstance,
   isSystemInstance,
   isContextInstance,
-  isMessageInstance,
-  isToolsContainerInstance,
-  isMCPServerInstance,
+  isToolInstance,
 } from '../instances/index.ts'
 import {
   createInstance,
   type ElementType,
   type ElementProps,
 } from '../instances/index.ts'
-import type { InternalTool, CompactionControl, Model } from '../types/index.ts'
+import type { CompactionControl, Model } from '../types/index.ts'
 import { debug } from '../debug.ts'
 import { diffProps, disposeOnIdle } from './utils.ts'
+import {
+  getHandlerRegistry,
+  type ChildCollectionHandler,
+} from './collections.ts'
 
 function createReconciler<
   Type,
@@ -123,60 +123,40 @@ export const reconciler = createReconciler<
   isPrimaryRenderer: false,
   warnsIfNotActing: false,
   noTimeout: -1 as const,
-
   NotPendingTransition: null,
+
   // The reconciler types use the internal ReactContext with all the hidden properties
   // so we have to cast from the public React.Context type
   HostTransitionContext: createContext<HostConfig['TransitionStatus']>(
     null,
   ) as unknown as ReactReconciler.ReactContext<HostConfig['TransitionStatus']>,
-
   setCurrentUpdatePriority() {},
-
   // todo(investigate): why not 32 / DefaultEventPriority?
   getCurrentUpdatePriority: () => 1,
-
   resolveUpdatePriority: () => 1,
-
   resetFormInstance() {},
-
   requestPostPaintCallback() {},
-
   shouldAttemptEagerTransition: () => false,
-
   trackSchedulerEvent: () => {},
-
   resolveEventType: () => null,
-
   resolveEventTimeStamp: () => -1.1,
-
   maySuspendCommit: () => false,
-
   preloadInstance: () => false,
-
   startSuspendingCommit() {},
-
   suspendInstance() {},
-
   waitForCommitToBeReady: () => null,
-
   createInstance(type, props, rootContainer, hostContext, _internalHandle) {
     void _internalHandle
     return createInstance(type, props, rootContainer, hostContext)
   },
-
   createTextInstance: () => null,
-
   appendInitialChild(parentInstance, child) {
     // guard against null children (from createTextInstance)
     if (child === null) return
     appendChild(parentInstance, child)
   },
-
   finalizeInitialChildren: () => false,
-
   shouldSetTextContent: () => false,
-
   getRootHostContext(rootContainer) {
     return {
       stream: rootContainer.props.stream,
@@ -189,7 +169,6 @@ export const reconciler = createReconciler<
       model: rootContainer.props.model, // propagate model for subagents
     }
   },
-
   getChildHostContext(parentHostContext, type, _rootContainer) {
     void _rootContainer
     if (type === 'agent') {
@@ -197,72 +176,50 @@ export const reconciler = createReconciler<
     }
     return parentHostContext
   },
-
   getPublicInstance(instance: HostConfig['instance']) {
     return instance
   },
-
   prepareForCommit: () => null,
-
   resetAfterCommit() {},
-
   preparePortalMount() {},
-
   scheduleTimeout: setTimeout,
-
   cancelTimeout: clearTimeout,
-
   getInstanceFromNode: () => null,
-
   beforeActiveInstanceBlur() {},
-
   afterActiveInstanceBlur() {},
-
   prepareScopeUpdate() {},
-
   getInstanceFromScope: () => null,
-
   detachDeletedInstance() {},
-
   appendChild(parentInstance, child) {
     // guard against null children
     if (child === null) return
     appendChild(parentInstance, child)
   },
-
   appendChildToContainer(container, child) {
     if (child === null) return
     appendChild(container, child)
   },
-
   insertBefore(parentInstance, child, beforeChild) {
     // guard against null children
     if (child === null || beforeChild === null) return
     insertBefore(parentInstance, child, beforeChild)
   },
-
   insertInContainerBefore(container, child, beforeChild) {
     if (child === null || beforeChild === null) return
     insertBefore(container, child, beforeChild)
   },
-
   removeChild(parentInstance, child) {
     // guard against null children
     if (child === null) return
     removeChild(parentInstance, child)
   },
-
   removeChildFromContainer(container, child) {
     if (child === null) return
     removeChild(container, child)
   },
-
   resetTextContent() {},
-
   commitTextUpdate() {},
-
   commitMount() {},
-
   commitUpdate(instance, _type, prevProps, nextProps, _internalHandle) {
     void _internalHandle
     const { changes, hasChanges } = diffProps(prevProps, nextProps)
@@ -271,38 +228,97 @@ export const reconciler = createReconciler<
       applyUpdate(instance, changes)
     }
   },
-
   hideInstance() {},
-
   hideTextInstance() {},
-
   unhideInstance() {},
-
   unhideTextInstance() {},
-
   clearContainer() {},
 })
 
-function appendChild(parent: Instance, child: Instance): void {
-  child.parent = parent
+function getEffectiveAgent(parent: Instance): AgentLike | null {
+  if (isAgentLike(parent)) {
+    return parent
+  }
+  if (isToolsContainerInstance(parent)) {
+    return findParentAgent(parent)
+  }
+  return null
+}
 
+function addChildToArray(parent: Instance, child: Instance): void {
   if (isAgentLike(parent)) {
     parent.children.push(child)
-    debug(
-      'reconciler',
-      `appendChild: Adding child to ${isAgentInstance(parent) ? parent.props.name : 'subagent'}, child type: ${child.type}, isSubagent: ${isSubagentInstance(child)}`,
-    )
-    collectFromChild(parent, child)
   } else if (isToolsContainerInstance(parent)) {
     parent.children.push(child)
-    const agent = findParentAgent(parent)
-    if (agent) {
-      debug(
-        'reconciler',
-        `appendChild: Adding child from Tools to ${isAgentInstance(agent) ? agent.props.name : 'subagent'}, child type: ${child.type}`,
-      )
-      collectFromChild(agent, child)
+  }
+}
+
+function insertChildInArray(
+  parent: Instance,
+  child: Instance,
+  beforeChild: Instance,
+): void {
+  let children: Instance[]
+  if (isAgentLike(parent)) {
+    children = parent.children
+  } else if (isToolsContainerInstance(parent)) {
+    children = parent.children
+  } else {
+    return
+  }
+
+  const index = children.indexOf(beforeChild)
+  if (index >= 0) {
+    children.splice(index, 0, child)
+  } else {
+    children.push(child)
+  }
+}
+
+function removeChildFromArray(parent: Instance, child: Instance): void {
+  let children: Instance[]
+  if (isAgentLike(parent)) {
+    children = parent.children
+  } else if (isToolsContainerInstance(parent)) {
+    children = parent.children
+  } else {
+    return
+  }
+
+  const index = children.indexOf(child)
+  if (index >= 0) {
+    children.splice(index, 1)
+  }
+}
+
+function findParentAgent(instance: Instance): AgentLike | null {
+  let current = instance.parent
+  while (current) {
+    if (isAgentLike(current)) {
+      return current
     }
+    current = current.parent
+  }
+  return null
+}
+
+function getHandlers(): Map<Instance['type'], ChildCollectionHandler> {
+  return getHandlerRegistry(collectFromChild, uncollectFromChild)
+}
+
+const handlers = getHandlers()
+
+function appendChild(parent: Instance, child: Instance): void {
+  child.parent = parent
+  addChildToArray(parent, child)
+
+  const agent = getEffectiveAgent(parent)
+  if (agent) {
+    debug(
+      'reconciler',
+      `appendChild: Adding child to ${isAgentInstance(agent) ? agent.props.name : 'subagent'}, child type: ${child.type}, isSubagent: ${isSubagentInstance(child)}`,
+    )
+    collectFromChild(agent, child)
   }
 }
 
@@ -312,55 +328,25 @@ function insertBefore(
   beforeChild: Instance,
 ): void {
   child.parent = parent
+  insertChildInArray(parent, child, beforeChild)
 
-  if (isAgentLike(parent)) {
-    const index = parent.children.indexOf(beforeChild)
-    if (index >= 0) {
-      parent.children.splice(index, 0, child)
-    } else {
-      parent.children.push(child)
-    }
+  const agent = getEffectiveAgent(parent)
+  if (agent) {
     debug(
       'reconciler',
-      `insertBefore: Adding child to ${isAgentInstance(parent) ? parent.props.name : 'subagent'}, child type: ${child.type}, isSubagent: ${isSubagentInstance(child)}`,
+      `insertBefore: Adding child to ${isAgentInstance(agent) ? agent.props.name : 'subagent'}, child type: ${child.type}, isSubagent: ${isSubagentInstance(child)}`,
     )
-    collectFromChild(parent, child)
-  } else if (isToolsContainerInstance(parent)) {
-    const index = parent.children.indexOf(beforeChild)
-    if (index >= 0) {
-      parent.children.splice(index, 0, child)
-    } else {
-      parent.children.push(child)
-    }
-    const agent = findParentAgent(parent)
-    if (agent) {
-      debug(
-        'reconciler',
-        `insertBefore: Adding child from Tools to ${isAgentInstance(agent) ? agent.props.name : 'subagent'}, child type: ${child.type}`,
-      )
-      collectFromChild(agent, child)
-    }
+    collectFromChild(agent, child)
   }
 }
 
 function removeChild(parent: Instance, child: Instance): void {
   child.parent = null
+  removeChildFromArray(parent, child)
 
-  if (isAgentLike(parent)) {
-    const index = parent.children.indexOf(child)
-    if (index >= 0) {
-      parent.children.splice(index, 1)
-    }
-    uncollectFromChild(parent, child)
-  } else if (isToolsContainerInstance(parent)) {
-    const index = parent.children.indexOf(child)
-    if (index >= 0) {
-      parent.children.splice(index, 1)
-    }
-    const agent = findParentAgent(parent)
-    if (agent) {
-      uncollectFromChild(agent, child)
-    }
+  const agent = getEffectiveAgent(parent)
+  if (agent) {
+    uncollectFromChild(agent, child)
   }
 
   disposeOnIdle(() => {
@@ -375,6 +361,55 @@ function removeChild(parent: Instance, child: Instance): void {
       child.pendingUpdates.clear()
     }
   })
+}
+
+function collectFromChild(agent: AgentLike, child: Instance): void {
+  debug(
+    'reconciler',
+    `collectFromChild: agent=${isAgentInstance(agent) ? agent.props.name : agent.name}, child.type=${child.type}, isSubagent=${isSubagentInstance(child)}`,
+  )
+  const handler = handlers.get(child.type)
+  if (handler) {
+    handler.add(agent, child)
+  }
+}
+
+function uncollectFromChild(agent: AgentLike, child: Instance): void {
+  const handler = handlers.get(child.type)
+  if (handler) {
+    handler.remove(agent, child)
+  }
+}
+
+function rebuildParts(
+  agent: AgentInstance,
+  instanceType: 'system',
+  partsProperty: 'systemParts',
+): void
+function rebuildParts(
+  agent: AgentInstance,
+  instanceType: 'context',
+  partsProperty: 'contextParts',
+): void
+function rebuildParts(
+  agent: AgentInstance,
+  instanceType: 'system' | 'context',
+  partsProperty: 'systemParts' | 'contextParts',
+): void {
+  const parts = agent[partsProperty]
+  parts.length = 0
+
+  for (const child of agent.children) {
+    if (
+      (instanceType === 'system' && isSystemInstance(child)) ||
+      (instanceType === 'context' && isContextInstance(child))
+    ) {
+      parts.push({
+        content: child.content,
+        priority: child.priority,
+      })
+    }
+  }
 }
 
 function applyUpdate(
@@ -403,7 +438,7 @@ function applyUpdate(
     }
     const agent = findParentAgent(instance)
     if (agent && isAgentInstance(agent)) {
-      rebuildSystemParts(agent)
+      rebuildParts(agent, 'system', 'systemParts')
     }
   } else if (isContextInstance(instance)) {
     const payload = updatePayload as { children?: string; priority?: number }
@@ -415,7 +450,7 @@ function applyUpdate(
     }
     const agent = findParentAgent(instance)
     if (agent && isAgentInstance(agent)) {
-      rebuildContextParts(agent)
+      rebuildParts(agent, 'context', 'contextParts')
     }
   } else if (isToolInstance(instance)) {
     const payload = updatePayload as { tool?: typeof instance.tool }
@@ -434,181 +469,4 @@ function applyUpdate(
       }
     }
   }
-}
-
-// collect state from a child into an agent-like parent
-function collectFromChild(agent: AgentLike, child: Instance): void {
-  debug(
-    'reconciler',
-    `collectFromChild: agent=${isAgentInstance(agent) ? agent.props.name : agent.name}, child.type=${child.type}, isSubagent=${isSubagentInstance(child)}`,
-  )
-  if (isToolInstance(child)) {
-    debug('reconciler', `Tool added: ${child.tool.name}`)
-    agent.tools.push(child.tool)
-    agent.pendingUpdates.addTool(child.tool)
-  } else if (isSdkToolInstance(child)) {
-    debug('reconciler', `SDK tool added: ${child.tool.name}`)
-    agent.sdkTools.push(child.tool)
-    agent.pendingUpdates.addSdkTool(child.tool)
-  } else if (isSystemInstance(child)) {
-    agent.systemParts.push({ content: child.content, priority: child.priority })
-  } else if (isContextInstance(child)) {
-    agent.contextParts.push({
-      content: child.content,
-      priority: child.priority,
-    })
-  } else if (isMessageInstance(child)) {
-    agent.messages.push(child.message)
-  } else if (isMCPServerInstance(child)) {
-    debug('reconciler', `MCP server added: ${child.config.name}`)
-    agent.mcpServers.push(child.config)
-  } else if (isToolsContainerInstance(child)) {
-    for (const grandchild of child.children) {
-      collectFromChild(agent, grandchild)
-    }
-  } else if (isSubagentInstance(child)) {
-    if (isAgentInstance(agent) && agent.props.model) {
-      child.props.model = agent.props.model
-    }
-    if (isSubagentInstance(agent)) {
-      if (isCircularReference(agent, child)) {
-        throw new Error(
-          `Circular subagent reference detected: '${child.name}' is an ancestor of '${agent.name}'. ` +
-            `Subagents cannot reference themselves or their ancestors.`,
-        )
-      }
-    }
-
-    const syntheticTool = createSubagentTool(child)
-    debug('reconciler', `Subagent tool added: ${child.name}`)
-    agent.tools.push(syntheticTool)
-    agent.pendingUpdates.addTool(syntheticTool)
-  }
-}
-
-// remove state from a child from an agent-like parent
-function uncollectFromChild(agent: AgentLike, child: Instance): void {
-  if (isToolInstance(child)) {
-    debug('reconciler', `Tool removed: ${child.tool.name}`)
-    const index = agent.tools.findIndex((t) => t.name === child.tool.name)
-    if (index >= 0) {
-      agent.tools.splice(index, 1)
-      agent.pendingUpdates.removeTool(child.tool.name)
-    }
-  } else if (isSdkToolInstance(child)) {
-    debug('reconciler', `SDK tool removed: ${child.tool.name}`)
-    const index = agent.sdkTools.indexOf(child.tool)
-    if (index >= 0) {
-      agent.sdkTools.splice(index, 1)
-      agent.pendingUpdates.removeSdkTool(child.tool.name)
-    }
-  } else if (isSystemInstance(child)) {
-    const index = agent.systemParts.findIndex(
-      (p) => p.content === child.content && p.priority === child.priority,
-    )
-    if (index >= 0) {
-      agent.systemParts.splice(index, 1)
-    }
-  } else if (isContextInstance(child)) {
-    const index = agent.contextParts.findIndex(
-      (p) => p.content === child.content && p.priority === child.priority,
-    )
-    if (index >= 0) {
-      agent.contextParts.splice(index, 1)
-    }
-  } else if (isMessageInstance(child)) {
-    const index = agent.messages.indexOf(child.message)
-    if (index >= 0) {
-      agent.messages.splice(index, 1)
-    }
-  } else if (isMCPServerInstance(child)) {
-    debug('reconciler', `MCP server removed: ${child.config.name}`)
-    const index = agent.mcpServers.findIndex(
-      (s) => s.name === child.config.name,
-    )
-    if (index >= 0) {
-      agent.mcpServers.splice(index, 1)
-    }
-  } else if (isToolsContainerInstance(child)) {
-    for (const grandchild of child.children) {
-      uncollectFromChild(agent, grandchild)
-    }
-  } else if (isSubagentInstance(child)) {
-    debug('reconciler', `Subagent tool removed: ${child.name}`)
-    const index = agent.tools.findIndex((t) => t.name === child.name)
-    if (index >= 0) {
-      agent.tools.splice(index, 1)
-      agent.pendingUpdates.removeTool(child.name)
-    }
-  }
-}
-
-function findParentAgent(instance: Instance): AgentLike | null {
-  let current = instance.parent
-  while (current) {
-    if (isAgentLike(current)) {
-      return current
-    }
-    current = current.parent
-  }
-  return null
-}
-
-function rebuildSystemParts(agent: AgentInstance): void {
-  agent.systemParts = []
-  for (const child of agent.children) {
-    if (isSystemInstance(child)) {
-      agent.systemParts.push({
-        content: child.content,
-        priority: child.priority,
-      })
-    }
-  }
-}
-
-function rebuildContextParts(agent: AgentInstance): void {
-  agent.contextParts = []
-  for (const child of agent.children) {
-    if (isContextInstance(child)) {
-      agent.contextParts.push({
-        content: child.content,
-        priority: child.priority,
-      })
-    }
-  }
-}
-
-function isCircularReference(
-  subagent: SubagentInstance,
-  child: SubagentInstance,
-): boolean {
-  let current: Instance | null = subagent.parent
-
-  while (current) {
-    if (current === child) {
-      return true
-    }
-    current = current.parent
-  }
-
-  return false
-}
-
-let _createSubagentTool: ((subagent: SubagentInstance) => InternalTool) | null =
-  null
-
-export function setSubagentToolFactory(
-  factory: (subagent: SubagentInstance) => InternalTool,
-): void {
-  _createSubagentTool = factory
-}
-
-function createSubagentTool(subagent: SubagentInstance): InternalTool {
-  if (!_createSubagentTool) {
-    throw new Error(
-      'Subagent tool factory not initialized. This is a framework error - ' +
-        'runtime package should call setSubagentToolFactory() on initialization.',
-    )
-  }
-  return _createSubagentTool(subagent)
 }

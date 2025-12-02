@@ -19,4 +19,17 @@ export { MCP, type MCPProps } from './MCP.tsx'
 
 export { defineTool } from '@agentry/core'
 
+export {
+  useExecutionState,
+  useMessages,
+  useAgentState,
+  useAgentStore,
+  createAgentStore,
+  AgentContext,
+  InsideAgentContext,
+  AgentProvider,
+  type AgentStore,
+  type AgentStoreState,
+} from './hooks.ts'
+
 export type { AgentryElements } from './jsx-elements.d.ts'

@@ -1,8 +1,8 @@
-import { useExecutionState, useMessages } from '../../src/hooks.ts'
+import { useExecutionState, useMessages } from '@agentry/components'
 import {
+  isAgentInstance,
   type AgentState,
   type BetaMessageParam,
-  isAgentInstance,
 } from '@agentry/core'
 import type { AgentHandle } from '../../src/handles/index.ts'
 

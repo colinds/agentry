@@ -9,7 +9,7 @@
 
 import { useState } from 'react'
 import { z } from 'zod'
-import { render, Agent, System, Message, Tools, Tool } from '@agentry/runtime'
+import { render, Agent, System, Message, Tools, Tool } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 interface Subagent {

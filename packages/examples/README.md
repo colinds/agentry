@@ -96,7 +96,7 @@ agent.close()
 Define type-safe tools with Zod schemas:
 
 ```tsx
-import { defineTool } from '@agentry/runtime'
+import { defineTool } from 'agentry'
 import { z } from 'zod'
 
 const myTool = defineTool({

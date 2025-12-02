@@ -18,12 +18,25 @@
         "typescript-eslint": "^8.48.0",
       },
     },
+    "packages/agentry": {
+      "name": "agentry",
+      "version": "0.0.0",
+      "dependencies": {
+        "@agentry/components": "workspace:*",
+        "@agentry/core": "workspace:*",
+      },
+      "peerDependencies": {
+        "react": "^18.0.0 || ^19.0.0",
+        "zod": "^3.0.0",
+      },
+    },
     "packages/components": {
       "name": "@agentry/components",
       "version": "0.0.1",
       "dependencies": {
         "@agentry/core": "workspace:*",
         "@anthropic-ai/sdk": "^0.71.0",
+        "zustand": "^5.0.3",
       },
       "peerDependencies": {
         "react": "^19.0.0",
@@ -33,6 +46,7 @@
       "name": "@agentry/core",
       "version": "0.0.1",
       "dependencies": {
+        "@agentry/shared": "workspace:*",
         "@anthropic-ai/sdk": "^0.71.0",
         "eventemitter3": "^5.0.1",
         "react-reconciler": "^0.33.0",
@@ -41,6 +55,8 @@
         "zustand": "^5.0.3",
       },
       "devDependencies": {
+        "@agentry/components": "workspace:*",
+        "@agentry/shared": "workspace:*",
         "@types/react-reconciler": "^0.32.3",
         "@types/scheduler": "^0.26.0",
       },
@@ -52,25 +68,9 @@
       "name": "@agentry/examples",
       "version": "0.0.1",
       "dependencies": {
-        "@agentry/runtime": "workspace:*",
         "@agentry/shared": "workspace:*",
+        "agentry": "workspace:*",
         "zod": "^4.1.13",
-      },
-      "peerDependencies": {
-        "react": "^19.0.0",
-      },
-    },
-    "packages/runtime": {
-      "name": "@agentry/runtime",
-      "version": "0.0.1",
-      "dependencies": {
-        "@agentry/components": "workspace:*",
-        "@agentry/core": "workspace:*",
-        "@agentry/shared": "workspace:*",
-        "@anthropic-ai/sdk": "^0.71.0",
-        "eventemitter3": "^5.0.1",
-        "zod": "^4.1.13",
-        "zustand": "^5.0.3",
       },
       "peerDependencies": {
         "react": "^19.0.0",
@@ -87,8 +87,6 @@
     "@agentry/core": ["@agentry/core@workspace:packages/core"],
 
     "@agentry/examples": ["@agentry/examples@workspace:packages/examples"],
-
-    "@agentry/runtime": ["@agentry/runtime@workspace:packages/runtime"],
 
     "@agentry/shared": ["@agentry/shared@workspace:packages/shared"],
 
@@ -201,6 +199,8 @@
     "acorn": ["acorn@8.15.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg=="],
 
     "acorn-jsx": ["acorn-jsx@5.3.2", "", { "peerDependencies": { "acorn": "^6.0.0 || ^7.0.0 || ^8.0.0" } }, "sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ=="],
+
+    "agentry": ["agentry@workspace:packages/agentry"],
 
     "ajv": ["ajv@6.12.6", "", { "dependencies": { "fast-deep-equal": "^3.1.1", "fast-json-stable-stringify": "^2.0.0", "json-schema-traverse": "^0.4.1", "uri-js": "^4.2.2" } }, "sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g=="],
 

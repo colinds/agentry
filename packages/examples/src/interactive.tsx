@@ -7,7 +7,7 @@ import {
   Tools,
   Tool,
   WebSearch,
-} from '@agentry/runtime'
+} from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 const InteractiveAgent = () => {

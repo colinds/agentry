@@ -1,4 +1,4 @@
-export { reconciler, setSubagentToolFactory } from './reconciler.ts'
+export { reconciler } from './reconciler.ts'
 export {
   createContainer,
   updateContainer,

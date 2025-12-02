@@ -8,7 +8,7 @@
  * This example uses Cloudflare's public demo MCP server.
  */
 
-import { render, Agent, System, Message, MCP } from '@agentry/runtime'
+import { render, Agent, System, Message, MCP } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 const MCP_SERVER_URL = 'https://demo-day.mcp.cloudflare.com/sse'

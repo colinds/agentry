@@ -1,13 +1,27 @@
-import * as React from 'react'
+import { createContext, createElement } from 'react'
+import type { ReactNode } from 'react'
 import type { AgentStore } from './store.ts'
 
 /**
  * Context for agent store access.
  * Used by hooks (useMessages, useExecutionState, etc.) to access agent state.
  */
-export const AgentContext = React.createContext<AgentStore | null>(null)
+export const AgentContext = createContext<AgentStore | null>(null)
 
 /**
  * Context for detecting if we're inside an Agent's children tree.
  */
-export const InsideAgentContext = React.createContext<boolean>(false)
+export const InsideAgentContext = createContext<boolean>(false)
+
+/**
+ * Provider component that makes agent store available to children
+ */
+export function AgentProvider({
+  store,
+  children,
+}: {
+  store: AgentStore
+  children: ReactNode
+}) {
+  return createElement(AgentContext.Provider, { value: store }, children)
+}

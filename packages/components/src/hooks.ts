@@ -1,4 +1,4 @@
-import * as React from 'react'
+import { useContext } from 'react'
 import { useStore } from 'zustand'
 import {
   createAgentStore,
@@ -9,14 +9,22 @@ import {
   type AgentState,
   type BetaMessageParam,
 } from '@agentry/core'
+import { AgentProvider } from '@agentry/core'
 
-export { createAgentStore, AgentContext, InsideAgentContext, type AgentStore, type AgentStoreState }
+export {
+  createAgentStore,
+  AgentContext,
+  InsideAgentContext,
+  AgentProvider,
+  type AgentStore,
+  type AgentStoreState,
+}
 
 /**
  * Get the agent store from context (throws if not found)
  */
 function useAgentStore(): AgentStore {
-  const store = React.useContext(AgentContext)
+  const store = useContext(AgentContext)
   if (!store) {
     throw new Error(
       'Agent hooks must be used within an AgentProvider. ' +
@@ -24,19 +32,6 @@ function useAgentStore(): AgentStore {
     )
   }
   return store
-}
-
-/**
- * Provider component that makes agent store available to children
- */
-export function AgentProvider({
-  store,
-  children,
-}: {
-  store: AgentStore
-  children: React.ReactNode
-}): React.JSX.Element {
-  return React.createElement(AgentContext.Provider, { value: store }, children)
 }
 
 /**
@@ -52,7 +47,7 @@ export function AgentProvider({
  */
 export function useExecutionState(): AgentState {
   const store = useAgentStore()
-  return useStore(store, (s) => s.executionState)
+  return useStore(store, ({ executionState }) => executionState)
 }
 
 /**
@@ -71,7 +66,7 @@ export function useExecutionState(): AgentState {
  */
 export function useMessages(): BetaMessageParam[] {
   const store = useAgentStore()
-  return useStore(store, (s) => s.messages)
+  return useStore(store, ({ messages }) => messages)
 }
 
 /**

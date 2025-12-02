@@ -9,7 +9,7 @@ Separate React's reconciliation from agent execution (inspired by react-three-fi
 ## Quick Start
 
 ```tsx
-import { render, Agent, System, Tools, Tool } from '@agentry/runtime'
+import { render, Agent, System, Tools, Tool } from 'agentry'
 import { z } from 'zod'
 
 const result = await render(
@@ -53,14 +53,14 @@ console.log(result.content)
 ## Installation
 
 ```bash
-bun add @agentry/runtime react zod
+bun add agentry react zod
 ```
 
 ## Package Structure
 
 - `@agentry/core` - Types, reconciler, execution engine
 - `@agentry/components` - React components (`<Agent>`, `<Tool>`, `<System>`, etc.)
-- `@agentry/runtime` - Public API (`render()`, `AgentHandle`, hooks)
+- `agentry` - Public API (`render()`, `AgentHandle`, hooks)
 - `@agentry/shared` - Shared constants
 
 ## Examples
@@ -121,7 +121,7 @@ function DynamicAgent() {
 Access agent state from within components:
 
 ```tsx
-import { useExecutionState, useMessages } from '@agentry/runtime'
+import { useExecutionState, useMessages } from 'agentry'
 
 function ExecutionMonitor() {
   const state = useExecutionState()
@@ -200,9 +200,9 @@ bun tsc --noEmit
 
 ```
 packages/
+├── agentry/        # Public API package (re-exports from core and components)
 ├── core/           # Reconciler, execution engine, types
-├── components/     # React components
-├── runtime/        # Public API, hooks
+├── components/     # React components and hooks
 ├── shared/         # Shared constants
 └── examples/       # Example agents
 ```

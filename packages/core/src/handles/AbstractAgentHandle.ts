@@ -1,24 +1,21 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { EventEmitter } from 'eventemitter3'
 import { createElement, type ReactNode } from 'react'
+import type { AgentInstance } from '../instances/types.ts'
+import type { AgentResult, AgentStreamEvent } from '../types/agent.ts'
+import type { BetaMessageParam } from '../types/messages.ts'
+import type { AgentStore } from '../store.ts'
+import type { OnStepFinishResult } from '../types/lifecycle.ts'
 import {
   unmountContainer,
   flushSync,
   updateContainer,
-  ExecutionEngine,
-  createEngineConfig,
-  isProcessing,
-  yieldToScheduler,
   type ContainerInfo,
-  type AgentInstance,
-  type AgentResult,
-  type AgentStreamEvent,
-  type AgentState,
-  type BetaMessageParam,
-  type AgentStore,
-  type OnStepFinishResult,
-} from '@agentry/core'
-import { AgentProvider } from '../hooks.ts'
+} from '../reconciler/renderer.ts'
+import { ExecutionEngine, createEngineConfig } from '../execution/index.ts'
+import { isProcessing, type AgentState } from '../types/state.ts'
+import { yieldToScheduler } from '../scheduler.ts'
+import { AgentProvider } from '../context.ts'
 
 export interface AgentHandleEvents {
   stateChange: (state: AgentState) => void

@@ -7,7 +7,7 @@ import {
   Tools,
   Tool,
   Message,
-} from '@agentry/runtime'
+} from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 const parametersSchema = z.object({

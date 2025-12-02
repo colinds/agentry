@@ -7,9 +7,9 @@ import {
   PendingUpdatesQueue,
   type AgentInstance,
   isAgentInstance,
-} from '@agentry/core'
+  AgentProvider,
+} from '../index.ts'
 import { MODEL } from '@agentry/shared'
-import { AgentProvider } from '../hooks.ts'
 import { AbstractAgentHandle } from './AbstractAgentHandle.ts'
 
 /**

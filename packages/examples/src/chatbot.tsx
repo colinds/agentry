@@ -1,12 +1,5 @@
 import { z } from 'zod'
-import {
-  render,
-  defineTool,
-  Agent,
-  System,
-  Tools,
-  Tool,
-} from '@agentry/runtime'
+import { render, defineTool, Agent, System, Tools, Tool } from 'agentry'
 import { MODEL } from '@agentry/shared'
 import readline from 'node:readline'
 import type { Interface } from 'node:readline'

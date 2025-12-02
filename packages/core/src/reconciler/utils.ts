@@ -1,4 +1,5 @@
 import { scheduleOnIdle } from '../scheduler.ts'
+import type { Instance, SubagentInstance } from '../instances/index.ts'
 
 const RESERVED_PROPS = [
   'children',
@@ -89,4 +90,23 @@ export function diffProps<T>(
  */
 export function disposeOnIdle(cleanup: () => void): void {
   scheduleOnIdle(cleanup)
+}
+
+/**
+ * Check if a subagent has a circular reference to another subagent
+ */
+export function isCircularReference(
+  subagent: SubagentInstance,
+  child: SubagentInstance,
+): boolean {
+  let current: Instance | null = subagent.parent
+
+  while (current) {
+    if (current === child) {
+      return true
+    }
+    current = current.parent
+  }
+
+  return false
 }

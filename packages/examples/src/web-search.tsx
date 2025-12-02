@@ -22,7 +22,7 @@ import {
   WebSearch,
   useExecutionState,
   useMessages,
-} from '@agentry/runtime'
+} from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 /**

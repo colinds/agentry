@@ -24,7 +24,10 @@ export interface AgentComponentPublicProps extends Omit<
  * </Agent>
  * ```
  */
-export function Agent({ children, ...props }: AgentComponentPublicProps): ReactNode {
+export function Agent({
+  children,
+  ...props
+}: AgentComponentPublicProps): ReactNode {
   const isNested = useContext(InsideAgentContext)
 
   if (isNested) {

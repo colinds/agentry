@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@agentry/runtime": "workspace:*",
+    "agentry": "workspace:*",
     "@agentry/shared": "workspace:*",
     "zod": "^4.1.13"
   },

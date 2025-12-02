@@ -6,7 +6,7 @@ export {
   type AgentStoreState,
 } from './store.ts'
 
-export { AgentContext, InsideAgentContext } from './context.ts'
+export { AgentContext, InsideAgentContext, AgentProvider } from './context.ts'
 
 export {
   defineTool,
@@ -33,11 +33,17 @@ export {
   updateContainer,
   flushSync,
   unmountContainer,
-  setSubagentToolFactory,
   type ContainerInfo,
   diffProps,
   disposeOnIdle,
 } from './reconciler/index.ts'
+
+export { render, createAgent, type RenderOptions } from './render.ts'
+export {
+  AgentHandle,
+  SubagentHandle,
+  type AgentHandleEvents,
+} from './handles/index.ts'
 
 export {
   createStepMockClient,

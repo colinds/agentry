@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { z } from 'zod'
-import { render, Agent, System, Tools, Tool, Message } from '@agentry/runtime'
+import { render, Agent, System, Tools, Tool, Message } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 /**

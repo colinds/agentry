@@ -45,8 +45,18 @@ test('diffProps skips reserved props', () => {
 
 test('diffProps skips callback props', () => {
   const result = diffProps(
-    { onMessage: () => {}, onComplete: () => {}, onError: () => {}, onStepFinish: () => {} },
-    { onMessage: () => {}, onComplete: () => {}, onError: () => {}, onStepFinish: () => {} },
+    {
+      onMessage: () => {},
+      onComplete: () => {},
+      onError: () => {},
+      onStepFinish: () => {},
+    },
+    {
+      onMessage: () => {},
+      onComplete: () => {},
+      onError: () => {},
+      onStepFinish: () => {},
+    },
   )
 
   expect(result.hasChanges).toBe(false)

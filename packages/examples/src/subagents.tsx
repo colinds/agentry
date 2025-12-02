@@ -1,11 +1,4 @@
-import {
-  render,
-  Agent,
-  System,
-  Tools,
-  Message,
-  useMessages,
-} from '@agentry/runtime'
+import { render, Agent, System, Tools, Message, useMessages } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 function ResearcherAgent() {

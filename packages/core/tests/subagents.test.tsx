@@ -3,15 +3,17 @@ import { useState } from 'react'
 import {
   render,
   createAgent,
+  defineTool,
+  type AgentResult,
+} from '../src/index.ts'
+import {
   Agent,
   System,
   Tools,
   Message,
   useMessages,
-  defineTool,
   Tool,
-  type AgentResult,
-} from '../src/index.ts'
+} from '@agentry/components'
 import { createStepMockClient, mockText, mockToolUse } from '@agentry/core'
 import { TEST_MODEL } from '@agentry/shared'
 import { z } from 'zod'
@@ -511,12 +513,14 @@ test('useMessages works inside subagent children', async () => {
   // NOT the parent's messages
   expect(subagentMessagesRef.current.length).toBeGreaterThan(0)
   expect(subagentMessagesRef.current).toContain('Pre-loaded message')
-  expect(subagentMessagesRef.current.some((m) => m.includes('test hooks'))).toBe(
-    true,
-  )
+  expect(
+    subagentMessagesRef.current.some((m) => m.includes('test hooks')),
+  ).toBe(true)
   // should NOT contain parent messages
   expect(
-    subagentMessagesRef.current.some((m) => m.includes('Call the hooked agent')),
+    subagentMessagesRef.current.some((m) =>
+      m.includes('Call the hooked agent'),
+    ),
   ).toBe(false)
 })
 
