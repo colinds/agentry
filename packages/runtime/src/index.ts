@@ -30,7 +30,6 @@ export {
   CodeExecution,
   MCP,
   defineTool,
-  type AgentProps,
   type ToolProps,
   type SystemProps,
   type ContextProps,

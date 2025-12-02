@@ -7,11 +7,11 @@ import type {
   BetaToolUnion,
   BetaRequestMCPServerToolConfiguration,
 } from '@anthropic-ai/sdk/resources/beta'
-import type { AgentProps } from './Agent.tsx'
+import type { AgentComponentPublicProps } from './Agent.tsx'
 
 export interface AgentryElements {
-  agent: Omit<AgentProps, 'model'> & {
-    model?: AgentProps['model']
+  agent: Omit<AgentComponentPublicProps, 'model'> & {
+    model?: AgentComponentPublicProps['model']
     children?: ReactNode
     /** Deferred children - stored but not reconciled during parent render */
     deferredChildren?: ReactNode

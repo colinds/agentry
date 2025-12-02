@@ -1,6 +1,6 @@
 import './jsx-elements.d.ts'
 
-export { Agent, type AgentProps } from './Agent.tsx'
+export { Agent, type AgentComponentPublicProps } from './Agent.tsx'
 export { Tool, type ToolProps } from './Tool.tsx'
 export { System, type SystemProps } from './System.tsx'
 export { Context, type ContextProps } from './Context.tsx'

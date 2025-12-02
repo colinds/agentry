@@ -25,6 +25,10 @@ import type { AgentProps, CompactionControl, Model } from '../types/index.ts'
 
 type RequiredAgentProps = { [K in keyof Required<AgentProps>]: AgentProps[K] }
 
+interface SubagentCreationProps extends Omit<AgentComponentProps, 'children'> {
+  deferredChildren?: React.ReactNode
+}
+
 interface PropagatedSettings {
   stream?: boolean
   temperature?: number
@@ -228,7 +232,7 @@ function createMCPServerInstance(
 }
 
 export function createSubagentInstance(
-  props: AgentComponentProps & { deferredChildren?: React.ReactNode },
+  props: SubagentCreationProps,
   inherited: PropagatedSettings = {},
 ): SubagentInstance {
   if (!props.name) {
@@ -271,6 +275,6 @@ export function createSubagentInstance(
     children: [],
     pendingUpdates: [],
     parent: null,
-    reactChildren: props.deferredChildren ?? props.children ?? null,
+    reactChildren: props.deferredChildren ?? null,
   }
 }

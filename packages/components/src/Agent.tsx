@@ -1,15 +1,12 @@
 import { useContext, type ReactNode } from 'react'
 import { InsideAgentContext, type AgentComponentProps } from '@agentry/core'
 
-export interface AgentProps extends Omit<
+export interface AgentComponentPublicProps extends Omit<
   AgentComponentProps,
   'client' | 'model'
 > {
   // model is optional for child agents (they inherit from parent)
   model?: AgentComponentProps['model']
-  name?: string
-  description?: string
-  children?: ReactNode
 }
 
 /**
@@ -27,7 +24,7 @@ export interface AgentProps extends Omit<
  * </Agent>
  * ```
  */
-export function Agent({ children, ...props }: AgentProps): ReactNode {
+export function Agent({ children, ...props }: AgentComponentPublicProps): ReactNode {
   const isNested = useContext(InsideAgentContext)
 
   if (isNested) {
