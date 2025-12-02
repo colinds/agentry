@@ -22,7 +22,7 @@ export class SubagentHandle extends AbstractAgentHandle {
   ) {
     const { client, signal } = options
 
-    const tempContainer: AgentInstance = {
+    const container: AgentInstance = {
       type: 'agent',
       props: { ...subagent.props },
       client,
@@ -37,7 +37,7 @@ export class SubagentHandle extends AbstractAgentHandle {
       parent: null,
     }
 
-    const containerInfo = createContainer(tempContainer)
+    const containerInfo = createContainer(container)
     const store = createAgentStore()
 
     super(client, containerInfo, store)
@@ -46,20 +46,12 @@ export class SubagentHandle extends AbstractAgentHandle {
 
     if (signal) {
       const abortHandler = () => {
-        if (
-          this.instance &&
-          isAgentInstance(this.instance) &&
-          this.instance.engine
-        ) {
-          this.instance.engine.abort()
-        }
+        this.engine?.abort()
       }
       signal.addEventListener('abort', abortHandler)
       this.abortHandler = abortHandler
       this.abortSignal = signal
     }
-
-    this.instance = tempContainer
   }
 
   protected shouldEmitEvents(): boolean {
@@ -73,12 +65,12 @@ export class SubagentHandle extends AbstractAgentHandle {
 
     await this.renderWithProvider(this.subagent.agentNode)
 
-    const tempContainer = this.instance
-    if (!tempContainer || !isAgentInstance(tempContainer)) {
+    const container = this.containerInfo.container
+    if (!isAgentInstance(container)) {
       throw new Error('Subagent container not found')
     }
 
-    const agentInstance = tempContainer.children[0]
+    const agentInstance = container.children[0]
     if (!agentInstance || !isAgentInstance(agentInstance)) {
       throw new Error(
         'Agent element did not render an AgentInstance. The agent function must return an <Agent> element.',
@@ -94,8 +86,7 @@ export class SubagentHandle extends AbstractAgentHandle {
     }
 
     agentInstance.client = this.client
-    this.containerInfo.container = agentInstance
-    this.instance = agentInstance
+
     return agentInstance
   }
 
