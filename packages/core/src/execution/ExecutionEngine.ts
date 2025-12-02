@@ -11,6 +11,7 @@ import type {
   BetaTextBlockParam,
   BetaRequestMCPServerURLDefinition,
   BetaMemoryTool20250818,
+  BetaThinkingConfigParam,
 } from '@anthropic-ai/sdk/resources/beta'
 import { yieldToSchedulerImmediate } from '../scheduler.ts'
 import type {
@@ -70,6 +71,8 @@ interface CreateMessageParams {
   stop_sequences?: string[]
   temperature?: number
   betas?: string[]
+  thinking?: BetaThinkingConfigParam
+  stream?: boolean
 }
 
 export interface ExecutionEngineEvents {
@@ -94,6 +97,7 @@ export interface ExecutionEngineConfig {
   agentName?: string
   agentInstance?: AgentInstance
   store: AgentStore
+  thinking?: BetaThinkingConfigParam
 }
 
 const DEFAULT_TOKEN_THRESHOLD = 100_000
@@ -202,7 +206,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       betas.push(ANTHROPIC_BETAS.CONTEXT_MANAGEMENT)
     }
 
-    return {
+    const params: CreateMessageParams = {
       model: this.config.model,
       max_tokens: this.config.maxTokens,
       system: this.config.system,
@@ -212,7 +216,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       stop_sequences: this.config.stopSequences,
       temperature: this.config.temperature,
       betas: betas.length > 0 ? betas : undefined,
+      thinking: this.config.thinking,
     }
+
+    return params
   }
 
   async run(): Promise<AgentResult> {
@@ -642,6 +649,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       throw new Error('No message received')
     }
 
+    const thinkingBlock = this.lastMessage.content.find(
+      (b): b is Extract<BetaContentBlock, { type: 'thinking' }> =>
+        b.type === 'thinking',
+    )
+    const thinking = thinkingBlock?.thinking
+
     return {
       content: extractText(this.lastMessage),
       messages: [...this.messages],
@@ -653,6 +666,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         cacheReadInputTokens:
           this.lastMessage.usage.cache_read_input_tokens ?? undefined,
       },
+      thinking,
       stopReason: this.lastMessage.stop_reason,
     }
   }

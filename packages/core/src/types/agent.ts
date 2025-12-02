@@ -2,6 +2,7 @@ import type { Model } from '@anthropic-ai/sdk/resources/messages'
 import type {
   BetaMessageParam,
   BetaToolUnion,
+  BetaThinkingConfigParam,
 } from '@anthropic-ai/sdk/resources/beta'
 import type { InternalTool } from './tools.ts'
 import type { OnStepFinishResult } from './lifecycle.ts'
@@ -18,6 +19,7 @@ export interface AgentProps {
   stopSequences?: string[]
   temperature?: number
   stream?: boolean
+  thinking?: BetaThinkingConfigParam
   onMessage?: (message: AgentStreamEvent) => void
   onComplete?: (result: AgentResult) => void
   onError?: (error: Error) => void
@@ -50,6 +52,7 @@ export interface AgentResult {
     cacheReadInputTokens?: number
   }
   stopReason: string | null
+  thinking?: string
 }
 
 export interface CollectedAgentState {

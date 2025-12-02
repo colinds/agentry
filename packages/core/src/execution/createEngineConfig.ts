@@ -66,6 +66,7 @@ export function createEngineConfig(
     stopSequences: agent.props.stopSequences,
     temperature: agent.props.temperature,
     agentName: agent.props.name,
+    thinking: agent.props.thinking,
     agentInstance: agent,
     store,
   }

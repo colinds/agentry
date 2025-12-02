@@ -17,7 +17,7 @@ import {
   type ElementType,
   type ElementProps,
 } from '../instances/index.ts'
-import type { CompactionControl, Model } from '../types/index.ts'
+import type { AgentProps, CompactionControl, Model } from '../types/index.ts'
 import { debug } from '../debug.ts'
 import { diffProps, disposeOnIdle } from './utils.ts'
 import {
@@ -81,6 +81,7 @@ interface PropagatedSettings {
   maxIterations?: number
   insideAgent?: boolean // track if we're nested inside an agent
   model?: Model // model to inherit for subagents
+  thinking?: AgentProps['thinking']
 }
 
 interface HostConfig {
@@ -167,6 +168,7 @@ export const reconciler = createReconciler<
       maxIterations: rootContainer.props.maxIterations,
       insideAgent: false, // root level, not inside an agent yet
       model: rootContainer.props.model, // propagate model for subagents
+      thinking: rootContainer.props.thinking,
     }
   },
   getChildHostContext(parentHostContext, type, _rootContainer) {

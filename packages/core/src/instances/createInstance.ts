@@ -38,6 +38,7 @@ interface PropagatedSettings {
   maxIterations?: number
   insideAgent?: boolean
   model?: Model
+  thinking?: AgentProps['thinking']
 }
 
 export type ElementType =
@@ -111,6 +112,7 @@ function createAgentInstance(
       temperature: props.temperature,
       stream: props.stream ?? true,
       compactionControl: props.compactionControl,
+      thinking: props.thinking,
       onMessage: props.onMessage,
       onComplete: props.onComplete,
       onError: props.onError,
@@ -259,6 +261,7 @@ export function createSubagentInstance(
       temperature: props.temperature ?? inherited.temperature,
       stream: props.stream ?? inherited.stream ?? true,
       compactionControl: props.compactionControl ?? inherited.compactionControl,
+      thinking: props.thinking ?? inherited.thinking,
       // callbacks never inherited
       onMessage: props.onMessage,
       onComplete: props.onComplete,
