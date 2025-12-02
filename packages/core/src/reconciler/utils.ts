@@ -7,18 +7,33 @@ const RESERVED_PROPS = [
   'onMessage',
   'onComplete',
   'onError',
+  'onStepFinish',
 ] as const
 
-function shallowEqual(a: unknown, b: unknown): boolean {
+function deepEqual(
+  a: unknown,
+  b: unknown,
+  seen = new WeakSet<object>(),
+): boolean {
   if (a === b) return true
-
   if (typeof a !== typeof b) return false
-
   if (a === null || b === null) return a === b
 
-  if (Array.isArray(a)) return a === b
+  // handle circular references - if we've seen this pair, treat as equal
+  if (typeof a === 'object' && typeof b === 'object') {
+    if (seen.has(a as object)) return true
+    seen.add(a as object)
+  }
 
-  if (typeof a === 'object') {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i], seen)) return false
+    }
+    return true
+  }
+
+  if (typeof a === 'object' && typeof b === 'object') {
     const aObj = a as Record<string, unknown>
     const bObj = b as Record<string, unknown>
     const aKeys = Object.keys(aObj)
@@ -27,7 +42,8 @@ function shallowEqual(a: unknown, b: unknown): boolean {
     if (aKeys.length !== bKeys.length) return false
 
     for (const key of aKeys) {
-      if (aObj[key] !== bObj[key]) return false
+      if (!Object.prototype.hasOwnProperty.call(bObj, key)) return false
+      if (!deepEqual(aObj[key], bObj[key], seen)) return false
     }
     return true
   }
@@ -51,7 +67,7 @@ export function diffProps<T>(
   for (const key of Object.keys(newRecord)) {
     if ((RESERVED_PROPS as readonly string[]).includes(key)) continue
 
-    if (!shallowEqual(oldRecord[key], newRecord[key])) {
+    if (!deepEqual(oldRecord[key], newRecord[key])) {
       changes[key] = newRecord[key]
       hasChanges = true
     }

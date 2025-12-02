@@ -21,6 +21,7 @@ import type {
   MCPServerComponentProps,
 } from './types.ts'
 import { isAgentInstance, isInstance } from './types.ts'
+import { PendingUpdatesQueue } from './PendingUpdatesQueue.ts'
 import type { AgentProps, CompactionControl, Model } from '../types/index.ts'
 
 type RequiredAgentProps = { [K in keyof Required<AgentProps>]: AgentProps[K] }
@@ -125,7 +126,7 @@ function createAgentInstance(
     messages: [],
     mcpServers: [],
     children: [],
-    pendingUpdates: [],
+    pendingUpdates: new PendingUpdatesQueue(),
     parent: null,
   }
 
@@ -273,7 +274,7 @@ export function createSubagentInstance(
     messages: [],
     mcpServers: [],
     children: [],
-    pendingUpdates: [],
+    pendingUpdates: new PendingUpdatesQueue(),
     parent: null,
     reactChildren: props.deferredChildren ?? null,
   }

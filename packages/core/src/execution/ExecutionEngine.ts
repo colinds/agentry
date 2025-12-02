@@ -390,15 +390,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         ? (updates: ToolUpdate[]) => {
             for (const update of updates) {
               if (update.type === 'add') {
-                this.#agentInstance!.pendingUpdates.push({
-                  type: 'tool_added',
-                  tool: update.tool,
-                })
+                this.#agentInstance!.pendingUpdates.addTool(update.tool)
               } else {
-                this.#agentInstance!.pendingUpdates.push({
-                  type: 'tool_removed',
-                  toolName: update.toolName,
-                })
+                this.#agentInstance!.pendingUpdates.removeTool(update.toolName)
               }
             }
           }
@@ -552,7 +546,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   #processPendingUpdates(): void {
     if (
       !this.#agentInstance ||
-      this.#agentInstance.pendingUpdates.length === 0
+      this.#agentInstance.pendingUpdates.size === 0
     ) {
       return
     }
@@ -583,7 +577,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       }
     }
 
-    this.#agentInstance.pendingUpdates = []
+    this.#agentInstance.pendingUpdates.clear()
   }
 
   async #checkAndCompact(): Promise<boolean> {

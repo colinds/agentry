@@ -12,12 +12,12 @@ test('diffProps detects changed primitive props', () => {
   expect(result.changes.maxTokens).toBe(200)
 })
 
-test('diffProps compares objects shallowly by content', () => {
-  // Same content = no change (shallow equal compares values)
+test('diffProps compares objects deeply by content', () => {
+  // same content = no change
   const result1 = diffProps({ data: { foo: 'bar' } }, { data: { foo: 'bar' } })
   expect(result1.hasChanges).toBe(false)
 
-  // Different content = change detected
+  // different content = change detected
   const result2 = diffProps({ data: { foo: 'bar' } }, { data: { foo: 'baz' } })
   expect(result2.hasChanges).toBe(true)
 })
@@ -45,8 +45,8 @@ test('diffProps skips reserved props', () => {
 
 test('diffProps skips callback props', () => {
   const result = diffProps(
-    { onMessage: () => {}, onComplete: () => {}, onError: () => {} },
-    { onMessage: () => {}, onComplete: () => {}, onError: () => {} },
+    { onMessage: () => {}, onComplete: () => {}, onError: () => {}, onStepFinish: () => {} },
+    { onMessage: () => {}, onComplete: () => {}, onError: () => {}, onStepFinish: () => {} },
   )
 
   expect(result.hasChanges).toBe(false)
@@ -79,4 +79,77 @@ test('diffProps returns hasChanges false when props are identical', () => {
 
   expect(result.hasChanges).toBe(false)
   expect(result.changes).toEqual({})
+})
+
+test('diffProps detects nested compactionControl changes', () => {
+  const result = diffProps(
+    { compactionControl: { enabled: true, contextTokenThreshold: 100000 } },
+    { compactionControl: { enabled: true, contextTokenThreshold: 200000 } },
+  )
+
+  expect(result.hasChanges).toBe(true)
+  expect(result.changes.compactionControl).toEqual({
+    enabled: true,
+    contextTokenThreshold: 200000,
+  })
+})
+
+test('diffProps detects deeply nested object changes', () => {
+  const result = diffProps(
+    { config: { nested: { deep: { value: 1 } } } },
+    { config: { nested: { deep: { value: 2 } } } },
+  )
+
+  expect(result.hasChanges).toBe(true)
+})
+
+test('diffProps compares arrays by value', () => {
+  // same array content = no change
+  const result1 = diffProps(
+    { stopSequences: ['stop1', 'stop2'] },
+    { stopSequences: ['stop1', 'stop2'] },
+  )
+  expect(result1.hasChanges).toBe(false)
+
+  // different array content = change detected
+  const result2 = diffProps(
+    { stopSequences: ['stop1', 'stop2'] },
+    { stopSequences: ['stop1', 'stop3'] },
+  )
+  expect(result2.hasChanges).toBe(true)
+
+  // different array length = change detected
+  const result3 = diffProps(
+    { stopSequences: ['stop1'] },
+    { stopSequences: ['stop1', 'stop2'] },
+  )
+  expect(result3.hasChanges).toBe(true)
+})
+
+test('diffProps handles arrays of objects', () => {
+  const result1 = diffProps(
+    { items: [{ id: 1, name: 'a' }] },
+    { items: [{ id: 1, name: 'a' }] },
+  )
+  expect(result1.hasChanges).toBe(false)
+
+  const result2 = diffProps(
+    { items: [{ id: 1, name: 'a' }] },
+    { items: [{ id: 1, name: 'b' }] },
+  )
+  expect(result2.hasChanges).toBe(true)
+})
+
+test('diffProps handles null and undefined correctly', () => {
+  // null to value
+  const result1 = diffProps({ value: null }, { value: 'test' })
+  expect(result1.hasChanges).toBe(true)
+
+  // value to null
+  const result2 = diffProps({ value: 'test' }, { value: null })
+  expect(result2.hasChanges).toBe(true)
+
+  // null to null
+  const result3 = diffProps({ value: null }, { value: null })
+  expect(result3.hasChanges).toBe(false)
 })

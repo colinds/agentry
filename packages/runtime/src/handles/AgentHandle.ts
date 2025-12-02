@@ -4,6 +4,7 @@ import {
   createContainer,
   updateContainer,
   createAgentStore,
+  PendingUpdatesQueue,
   type AgentInstance,
   isAgentInstance,
 } from '@agentry/core'
@@ -39,7 +40,7 @@ export class AgentHandle extends AbstractAgentHandle {
       messages: [],
       mcpServers: [],
       children: [],
-      pendingUpdates: [],
+      pendingUpdates: new PendingUpdatesQueue(),
       parent: null,
     }
 

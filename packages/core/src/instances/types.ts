@@ -5,6 +5,7 @@ import type {
 } from '@anthropic-ai/sdk/resources/beta'
 import type { AgentProps, InternalTool, SdkTool } from '../types/index.ts'
 import type { ExecutionEngine } from '../execution/index.ts'
+import type { PendingUpdatesQueue } from './PendingUpdatesQueue.ts'
 
 export interface BaseInstance {
   type: string
@@ -12,7 +13,7 @@ export interface BaseInstance {
 }
 
 export interface BaseAgentInstance extends BaseInstance {
-  pendingUpdates: PendingUpdate[]
+  pendingUpdates: PendingUpdatesQueue
 }
 
 export interface AgentInstance extends BaseAgentInstance {

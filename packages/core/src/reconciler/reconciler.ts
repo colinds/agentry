@@ -372,6 +372,7 @@ function removeChild(parent: Instance, child: Instance): void {
       child.messages = []
       child.mcpServers = []
       child.children = []
+      child.pendingUpdates.clear()
     }
   })
 }
@@ -385,9 +386,9 @@ function applyUpdate(
       'model' in updatePayload &&
       updatePayload.model !== instance.props.model
     ) {
-      console.warn(
-        '[agentry] Model prop changed at runtime. This will only take effect on the next execution.',
-        { oldModel: instance.props.model, newModel: updatePayload.model },
+      debug(
+        'reconciler',
+        `Model changed from ${instance.props.model} to ${updatePayload.model} - will take effect on next execution`,
       )
     }
 
@@ -443,11 +444,11 @@ function collectFromChild(agent: AgentLike, child: Instance): void {
   if (isToolInstance(child)) {
     debug('reconciler', `Tool added: ${child.tool.name}`)
     agent.tools.push(child.tool)
-    agent.pendingUpdates.push({ type: 'tool_added', tool: child.tool })
+    agent.pendingUpdates.addTool(child.tool)
   } else if (isSdkToolInstance(child)) {
     debug('reconciler', `SDK tool added: ${child.tool.name}`)
     agent.sdkTools.push(child.tool)
-    agent.pendingUpdates.push({ type: 'sdk_tool_added', tool: child.tool })
+    agent.pendingUpdates.addSdkTool(child.tool)
   } else if (isSystemInstance(child)) {
     agent.systemParts.push({ content: child.content, priority: child.priority })
   } else if (isContextInstance(child)) {
@@ -480,7 +481,7 @@ function collectFromChild(agent: AgentLike, child: Instance): void {
     const syntheticTool = createSubagentTool(child)
     debug('reconciler', `Subagent tool added: ${child.name}`)
     agent.tools.push(syntheticTool)
-    agent.pendingUpdates.push({ type: 'tool_added', tool: syntheticTool })
+    agent.pendingUpdates.addTool(syntheticTool)
   }
 }
 
@@ -491,20 +492,14 @@ function uncollectFromChild(agent: AgentLike, child: Instance): void {
     const index = agent.tools.findIndex((t) => t.name === child.tool.name)
     if (index >= 0) {
       agent.tools.splice(index, 1)
-      agent.pendingUpdates.push({
-        type: 'tool_removed',
-        toolName: child.tool.name,
-      })
+      agent.pendingUpdates.removeTool(child.tool.name)
     }
   } else if (isSdkToolInstance(child)) {
     debug('reconciler', `SDK tool removed: ${child.tool.name}`)
     const index = agent.sdkTools.indexOf(child.tool)
     if (index >= 0) {
       agent.sdkTools.splice(index, 1)
-      agent.pendingUpdates.push({
-        type: 'sdk_tool_removed',
-        toolName: child.tool.name,
-      })
+      agent.pendingUpdates.removeSdkTool(child.tool.name)
     }
   } else if (isSystemInstance(child)) {
     const index = agent.systemParts.findIndex(
@@ -542,7 +537,7 @@ function uncollectFromChild(agent: AgentLike, child: Instance): void {
     const index = agent.tools.findIndex((t) => t.name === child.name)
     if (index >= 0) {
       agent.tools.splice(index, 1)
-      agent.pendingUpdates.push({ type: 'tool_removed', toolName: child.name })
+      agent.pendingUpdates.removeTool(child.name)
     }
   }
 }
