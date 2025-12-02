@@ -1,9 +1,14 @@
 import { test, expect } from 'bun:test'
 import { useState } from 'react'
 import { z } from 'zod'
-import { render, defineTool } from '../src/index.ts'
+import { render } from '../src/index.ts'
+import { defineTool } from '@agentry/core/tools'
 import { Agent, System, Tools, Tool, Message } from '@agentry/components'
-import { createStepMockClient, mockText, mockToolUse } from '@agentry/core'
+import {
+  createStepMockClient,
+  mockText,
+  mockToolUse,
+} from '@agentry/core/test-utils'
 import { TEST_MODEL } from '@agentry/shared'
 
 function EphemeralAgent({ onComplete }: { onComplete: () => void }) {

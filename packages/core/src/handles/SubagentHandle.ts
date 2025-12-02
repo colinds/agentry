@@ -1,11 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { createContainer } from '@agentry/core/reconciler'
+import { createAgentStore } from '@agentry/core/store'
 import {
-  createContainer,
-  createAgentStore,
   type AgentInstance,
   type SubagentInstance,
   isAgentInstance,
-} from '@agentry/core'
+} from '@agentry/core/instances/types'
 import { AbstractAgentHandle } from './AbstractAgentHandle.ts'
 
 export class SubagentHandle extends AbstractAgentHandle {
@@ -63,14 +63,6 @@ export class SubagentHandle extends AbstractAgentHandle {
     return false
   }
 
-  /**
-   * Prepare the subagent for execution by rendering deferred children.
-   *
-   * This is the "resume" phase for deferred children - similar to how React
-   * resumes deferred Offscreen trees. We use renderWithProvider to reconcile
-   * the previously stored children, now wrapped in AgentProvider for correct
-   * hook context.
-   */
   protected override async prepareAgent(): Promise<AgentInstance> {
     const agent = this.instance
     if (!agent || !isAgentInstance(agent)) {
@@ -84,7 +76,6 @@ export class SubagentHandle extends AbstractAgentHandle {
       )
     }
 
-    // Render deferred children with AgentProvider for correct hook context
     if (this.subagent.reactChildren) {
       await this.renderWithProvider(this.subagent.reactChildren)
     }

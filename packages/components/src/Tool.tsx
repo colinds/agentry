@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { z } from 'zod'
-import { defineTool, type InternalTool } from '@agentry/core'
-import type { DefineToolOptions } from '@agentry/core'
+import { defineTool } from '@agentry/core/tools'
+import type { InternalTool, DefineToolOptions } from '@agentry/core/types'
 
 export type ToolProps<TSchema extends z.ZodType = z.ZodType> =
   | InternalTool<z.output<TSchema>>

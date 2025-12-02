@@ -1,20 +1,21 @@
 import { test, expect } from 'bun:test'
 import { useState } from 'react'
-import {
-  render,
-  createAgent,
-  defineTool,
-  type AgentResult,
-} from '../src/index.ts'
+import { render, createAgent } from '../src/index.ts'
+import { defineTool } from '@agentry/core/tools'
+import type { AgentResult } from '@agentry/core/types'
 import {
   Agent,
   System,
+  Tool,
   Tools,
   Message,
   useMessages,
-  Tool,
 } from '@agentry/components'
-import { createStepMockClient, mockText, mockToolUse } from '@agentry/core'
+import {
+  createStepMockClient,
+  mockText,
+  mockToolUse,
+} from '@agentry/core/test-utils'
 import { TEST_MODEL } from '@agentry/shared'
 import { z } from 'zod'
 import { getRegisteredTools } from './utils/testHelpers.ts'

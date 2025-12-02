@@ -1,6 +1,7 @@
 import { test, expect } from 'bun:test'
 import { z } from 'zod'
-import { render, defineTool } from '../src/index.ts'
+import { render } from '../src/index.ts'
+import { defineTool } from '@agentry/core/tools'
 import {
   Agent,
   Tools,
@@ -10,7 +11,11 @@ import {
   useMessages,
   useAgentState,
 } from '@agentry/components'
-import { createStepMockClient, mockText, mockToolUse } from '@agentry/core'
+import {
+  createStepMockClient,
+  mockText,
+  mockToolUse,
+} from '@agentry/core/test-utils'
 import { TEST_MODEL } from '@agentry/shared'
 import {
   createStateWatcher,

@@ -5,7 +5,15 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./reconciler": "./src/reconciler/index.ts",
+    "./store": "./src/store.ts",
+    "./handles": "./src/handles/index.ts",
+    "./instances/types": "./src/instances/types.ts",
+    "./test-utils": "./src/test-utils/index.ts",
+    "./tools": "./src/tools/index.ts",
+    "./types": "./src/types/index.ts",
+    "./context": "./src/context.ts"
   },
   "dependencies": {
     "@agentry/shared": "workspace:*",

@@ -5,8 +5,7 @@ import type {
   BetaWebSearchTool20250305,
   BetaMemoryTool20250818,
 } from '@anthropic-ai/sdk/resources/beta'
-// MemoryHandlers is defined in components, but we need it here for types
-// We'll import it from a shared location or define it here
+
 export interface MemoryHandlers {
   /** Handler for viewing directory contents or file contents */
   onView?: (input: {

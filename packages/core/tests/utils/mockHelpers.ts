@@ -1,4 +1,8 @@
-import { mockToolUse, mockText, type MockResponse } from '@agentry/core'
+import {
+  mockToolUse,
+  mockText,
+  type MockResponse,
+} from '@agentry/core/test-utils'
 
 /**
  * Create a mock response sequence for subagent execution

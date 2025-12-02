@@ -1,10 +1,7 @@
 import { useExecutionState, useMessages } from '@agentry/components'
-import {
-  isAgentInstance,
-  type AgentState,
-  type BetaMessageParam,
-} from '@agentry/core'
-import type { AgentHandle } from '../../src/handles/index.ts'
+import { type AgentState, type BetaMessageParam } from '@agentry/core/types'
+import { isAgentInstance } from '@agentry/core/instances/types'
+import type { AgentHandle } from '@agentry/core/handles'
 
 /**
  * Helper to create a component that watches execution state

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { CodeExecutionTool } from '@agentry/core'
+import type { CodeExecutionTool } from '@agentry/core/types'
 
 /**
  * CodeExecution built-in tool - enables code execution capability

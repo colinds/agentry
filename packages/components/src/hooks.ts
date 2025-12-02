@@ -1,15 +1,8 @@
 import { useContext } from 'react'
 import { useStore } from 'zustand'
-import {
-  createAgentStore,
-  AgentContext,
-  InsideAgentContext,
-  type AgentStore,
-  type AgentStoreState,
-  type AgentState,
-  type BetaMessageParam,
-} from '@agentry/core'
-import { AgentProvider } from '@agentry/core'
+import { createAgentStore, type AgentStore, type AgentStoreState } from '@agentry/core/store'
+import { AgentContext, InsideAgentContext, AgentProvider } from '@agentry/core/context'
+import type { AgentState, BetaMessageParam } from '@agentry/core/types'
 
 export {
   createAgentStore,

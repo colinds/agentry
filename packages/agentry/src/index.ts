@@ -1,4 +1,5 @@
-export * from '@agentry/core'
+export { render, createAgent } from '@agentry/core'
+export { defineTool } from '@agentry/core/tools'
 export {
   Agent,
   Tool,
@@ -13,22 +14,4 @@ export {
   useExecutionState,
   useMessages,
   useAgentState,
-  useAgentStore,
-  createAgentStore,
-  AgentContext,
-  InsideAgentContext,
-  AgentProvider,
-  type AgentComponentPublicProps,
-  type ToolProps,
-  type SystemProps,
-  type ContextProps,
-  type MessageProps,
-  type ToolsProps,
-  type WebSearchProps,
-  type MemoryProps,
-  type MemoryHandlers,
-  type MCPProps,
-  type AgentStore,
-  type AgentStoreState,
-  type AgentryElements,
 } from '@agentry/components'

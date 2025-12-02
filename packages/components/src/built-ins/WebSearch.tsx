@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { WebSearchTool } from '@agentry/core'
+import type { WebSearchTool } from '@agentry/core/types'
 
 export interface WebSearchProps {
   /** maximum number of searches allowed */

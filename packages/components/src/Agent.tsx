@@ -1,5 +1,6 @@
 import { useContext, type ReactNode } from 'react'
-import { InsideAgentContext, type AgentComponentProps } from '@agentry/core'
+import { InsideAgentContext } from '@agentry/core/context'
+import type { AgentComponentProps } from '@agentry/core/instances/types'
 
 export interface AgentComponentPublicProps extends Omit<
   AgentComponentProps,

@@ -1,23 +1,10 @@
 import type { ReactNode } from 'react'
-import type { MemoryHandlers, MemoryTool } from '@agentry/core'
+import type { MemoryHandlers, MemoryTool } from '@agentry/core/types'
 
 // Re-export MemoryHandlers for convenience
 export type { MemoryHandlers }
 
-export interface MemoryProps {
-  /** Handler for viewing directory contents or file contents */
-  onView?: MemoryHandlers['onView']
-  /** Handler for creating or overwriting a file */
-  onCreate?: MemoryHandlers['onCreate']
-  /** Handler for replacing text in a file */
-  onStrReplace?: MemoryHandlers['onStrReplace']
-  /** Handler for inserting text at a specific line */
-  onInsert?: MemoryHandlers['onInsert']
-  /** Handler for deleting a file or directory */
-  onDelete?: MemoryHandlers['onDelete']
-  /** Handler for renaming or moving a file/directory */
-  onRename?: MemoryHandlers['onRename']
-}
+type MemoryProps = MemoryHandlers
 
 /**
  * Memory built-in tool - enables memory capability

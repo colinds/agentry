@@ -1,8 +1,5 @@
-import type {} from 'react'
-import type {} from 'react/jsx-runtime'
-import type {} from 'react/jsx-dev-runtime'
 import type { ReactNode } from 'react'
-import type { InternalTool } from '@agentry/core'
+import type { InternalTool } from '@agentry/core/types'
 import type {
   BetaToolUnion,
   BetaRequestMCPServerToolConfiguration,
