@@ -27,7 +27,10 @@
     "example:interactive": "bun run packages/examples/src/interactive.tsx",
     "example:mcp": "bun run packages/examples/src/mcp.tsx",
     "example:subagents": "bun run packages/examples/src/subagents.tsx",
-    "example:web-search": "bun run packages/examples/src/web-search.tsx"
+    "example:web-search": "bun run packages/examples/src/web-search.tsx",
+    "example:ctf": "bun run packages/examples/src/ctf.tsx",
+    "example:demo": "bun run packages/examples/src/demo.tsx",
+    "example:thinking": "bun run packages/examples/src/thinking.tsx"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

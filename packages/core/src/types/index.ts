@@ -4,10 +4,6 @@ export {
   type BetaContentBlock,
   type BetaToolUseBlock,
   type BetaTextBlock,
-  type UserMessage,
-  type AssistantMessage,
-  type Message,
-  type ToolResultContent,
   isToolUseBlock,
   isTextBlock,
   extractText,
@@ -28,9 +24,7 @@ export {
   type WebSearchTool,
   type MemoryTool,
   type MemoryHandlers,
-  isRunnableTool,
   isCodeExecutionTool,
-  isWebSearchTool,
   isMemoryTool,
 } from './tools.ts'
 
@@ -55,8 +49,6 @@ export {
   type CompactionControl,
   type AgentStreamEvent,
   type AgentResult,
-  type CollectedAgentState,
-  emptyCollectedState,
 } from './agent.ts'
 
 export {
