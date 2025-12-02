@@ -1,14 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createElement, type ReactNode } from 'react'
-import {
-  createContainer,
-  updateContainer,
-  createAgentStore,
-  PendingUpdatesQueue,
-  type AgentInstance,
-  isAgentInstance,
-  AgentProvider,
-} from '../index.ts'
+import type { AgentInstance } from '../instances/types.ts'
+import { createContainer, updateContainer } from '../reconciler/renderer.ts'
+import { createAgentStore } from '../store.ts'
+import { PendingUpdatesQueue } from '../instances/PendingUpdatesQueue.ts'
+import { isAgentInstance } from '../instances/types.ts'
+import { AgentProvider } from '../context.ts'
 import { MODEL } from '@agentry/shared'
 import { AbstractAgentHandle } from './AbstractAgentHandle.ts'
 
