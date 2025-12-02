@@ -52,14 +52,12 @@ export type AgentToolProps<TSchema extends z.ZodType = z.ZodType> =
 export function AgentTool<TSchema extends z.ZodType>(
   props: AgentToolProps<TSchema>,
 ): ReactNode {
-  // Check if it's already an InternalAgentTool (has both parameters and jsonSchema)
   if ('parameters' in props && 'jsonSchema' in props) {
     return (
       <agent_tool agentTool={props as InternalAgentTool<unknown>} key={props.name} />
     )
   }
 
-  // Otherwise, it's DefineAgentToolOptions - call defineAgentTool to create InternalAgentTool
   const agentTool = defineAgentTool(props)
 
   return (

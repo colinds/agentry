@@ -23,7 +23,6 @@ export const createAgentSyntheticTool = (
     parameters: agentTool.parameters,
     jsonSchema: agentTool.jsonSchema,
     handler: async (input, toolContext) => {
-      // Validate input against schema
       const toolForValidation: InternalTool = {
         name: agentTool.name,
         description: agentTool.description,
