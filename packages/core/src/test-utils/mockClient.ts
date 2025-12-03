@@ -10,7 +10,6 @@ export interface MockResponse {
   stop_reason?: 'end_turn' | 'tool_use' | 'max_tokens'
 }
 
-// Parameters for messages.create - matches what ExecutionEngine uses
 interface CreateMessageParams {
   model: string
   max_tokens: number
@@ -29,6 +28,18 @@ export interface PendingCall {
   resolve: (response: BetaMessage) => void
   reject: (error: Error) => void
   turnNumber: number
+  isStream?: boolean
+}
+
+interface MockStream {
+  on(
+    event: 'text',
+    handler: (text: string, snapshot: BetaMessage) => void,
+  ): this
+  on(event: 'thinking', handler: (thinking: string) => void): this
+  on(event: 'contentBlock', handler: (block: BetaContentBlock) => void): this
+  on(event: 'inputJson', handler: () => void): this
+  finalMessage(): Promise<BetaMessage>
 }
 
 export interface StepMockController {
@@ -267,12 +278,71 @@ export function createStepMockClient(responses: MockResponse[]): {
     },
   }
 
+  function createMockStream(messagePromise: Promise<BetaMessage>): MockStream {
+    const handlers: {
+      text: Array<(text: string, snapshot: BetaMessage) => void>
+      thinking: Array<(thinking: string) => void>
+      contentBlock: Array<(block: BetaContentBlock) => void>
+      inputJson: Array<() => void>
+    } = {
+      text: [],
+      thinking: [],
+      contentBlock: [],
+      inputJson: [],
+    }
+
+    messagePromise.then((message) => {
+      const textBlocks = message.content.filter(
+        (block): block is Extract<BetaContentBlock, { type: 'text' }> =>
+          block.type === 'text',
+      )
+      if (textBlocks.length > 0) {
+        for (const block of textBlocks) {
+          const snapshot = { ...message, content: message.content }
+          handlers.text.forEach((h) => h(block.text, snapshot))
+        }
+      }
+
+      const toolUseBlocks = message.content.filter(
+        (block): block is Extract<BetaContentBlock, { type: 'tool_use' }> =>
+          block.type === 'tool_use',
+      )
+      if (toolUseBlocks.length > 0) {
+        toolUseBlocks.forEach((block) => {
+          handlers.contentBlock.forEach((h) => h(block))
+        })
+      }
+    })
+
+    return {
+      on(event: string, handler: unknown) {
+        if (typeof handler !== 'function') return this
+
+        if (event === 'text') {
+          handlers.text.push(
+            handler as (text: string, snapshot: BetaMessage) => void,
+          )
+        } else if (event === 'thinking') {
+          handlers.thinking.push(handler as (thinking: string) => void)
+        } else if (event === 'contentBlock') {
+          handlers.contentBlock.push(
+            handler as (block: BetaContentBlock) => void,
+          )
+        } else if (event === 'inputJson') {
+          handlers.inputJson.push(handler as () => void)
+        }
+        return this
+      },
+      async finalMessage(): Promise<BetaMessage> {
+        return messagePromise
+      },
+    }
+  }
+
   const client = {
     beta: {
       messages: {
         create: async (params: unknown, options?: { signal?: AbortSignal }) => {
-          const p = params as CreateMessageParams
-
           if (options?.signal?.aborted) {
             throw new Error('Request aborted')
           }
@@ -293,6 +363,7 @@ export function createStepMockClient(responses: MockResponse[]): {
               resolve,
               reject,
               turnNumber: turnNumber + pendingCalls.length + 1,
+              isStream: false,
             }
 
             pendingCalls.push(call)
@@ -302,8 +373,52 @@ export function createStepMockClient(responses: MockResponse[]): {
             }
           })
         },
-        stream: () => {
-          throw new Error('Mock client does not support streaming yet')
+        stream: (params: unknown, options?: { signal?: AbortSignal }) => {
+          if (options?.signal?.aborted) {
+            throw new Error('Request aborted')
+          }
+
+          // For streaming, we need to queue it and resolve it when nextTurn is called
+          // But we return a stream object immediately that will resolve when the call is processed
+          let streamResolve: ((message: BetaMessage) => void) | null = null
+          let streamReject: ((error: Error) => void) | null = null
+
+          const streamPromise = new Promise<BetaMessage>((resolve, reject) => {
+            streamResolve = resolve
+            streamReject = reject
+          })
+
+          const call: PendingCall = {
+            params: params as CreateMessageParams,
+            resolve: (message: BetaMessage) => {
+              streamResolve?.(message)
+            },
+            reject: (error: Error) => {
+              streamReject?.(error)
+            },
+            turnNumber: turnNumber + pendingCalls.length + 1,
+            isStream: true,
+          }
+
+          if (options?.signal) {
+            options.signal.addEventListener('abort', () => {
+              const index = pendingCalls.findIndex((c) => c === call)
+              if (index !== -1) {
+                pendingCalls.splice(index, 1)
+              }
+              streamReject?.(new Error('Request aborted'))
+            })
+          }
+
+          pendingCalls.push(call)
+
+          if (waitForCallResolve) {
+            waitForCallResolve()
+          }
+
+          return createMockStream(streamPromise) as unknown as ReturnType<
+            Anthropic['beta']['messages']['stream']
+          >
         },
       },
     },

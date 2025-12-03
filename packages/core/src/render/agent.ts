@@ -1,8 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { ReactNode } from 'react'
-import { AgentHandle, SubagentHandle } from './handles/index.ts'
-import type { AgentResult } from './types/index.ts'
-import type { SubagentInstance } from './instances/index.ts'
+import { AgentHandle } from '../handles/index.ts'
 
 export interface RenderOptions {
   /** anthropic client instance */
@@ -51,7 +49,7 @@ export interface RenderOptions {
 export async function render(
   element: ReactNode,
   options?: RenderOptions & { mode?: 'batch' },
-): Promise<AgentResult>
+): Promise<import('../types/index.ts').AgentResult>
 export async function render(
   element: ReactNode,
   options: RenderOptions & { mode: 'interactive' },
@@ -59,7 +57,7 @@ export async function render(
 export async function render(
   element: ReactNode,
   options: RenderOptions = {},
-): Promise<AgentResult | AgentHandle> {
+): Promise<import('../types/index.ts').AgentResult | AgentHandle> {
   const { mode = 'batch', client } = options
 
   const handle = new AgentHandle(element, client, mode)
@@ -85,30 +83,4 @@ export function createAgent(
   options?: { client?: Anthropic },
 ): AgentHandle {
   return new AgentHandle(element, options?.client)
-}
-
-export interface RenderSubagentOptions {
-  /** anthropic client instance */
-  client: Anthropic
-  /** abort signal for cancellation */
-  signal?: AbortSignal
-}
-
-/**
- * internal function to render a subagent
- *
- * called from synthetic tool handlers created by the reconciler
- * not intended for direct use - use <Agent> nesting in JSX instead
- */
-export async function renderSubagent(
-  subagent: SubagentInstance,
-  options: RenderSubagentOptions,
-): Promise<AgentResult> {
-  const handle = new SubagentHandle(subagent, options)
-
-  try {
-    return await handle.run()
-  } finally {
-    handle.close()
-  }
 }

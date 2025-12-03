@@ -92,9 +92,20 @@ export class SubagentHandle extends AbstractAgentHandle {
       )
     }
 
+    // Copy props from subagent to the rendered instance
     if (!agentInstance.props.model && this.subagent.props.model) {
       agentInstance.props.model = this.subagent.props.model
     }
+
+    const { temperature, maxIterations, stopSequences, stream } =
+      this.subagent.props
+    Object.assign(agentInstance.props, {
+      maxTokens: this.subagent.props.maxTokens,
+      ...(temperature !== undefined && { temperature }),
+      ...(maxIterations !== undefined && { maxIterations }),
+      ...(stopSequences !== undefined && { stopSequences }),
+      ...(stream !== undefined && { stream }),
+    })
 
     for (const msg of this.subagent.messages) {
       agentInstance.messages.push(msg)

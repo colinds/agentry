@@ -64,6 +64,7 @@ console.log(result.content)
 
 - **Type-safe tools** - Handler params inferred from Zod schemas
 - **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
+- **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.spawnAgent()`
 - **Dynamic tools via React state** - Add/remove tools during execution with `useState`
 - **React hooks** - `useExecutionState()`, `useMessages()` for reactive state
 - **Component composition** - Organize agent logic into reusable components
@@ -86,6 +87,7 @@ See `packages/examples/src/` for comprehensive examples:
 | `chatbot.tsx`                   | Terminal-based chatbot                  |
 | `create-subagent.tsx`           | Dynamic subagent creation               |
 | `create-ephemeral-subagent.tsx` | Ephemeral subagents                     |
+| `programmatic-spawn.tsx`        | Programmatic agent spawning from tools  |
 
 Run an example:
 
@@ -141,6 +143,54 @@ Create subagents using `<AgentTool>` with type-safe parameters:
 
 The manager can call `researcher(topic="...")` and the framework spawns and runs the subagent with the provided parameters.
 
+### Programmatic Agent Spawning
+
+Spawn agents programmatically from within tool handlers using `context.spawnAgent()`. This allows for conditional agent creation, parallel execution, and dynamic agent selection based on runtime data:
+
+```tsx
+<Agent model="claude-haiku-4-5">
+  <Tools>
+    <Tool
+      name="analyze_code"
+      description="Analyze code by spawning a specialist agent"
+      parameters={z.object({
+        code: z.string(),
+        language: z.enum(['python', 'typescript', 'rust']),
+      })}
+      handler={async (input, context) => {
+        // Spawn different agents based on language
+        const result = await context.spawnAgent(
+          input.language === 'python' ? (
+            <Agent name="python-expert">
+              <System>You are a Python expert</System>
+              <Message role="user">Analyze: {input.code}</Message>
+            </Agent>
+          ) : (
+            <Agent name="typescript-expert">
+              <System>You are a TypeScript expert</System>
+              <Message role="user">Analyze: {input.code}</Message>
+            </Agent>
+          ),
+        )
+        return result.content
+      }}
+    />
+  </Tools>
+</Agent>
+```
+
+You can also spawn multiple agents in parallel:
+
+```tsx
+handler={async (input, context) => {
+  const [techResult, bizResult] = await Promise.all([
+    context.spawnAgent(<TechnicalAnalyst content={input.content} />),
+    context.spawnAgent(<BusinessAnalyst content={input.content} />),
+  ])
+  return `Tech: ${techResult.content}\nBiz: ${bizResult.content}`
+}}
+```
+
 ### Dynamic Tools
 
 Tools can be added/removed during execution using React state:
@@ -194,7 +244,7 @@ const handle: AgentHandle = await render(<Agent>...</Agent>, {
 - **`<Context>`** - Additional context. Props: `priority?`, `children`
 - **`<Message>`** - Conversation message. Props: `role: 'user' | 'assistant'`, `children`
 - **`<Tools>`** - Tool container. Props: `children`
-- **`<Tool>`** - Custom tool. Props: `name`, `description`, `parameters` (Zod schema), `handler`
+- **`<Tool>`** - Custom tool. Props: `name`, `description`, `parameters` (Zod schema), `handler`. The handler receives `(input, context)` where `context` includes `spawnAgent()` for programmatic agent spawning
 - **`<AgentTool>`** - Subagent tool. Props: `name`, `description`, `parameters` (Zod schema), `agent` (function that receives parsed params and returns `<Agent>` JSX)
 - **`<WebSearch />`** - Built-in web search. Props: `maxUses?`, `allowedDomains?`, `blockedDomains?`
 - **`<CodeExecution />`** - Built-in code execution
@@ -221,6 +271,36 @@ const handle: AgentHandle = await render(<Agent>...</Agent>, {
 - **`defineTool(options)`** - Define a tool programmatically
 - **`defineAgentTool(options)`** - Define a subagent tool programmatically
 - **`createAgent(element, options?)`** - Create an agent handle without running
+- **`createSpawnAgent(context)`** - Create a `spawnAgent` function bound to an execution context (used internally by ToolContext)
+
+### ToolContext
+
+Tool handlers receive a `context` object with the following properties:
+
+- `agentName: string` - Name of the current agent
+- `client: Anthropic` - Anthropic client instance
+- `model?: Model` - Current agent's model
+- `signal?: AbortSignal` - Abort signal for cancellation
+- `metadata?: Record<string, unknown>` - Custom metadata
+- `spawnAgent(agent, options?): Promise<AgentResult>` - Spawn and execute an agent programmatically
+
+**Example:**
+
+```tsx
+<Tool
+  name="research"
+  handler={async (input, context) => {
+    const result = await context.spawnAgent(
+      <Agent name="researcher">
+        <System>You are a research expert</System>
+        <Message role="user">Research: {input.topic}</Message>
+      </Agent>,
+      { maxTokens: 2048 }, // Optional: override configuration
+    )
+    return result.content
+  }}
+/>
+```
 
 ## Requirements
 

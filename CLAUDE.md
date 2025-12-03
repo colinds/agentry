@@ -45,6 +45,7 @@ bun run packages/examples/src/<example-name>.tsx
   - `src/handles/` - AgentHandle and SubagentHandle for controlling agent execution
   - `src/instances/` - Instance types representing reconciled elements (AgentInstance, ToolInstance, etc.)
   - `src/tools/` - Tool definition and execution utilities
+  - `src/render/` - Rendering functions: `agent.ts`, `subagent.ts`, `spawnAgent.ts`
   - `src/types/` - Shared TypeScript types
   - `tests/` - Core functionality tests
 
@@ -103,6 +104,34 @@ Example pattern:
 />
 ```
 
+**Programmatic Agent Spawning**
+
+- Tool handlers receive a `ToolContext` with a `spawnAgent()` function
+- `spawnAgent()` allows programmatically creating and executing agents from within tool handlers
+- Spawned agents run to completion and return their full `AgentResult` to the handler
+- Results are only visible to the tool handler (not to Claude in the parent conversation)
+- Supports conditional spawning, parallel execution, and custom configuration per spawned agent
+- Implemented via `createSpawnAgent()` which creates a bound function from execution context
+- The spawned agent is executed as a subagent using `SubagentHandle`
+
+Example pattern:
+
+```tsx
+<Tool
+  name="analyze"
+  handler={async (input, context) => {
+    const result = await context.spawnAgent(
+      <Agent name="analyst">
+        <System>You are an analyst</System>
+        <Message role="user">Analyze: {input.data}</Message>
+      </Agent>,
+      { maxTokens: 2048 }, // Optional config override
+    )
+    return result.content
+  }}
+/>
+```
+
 **Dynamic Tools**
 
 - Tools can be added/removed during execution using React state (useState)
@@ -141,6 +170,8 @@ Common test patterns:
 - Use `defineAgentTool()` for programmatic subagent tool creation
 - Use `<AgentTool>` JSX for inline declarative subagent registration
 - Handler/agent function params are automatically inferred from Zod schema types
+- Tool handlers receive `ToolContext` which includes `spawnAgent()` for programmatic agent spawning
+- `spawnAgent()` is created via `createSpawnAgent()` and bound to the execution context (client, model, signal)
 
 **Instance Tree Mutations**
 
@@ -159,3 +190,11 @@ Common test patterns:
 - Tools should return error strings rather than throw (allows agent to see and handle errors)
 - ExecutionEngine catches and transitions to 'error' state on critical failures
 - SubagentHandle automatically cleans up on completion or error
+- Spawned agents (via `spawnAgent()`) handle errors the same way - errors can be caught in the tool handler
+
+**Render Functions**
+
+- `render/agent.ts` - Main `render()` function and `createAgent()` utility
+- `render/subagent.ts` - Internal `renderSubagent()` function for executing subagents
+- `render/spawnAgent.ts` - `createSpawnAgent()` function for programmatic agent spawning
+- All exports are re-exported from `render/index.ts` for backward compatibility

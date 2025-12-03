@@ -1,5 +1,4 @@
 import { scheduleOnIdle } from '../scheduler.ts'
-import type { Instance, SubagentInstance } from '../instances/index.ts'
 
 const RESERVED_PROPS = [
   'children',

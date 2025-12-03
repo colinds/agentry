@@ -2,7 +2,7 @@ import type { AgentToolInstance } from '../instances/types.ts'
 import type { InternalTool } from '../types/index.ts'
 import type { SubagentInstance } from '../instances/types.ts'
 import { parseToolInput, formatValidationError } from './defineTool.ts'
-import { renderSubagent } from '../render.ts'
+import { renderSubagent } from '../render/subagent.ts'
 import { createSubagentInstance } from '../instances/createInstance.ts'
 
 export const createAgentSyntheticTool = (

@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react'
 import type { z } from 'zod'
 import type Anthropic from '@anthropic-ai/sdk'
 import type {
@@ -5,7 +6,7 @@ import type {
   BetaWebSearchTool20250305,
   BetaMemoryTool20250818,
 } from '@anthropic-ai/sdk/resources/beta'
-import type { Model } from './agent.ts'
+import type { Model, AgentResult } from './agent.ts'
 
 export interface MemoryHandlers {
   /** Handler for viewing directory contents or file contents */
@@ -87,6 +88,20 @@ export function isMemoryTool(tool: SdkTool): tool is MemoryTool {
   return 'type' in tool && tool.type === 'memory_20250818'
 }
 
+/**
+ * Options for spawning an agent programmatically from a tool handler
+ */
+export interface SpawnAgentOptions {
+  /** Override parent's model */
+  model?: Model
+  /** Override maxTokens (defaults to half parent's) */
+  maxTokens?: number
+  /** Override temperature */
+  temperature?: number
+  /** Custom abort signal (defaults to parent's) */
+  signal?: AbortSignal
+}
+
 export interface ToolContext {
   agentName: string
   client: Anthropic
@@ -94,6 +109,32 @@ export interface ToolContext {
   // abort signal for cancellation
   signal?: AbortSignal
   metadata?: Record<string, unknown>
+  /**
+   * Programmatically spawn and execute an agent from within a tool handler.
+   * The spawned agent runs to completion and returns its result.
+   * Results are returned to the tool handler only (not visible to Claude).
+   *
+   * @param agent - React element representing the agent to spawn
+   * @param options - Optional configuration (model, maxTokens, temperature, signal)
+   * @returns Promise resolving to the full AgentResult
+   *
+   * @example
+   * ```tsx
+   * handler: async (input, context) => {
+   *   const result = await context.spawnAgent(
+   *     <Agent name="researcher">
+   *       <System>You are a research expert.</System>
+   *       <Message role="user">Research: {input.topic}</Message>
+   *     </Agent>
+   *   )
+   *   return `Research complete: ${result.content}`
+   * }
+   * ```
+   */
+  spawnAgent: (
+    agent: ReactElement,
+    options?: SpawnAgentOptions,
+  ) => Promise<AgentResult>
 }
 
 export interface RunnableTool<TInput = unknown> {
