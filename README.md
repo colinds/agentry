@@ -63,7 +63,7 @@ console.log(result.content)
 ## Features
 
 - **Type-safe tools** - Handler params inferred from Zod schemas
-- **Declarative subagents** - Nest `<Agent>` components, auto-generate delegation tools
+- **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
 - **Dynamic tools via React state** - Add/remove tools during execution with `useState`
 - **React hooks** - `useExecutionState()`, `useMessages()` for reactive state
 - **Component composition** - Organize agent logic into reusable components
@@ -117,19 +117,29 @@ agent.close()
 
 ### Subagents
 
-Nested `<Agent>` components automatically become tools:
+Create subagents using `<AgentTool>` with type-safe parameters:
 
 ```tsx
 <Agent name="manager" model="claude-haiku-4-5">
   <Tools>
-    <Agent name="researcher" description="Research specialist">
-      <System>You are a research expert.</System>
-    </Agent>
+    <AgentTool
+      name="researcher"
+      description="Research specialist"
+      parameters={z.object({
+        topic: z.string().describe('The topic to research'),
+      })}
+      agent={(input) => (
+        <Agent name="researcher">
+          <System>You are a research expert.</System>
+          <Message role="user">Research: {input.topic}</Message>
+        </Agent>
+      )}
+    />
   </Tools>
 </Agent>
 ```
 
-The manager can call `researcher(task)` and the framework automatically spawns and runs the child agent.
+The manager can call `researcher(topic="...")` and the framework spawns and runs the subagent with the provided parameters.
 
 ### Dynamic Tools
 
@@ -185,6 +195,7 @@ const handle: AgentHandle = await render(<Agent>...</Agent>, {
 - **`<Message>`** - Conversation message. Props: `role: 'user' | 'assistant'`, `children`
 - **`<Tools>`** - Tool container. Props: `children`
 - **`<Tool>`** - Custom tool. Props: `name`, `description`, `parameters` (Zod schema), `handler`
+- **`<AgentTool>`** - Subagent tool. Props: `name`, `description`, `parameters` (Zod schema), `agent` (function that receives parsed params and returns `<Agent>` JSX)
 - **`<WebSearch />`** - Built-in web search. Props: `maxUses?`, `allowedDomains?`, `blockedDomains?`
 - **`<CodeExecution />`** - Built-in code execution
 - **`<Memory />`** - Built-in memory tool. Props: `onView?`, `onCreate?`, `onDelete?`, etc.
@@ -208,6 +219,7 @@ const handle: AgentHandle = await render(<Agent>...</Agent>, {
 ### Utilities
 
 - **`defineTool(options)`** - Define a tool programmatically
+- **`defineAgentTool(options)`** - Define a subagent tool programmatically
 - **`createAgent(element, options?)`** - Create an agent handle without running
 
 ## Requirements
