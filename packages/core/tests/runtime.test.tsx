@@ -2,7 +2,14 @@ import { test, expect } from 'bun:test'
 import { z } from 'zod'
 import { render } from '../src/index.ts'
 import { defineTool } from '@agentry/core/tools'
-import { Agent, System, Tools, Tool, Message, AgentTool } from '@agentry/components'
+import {
+  Agent,
+  System,
+  Tools,
+  Tool,
+  Message,
+  AgentTool,
+} from '@agentry/components'
 import {
   createStepMockClient,
   mockText,

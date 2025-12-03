@@ -52,4 +52,3 @@ export interface AgentResult {
   stopReason: string | null
   thinking?: string
 }
-

@@ -14,7 +14,6 @@ export type {
   BetaTextBlock,
 }
 
-
 export function isToolUseBlock(
   block: BetaContentBlock,
 ): block is BetaToolUseBlock {

@@ -26,4 +26,3 @@ export function debug(category: string, message: string, data?: unknown): void {
     console.log(prefix, message)
   }
 }
-

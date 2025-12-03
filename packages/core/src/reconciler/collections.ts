@@ -75,7 +75,6 @@ function createToolsContainerHandler(
   }
 }
 
-
 function createAgentToolHandler(): ChildCollectionHandler {
   return {
     add(agent, child) {

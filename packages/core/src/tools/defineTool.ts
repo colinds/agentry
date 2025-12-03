@@ -86,11 +86,9 @@ export function parseToolInput<TInput>(
 /**
  * format validation error issues into a human-readable string
  */
-export function formatValidationError(
-  error: {
-    issues: Array<{ path: Array<string | number>; message: string }>
-  },
-): string {
+export function formatValidationError(error: {
+  issues: Array<{ path: Array<string | number>; message: string }>
+}): string {
   const errorMessage = error.issues
     .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
     .join(', ')

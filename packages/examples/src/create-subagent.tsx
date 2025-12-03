@@ -110,10 +110,7 @@ function DynamicAgent({
       <System>{config.systemPrompt}</System>
       <Tools>
         {/* Allow this subagent to create its own subagents */}
-        <CreateSubagentTool
-          subagents={subagents}
-          onCreate={onCreateSubagent}
-        />
+        <CreateSubagentTool subagents={subagents} onCreate={onCreateSubagent} />
         {/* Render nested subagents */}
         {subagents.map((s) => (
           <SubagentComponent key={s.id} config={s} />

@@ -23,8 +23,12 @@ function CoderAgent({
 }) {
   return (
     <Agent name="coder" temperature={0.3}>
-      <System>You are a coding expert. Ensure the code is clean and production-ready.</System>
-      <Message role="user">Write {language} code for: {task}</Message>
+      <System>
+        You are a coding expert. Ensure the code is clean and production-ready.
+      </System>
+      <Message role="user">
+        Write {language} code for: {task}
+      </Message>
     </Agent>
   )
 }
@@ -57,7 +61,9 @@ const result = await render(
             .enum(['javascript', 'typescript', 'python'])
             .describe('Programming language to use'),
         })}
-        agent={(input) => <CoderAgent task={input.task} language={input.language} />}
+        agent={(input) => (
+          <CoderAgent task={input.task} language={input.language} />
+        )}
       />
     </Tools>
 
