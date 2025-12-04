@@ -24,10 +24,9 @@ export interface AgentInstance extends BaseInstance {
   props: AgentProps
   client: Anthropic
   engine: ExecutionEngine | null
-  systemParts: Array<{ content: string; priority: number }>
+  systemParts: Array<{ content: string }>
   tools: InternalTool[]
   sdkTools: SdkTool[]
-  contextParts: Array<{ content: string; priority: number }>
   mcpServers: BetaRequestMCPServerURLDefinition[]
   children: Instance[]
   store: AgentStore
@@ -46,13 +45,11 @@ export interface SdkToolInstance extends BaseInstance {
 export interface SystemInstance extends BaseInstance {
   type: 'system'
   content: string
-  priority: number
 }
 
 export interface ContextInstance extends BaseInstance {
   type: 'context'
   content: string
-  priority: number
 }
 
 export interface MessageInstance extends BaseInstance {
@@ -76,10 +73,9 @@ export interface SubagentInstance extends BaseInstance {
   description?: string
   props: AgentProps
   children: Instance[]
-  systemParts: Array<{ content: string; priority: number }>
+  systemParts: Array<{ content: string }>
   tools: InternalTool[]
   sdkTools: SdkTool[]
-  contextParts: Array<{ content: string; priority: number }>
   mcpServers: BetaRequestMCPServerURLDefinition[]
   agentNode: React.ReactNode | null
 }
@@ -126,13 +122,11 @@ export interface SdkToolComponentProps {
 
 export interface SystemComponentProps {
   children: React.ReactNode
-  priority?: number
   cache?: 'ephemeral'
 }
 
 export interface ContextComponentProps {
   children: React.ReactNode
-  priority?: number
   cache?: 'ephemeral'
 }
 

@@ -39,7 +39,6 @@ export class AgentHandle extends AbstractAgentHandle {
       systemParts: [],
       tools: [],
       sdkTools: [],
-      contextParts: [],
       mcpServers: [],
       children: [],
       parent: null,

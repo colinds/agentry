@@ -17,7 +17,7 @@ const InteractiveAgent = () => {
 
   return (
     <Agent model={MODEL} maxTokens={2048} stream={true}>
-      <System priority={1000}>
+      <System>
         You are a helpful assistant with access to documentation and web search.
       </System>
       <Tools>

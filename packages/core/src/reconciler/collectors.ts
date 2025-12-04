@@ -15,7 +15,7 @@ import { createAgentSyntheticTool } from '../tools/agentSyntheticTool.ts'
 
 /**
  * Collect a child instance into the parent agent's arrays
- * This populates tools, systemParts, contextParts, messages, etc.
+ * This populates tools, systemParts, messages, etc.
  */
 export function collectChild(agent: AgentInstance, child: Instance): void {
   // prevent direct nesting of agents
@@ -30,12 +30,10 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
   } else if (isSystemInstance(child)) {
     agent.systemParts.push({
       content: child.content,
-      priority: child.priority,
     })
   } else if (isContextInstance(child)) {
-    agent.contextParts.push({
+    agent.systemParts.push({
       content: child.content,
-      priority: child.priority,
     })
   } else if (isMessageInstance(child)) {
     // Write directly to store instead of agent.messages
@@ -91,17 +89,17 @@ export function uncollectChild(agent: AgentInstance, child: Instance): void {
     }
   } else if (isSystemInstance(child)) {
     const index = agent.systemParts.findIndex(
-      (p) => p.content === child.content && p.priority === child.priority,
+      (p) => p.content === child.content,
     )
     if (index >= 0) {
       agent.systemParts.splice(index, 1)
     }
   } else if (isContextInstance(child)) {
-    const index = agent.contextParts.findIndex(
-      (p) => p.content === child.content && p.priority === child.priority,
+    const index = agent.systemParts.findIndex(
+      (p) => p.content === child.content,
     )
     if (index >= 0) {
-      agent.contextParts.splice(index, 1)
+      agent.systemParts.splice(index, 1)
     }
   } else if (isMessageInstance(child)) {
     // Remove from store

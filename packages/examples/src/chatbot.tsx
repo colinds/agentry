@@ -76,7 +76,7 @@ const ChatbotAgent = () => {
 
   return (
     <Agent model={MODEL} maxTokens={2048} stream={true}>
-      <System priority={1000}>
+      <System>
         You are a helpful AI assistant. Be concise and friendly. You have access
         to several tools: a calculator for math problems, a time tool for
         current timestamps, a joke tool for light-hearted responses, and a

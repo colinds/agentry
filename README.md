@@ -66,6 +66,7 @@ console.log(result.content)
 - **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
 - **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.runAgent()`
 - **Dynamic tools via React state** - Add/remove tools during execution with `useState`
+- **Compaction control** - Automatic message compaction for long conversations to manage context window usage
 - **React hooks** - `useExecutionState()`, `useMessages()` for reactive state
 - **Component composition** - Organize agent logic into reusable components
 - **Streaming support** - Both pull (AsyncIterator) and push (EventEmitter) interfaces
@@ -216,6 +217,32 @@ function DynamicAgent() {
 }
 ```
 
+### Compaction Control
+
+For long-running conversations, you can enable automatic message compaction to manage context window usage. When the token threshold is exceeded, the framework automatically summarizes previous messages:
+
+```tsx
+<Agent
+  model="claude-haiku-4-5"
+  compactionControl={{
+    enabled: true,
+    contextTokenThreshold: 100000, // Compact when total tokens exceed this
+    model: 'claude-haiku-4-5', // Optional: model to use for summarization
+    summaryPrompt: 'Summarize the conversation so far', // Optional: custom prompt
+  }}
+>
+  <System>You are a helpful assistant</System>
+  <Message role="user">Start a long conversation...</Message>
+</Agent>
+```
+
+**CompactionControl options:**
+
+- `enabled: boolean` - Enable/disable compaction
+- `contextTokenThreshold?: number` - Token threshold to trigger compaction (default: 100000)
+- `model?: Model` - Model to use for summarization (defaults to agent's model)
+- `summaryPrompt?: string` - Custom prompt for summarization (optional)
+
 ## API Reference
 
 ### `run(element, options?)`
@@ -239,9 +266,9 @@ const handle: AgentHandle = await run(<Agent>...</Agent>, {
 
 ### Components
 
-- **`<Agent>`** - Root container. Props: `model`, `name`, `description`, `maxTokens`, `temperature`, `stream`, `onComplete`, etc.
-- **`<System>`** - System instructions. Props: `priority?`, `children`
-- **`<Context>`** - Additional context. Props: `priority?`, `children`
+- **`<Agent>`** - Root container. Props: `model`, `name`, `description`, `maxTokens`, `temperature`, `stream`, `onComplete`, `compactionControl`, etc.
+- **`<System>`** - System instructions. Props: `children`
+- **`<Context>`** - Additional context. Props: `children`
 - **`<Message>`** - Conversation message. Props: `role: 'user' | 'assistant'`, `children`
 - **`<Tools>`** - Tool container. Props: `children`
 - **`<Tool>`** - Custom tool. Props: `name`, `description`, `parameters` (Zod schema), `handler`. The handler receives `(input, context)` where `context` includes `runAgent()` for programmatic agent spawning

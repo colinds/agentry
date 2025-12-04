@@ -19,16 +19,8 @@ export interface EngineConfigResult {
  * Build system prompt from agent's collected parts
  */
 export function buildSystemPrompt(agent: AgentInstance): string | undefined {
-  // todo: handle compaction with priority
-  const sortedSystemParts = [...agent.systemParts].sort(
-    (a, b) => b.priority - a.priority,
-  )
-  const sortedContextParts = [...agent.contextParts].sort(
-    (a, b) => b.priority - a.priority,
-  )
-  const allParts = [...sortedSystemParts, ...sortedContextParts]
-  return allParts.length > 0
-    ? allParts.map((p) => p.content).join('\n\n')
+  return agent.systemParts.length > 0
+    ? agent.systemParts.map((p) => p.content).join('\n\n')
     : undefined
 }
 

@@ -34,7 +34,6 @@ export class SubagentHandle extends AbstractAgentHandle {
       systemParts: [],
       tools: [],
       sdkTools: [],
-      contextParts: [],
       mcpServers: [],
       children: [],
       parent: null,

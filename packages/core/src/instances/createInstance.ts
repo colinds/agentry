@@ -138,7 +138,6 @@ function createAgentInstance(
     systemParts: [],
     tools: [],
     sdkTools: [],
-    contextParts: [],
     mcpServers: [],
     children: [],
     parent: null,
@@ -192,7 +191,6 @@ function createSystemInstance(props: SystemComponentProps): SystemInstance {
   return {
     type: 'system',
     content: reactNodeToString(props.children),
-    priority: props.priority ?? 1000, // high priority by default
     parent: null,
   }
 }
@@ -201,7 +199,6 @@ function createContextInstance(props: ContextComponentProps): ContextInstance {
   return {
     type: 'context',
     content: reactNodeToString(props.children),
-    priority: props.priority ?? 500, // medium priority by default
     parent: null,
   }
 }
@@ -308,7 +305,6 @@ export function createSubagentInstance(
     systemParts: [],
     tools: [],
     sdkTools: [],
-    contextParts: [],
     mcpServers: [],
     children: [],
     parent: null,

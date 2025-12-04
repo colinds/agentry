@@ -21,7 +21,7 @@ const result = await run(
       budget_tokens: 2048,
     }}
   >
-    <System priority={1000}>
+    <System>
       You are a careful reasoning assistant. Think step-by-step before
       answering.
     </System>

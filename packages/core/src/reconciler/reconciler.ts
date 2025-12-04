@@ -341,39 +341,20 @@ function removeChild(parent: Instance, child: Instance): void {
       child.tools = []
       child.sdkTools = []
       child.systemParts = []
-      child.contextParts = []
       child.mcpServers = []
       child.children = []
     }
   })
 }
 
-function rebuildParts(
-  agent: AgentInstance,
-  instanceType: 'system',
-  partsProperty: 'systemParts',
-): void
-function rebuildParts(
-  agent: AgentInstance,
-  instanceType: 'context',
-  partsProperty: 'contextParts',
-): void
-function rebuildParts(
-  agent: AgentInstance,
-  instanceType: 'system' | 'context',
-  partsProperty: 'systemParts' | 'contextParts',
-): void {
-  const parts = agent[partsProperty]
+function rebuildSystemPrompt(agent: AgentInstance): void {
+  const parts = agent.systemParts
   parts.length = 0
 
   for (const child of agent.children) {
-    if (
-      (instanceType === 'system' && isSystemInstance(child)) ||
-      (instanceType === 'context' && isContextInstance(child))
-    ) {
+    if (isSystemInstance(child) || isContextInstance(child)) {
       parts.push({
         content: child.content,
-        priority: child.priority,
       })
     }
   }
@@ -396,28 +377,22 @@ function applyUpdate(
 
     Object.assign(instance.props, updatePayload)
   } else if (isSystemInstance(instance)) {
-    const payload = updatePayload as { children?: string; priority?: number }
+    const payload = updatePayload as { children?: string }
     if (payload.children !== undefined) {
       instance.content = payload.children
     }
-    if (payload.priority !== undefined) {
-      instance.priority = payload.priority
-    }
     const agent = findParentAgent(instance)
     if (agent && isAgentInstance(agent)) {
-      rebuildParts(agent, 'system', 'systemParts')
+      rebuildSystemPrompt(agent)
     }
   } else if (isContextInstance(instance)) {
-    const payload = updatePayload as { children?: string; priority?: number }
+    const payload = updatePayload as { children?: string }
     if (payload.children !== undefined) {
       instance.content = payload.children
     }
-    if (payload.priority !== undefined) {
-      instance.priority = payload.priority
-    }
     const agent = findParentAgent(instance)
     if (agent && isAgentInstance(agent)) {
-      rebuildParts(agent, 'context', 'contextParts')
+      rebuildSystemPrompt(agent)
     }
   } else if (isToolInstance(instance)) {
     const payload = updatePayload as { tool?: typeof instance.tool }

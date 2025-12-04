@@ -2,8 +2,6 @@ import type { ReactNode } from 'react'
 
 export interface ContextProps {
   children: ReactNode
-  /** priority for context compaction (higher = more important) */
-  priority?: number
 }
 
 /**
@@ -12,13 +10,13 @@ export interface ContextProps {
  * @example
  * ```tsx
  * <Agent model="claude-sonnet-4-5">
- *   <Context priority={800}>
+ *   <Context>
  *     Current user: {user.name}
  *     Account type: {user.accountType}
  *   </Context>
  * </Agent>
  * ```
  */
-export function Context({ children, priority = 500 }: ContextProps): ReactNode {
-  return <context priority={priority}>{children}</context>
+export function Context({ children }: ContextProps): ReactNode {
+  return <context>{children}</context>
 }
