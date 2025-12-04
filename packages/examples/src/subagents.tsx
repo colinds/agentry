@@ -1,4 +1,4 @@
-import { render, Agent, System, Tools, Message, AgentTool } from 'agentry'
+import { run, Agent, System, Tools, Message, AgentTool } from 'agentry'
 import { MODEL } from '@agentry/shared'
 import { z } from 'zod'
 
@@ -33,7 +33,7 @@ function CoderAgent({
   )
 }
 
-const result = await render(
+const result = await run(
   <Agent model={MODEL} name="manager" maxTokens={4096} temperature={0.7}>
     <System>
       You are a project manager who delegates tasks to specialists. You have

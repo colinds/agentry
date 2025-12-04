@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { z } from 'zod'
-import { render } from '../src/index.ts'
+import { run } from '../src/index.ts'
 import { defineTool } from '@agentry/core/tools'
 import {
   Agent,
@@ -35,7 +35,7 @@ test('useExecutionState tracks status transitions', async () => {
     { content: [mockText('Done')], stop_reason: 'end_turn' },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
       <StateTracker />
       <Message role="user">Test</Message>
@@ -60,7 +60,7 @@ test('useExecutionState with createStateWatcher helper', async () => {
     { content: [mockText('Response')], stop_reason: 'end_turn' },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
       <watcher.Component />
       <Message role="user">Test</Message>
@@ -90,7 +90,7 @@ test('useMessages accumulates conversation history', async () => {
     { content: [mockText('Hello back!')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false}>
       <MessageTracker />
       <Message role="user">Hello</Message>
@@ -114,7 +114,7 @@ test('useMessages with createMessageCollector helper', async () => {
     { content: [mockText('Response')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false}>
       <collector.Component />
       <Message role="user">Test message</Message>
@@ -150,7 +150,7 @@ test('useAgentState provides full state access', async () => {
     { content: [mockText('Done')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false}>
       <FullStateTracker />
       <Message role="user">Test</Message>
@@ -195,7 +195,7 @@ test('multiple components can subscribe to same state', async () => {
     { content: [mockText('Done')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false}>
       <watcher1.Component />
       <watcher2.Component />
@@ -241,7 +241,7 @@ test('state updates during tool execution', async () => {
     { content: [mockText('Done')], stop_reason: 'end_turn' },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
       <StateTracker />
       <Tools>

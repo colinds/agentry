@@ -1,13 +1,5 @@
 import { z } from 'zod'
-import {
-  render,
-  defineTool,
-  Agent,
-  System,
-  Tools,
-  Tool,
-  WebSearch,
-} from 'agentry'
+import { run, defineTool, Agent, System, Tools, Tool, WebSearch } from 'agentry'
 import { MODEL } from '@agentry/shared'
 import readline from 'node:readline'
 import type { Interface } from 'node:readline'
@@ -107,7 +99,7 @@ async function main() {
   console.log('━'.repeat(50))
   console.log('Type your messages and press Enter. Type "exit" to quit.\n')
 
-  const agent = await render(<ChatbotAgent />, { mode: 'interactive' })
+  const agent = await run(<ChatbotAgent />, { mode: 'interactive' })
 
   const rl: Interface = readline.createInterface({
     input: process.stdin,

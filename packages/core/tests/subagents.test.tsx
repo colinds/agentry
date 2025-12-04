@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { useState } from 'react'
-import { render, createAgent } from '../src/index.ts'
+import { run, createAgent } from '../src/index.ts'
 import { defineTool } from '@agentry/core/tools'
 import type { AgentResult } from '@agentry/core/types'
 import {
@@ -48,7 +48,7 @@ test('subagent has isolated message context', async () => {
     { content: [mockText('Parent continues')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false}>
       <System>Parent system prompt</System>
       <Tools>
@@ -96,7 +96,7 @@ test('onStepFinish callback fires for subagent calls', async () => {
     { content: [mockText('Done')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent
       model={TEST_MODEL}
       stream={false}
@@ -161,7 +161,7 @@ test('onComplete callback fires when agent finishes', async () => {
     { content: [mockText('All done')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false}>
       <Tools>
         <AgentTool
@@ -221,7 +221,7 @@ test('conditionally hidden subagents are not available as tools', async () => {
     { content: [mockText('I cannot help with that')] },
   ])
 
-  const runPromise = render(<OptionalSubagentTest />, { client })
+  const runPromise = run(<OptionalSubagentTest />, { client })
 
   await controller.nextTurn()
 
@@ -469,7 +469,7 @@ test('subagent sees pre-loaded JSX messages', async () => {
     { content: [mockText('Done')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false}>
       <System>You delegate tasks</System>
       <Tools>
@@ -552,7 +552,7 @@ test('useMessages works inside subagent children', async () => {
     { content: [mockText('Done')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} stream={false}>
       <System>Parent</System>
       <Tools>

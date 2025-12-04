@@ -9,7 +9,7 @@
 
 import { useState } from 'react'
 import { z } from 'zod'
-import { render, Agent, System, Message, Tools, Tool, AgentTool } from 'agentry'
+import { run, Agent, System, Message, Tools, Tool, AgentTool } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 interface Subagent {
@@ -206,7 +206,7 @@ function MainAgent() {
 console.log('🚀 Create Ephemeral Subagent Example\n')
 
 try {
-  const result = await render(<MainAgent />)
+  const result = await run(<MainAgent />)
   console.log('\n✅ Result:\n', result.content)
   console.log('\n📊 Usage:', result.usage)
 } catch (error) {

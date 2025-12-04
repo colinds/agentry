@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { ReactNode } from 'react'
 import { AgentHandle } from '../handles/index.ts'
 
-export interface RenderOptions {
+export interface RunOptions {
   /** anthropic client instance */
   client?: Anthropic
   /** execution mode */
@@ -46,17 +46,17 @@ export interface RenderOptions {
  * agent.close();
  * ```
  */
-export async function render(
+export async function run(
   element: ReactNode,
-  options?: RenderOptions & { mode?: 'batch' },
+  options?: RunOptions & { mode?: 'batch' },
 ): Promise<import('../types/index.ts').AgentResult>
-export async function render(
+export async function run(
   element: ReactNode,
-  options: RenderOptions & { mode: 'interactive' },
+  options: RunOptions & { mode: 'interactive' },
 ): Promise<AgentHandle>
-export async function render(
+export async function run(
   element: ReactNode,
-  options: RenderOptions = {},
+  options: RunOptions = {},
 ): Promise<import('../types/index.ts').AgentResult | AgentHandle> {
   const { mode = 'batch', client } = options
 

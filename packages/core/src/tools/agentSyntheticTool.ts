@@ -2,7 +2,7 @@ import type { AgentToolInstance } from '../instances/types.ts'
 import type { InternalTool } from '../types/index.ts'
 import type { SubagentInstance } from '../instances/types.ts'
 import { parseToolInput, formatValidationError } from './defineTool.ts'
-import { renderSubagent } from '../render/subagent.ts'
+import { runSubagent } from '../run/subagent.ts'
 import { createSubagentInstance } from '../instances/createInstance.ts'
 
 export const createAgentSyntheticTool = (
@@ -42,7 +42,7 @@ export const createAgentSyntheticTool = (
         },
       )
 
-      const result = await renderSubagent(subagent, {
+      const result = await runSubagent(subagent, {
         client: toolContext.client,
         signal: toolContext.signal,
       })

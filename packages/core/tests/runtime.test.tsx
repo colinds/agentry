@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { z } from 'zod'
-import { render } from '../src/index.ts'
+import { run } from '../src/index.ts'
 import { defineTool } from '@agentry/core/tools'
 import {
   Agent,
@@ -22,7 +22,7 @@ test('root agent sees pre-loaded JSX messages', async () => {
     { content: [mockText('3+3 equals 6.')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
       <System>You continue conversations</System>
       {/* pre-loaded conversation history */}
@@ -57,7 +57,7 @@ test('render creates an agent and executes in batch mode', async () => {
     { content: [mockText('Hello, world!')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} maxTokens={100} maxIterations={1} stream={false}>
       <System>You are a test assistant. Be very brief.</System>
       <Message role="user">Say hello in 3 words</Message>
@@ -98,7 +98,7 @@ test('render handles tools correctly', async () => {
     { content: [mockText('I found info about testing.')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} maxTokens={500} stream={false}>
       <System>You are a test assistant. Use the get_info tool.</System>
       <Tools>
@@ -125,7 +125,7 @@ test('interactive mode allows multiple turns', async () => {
     { content: [mockText('One, two, three.')] },
   ])
 
-  const agentPromise = render(
+  const agentPromise = run(
     <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
@@ -160,7 +160,7 @@ test('stream() accepts message parameter for first turn', async () => {
     { content: [mockText('Hi there!')] },
   ])
 
-  const agentPromise = render(
+  const agentPromise = run(
     <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
@@ -191,7 +191,7 @@ test('stream() works with message for subsequent turns', async () => {
     { content: [mockText('One, two, three.')] },
   ])
 
-  const agentPromise = render(
+  const agentPromise = run(
     <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
@@ -252,7 +252,7 @@ test('handles multiple tool calls in sequence', async () => {
     { content: [mockText('Done! Counter is 2.')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} maxTokens={500} stream={false}>
       <Tools>
         <Tool {...counterTool} />
@@ -287,7 +287,7 @@ test('respects maxIterations limit', async () => {
     handler: async () => 'ok',
   })
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} maxTokens={100} maxIterations={3} stream={false}>
       <Tools>
         <Tool {...tool} />
@@ -355,7 +355,7 @@ test('tool schemas in API requests are complete', async () => {
     { content: [mockText('Done')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
       <System>You are a test assistant.</System>
       <Tools>
@@ -402,7 +402,7 @@ test('batch mode errors when agent has no messages', async () => {
   const { client } = createStepMockClient([])
 
   await expect(
-    render(
+    run(
       <Agent model={TEST_MODEL} maxTokens={100}>
         <System>You are helpful</System>
         {/* No <Message> components */}
@@ -415,7 +415,7 @@ test('batch mode errors when agent has no messages', async () => {
 test('interactive mode does NOT error when agent has no messages', async () => {
   const { client } = createStepMockClient([])
 
-  const agent = await render(
+  const agent = await run(
     <Agent model={TEST_MODEL} maxTokens={100}>
       <System>You are helpful</System>
     </Agent>,
@@ -444,7 +444,7 @@ test('subagent errors when it has no messages', async () => {
     { content: [mockText('The subagent tool failed.')] },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
       <System>You are helpful</System>
       <Tools>

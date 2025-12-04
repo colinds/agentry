@@ -12,7 +12,7 @@
 import { useState, useEffect } from 'react'
 import { z } from 'zod'
 import {
-  render,
+  run,
   Agent,
   System,
   Message,
@@ -284,7 +284,7 @@ console.log('  • Component composition - Organize agent logic\n')
 console.log('═'.repeat(60) + '\n')
 
 try {
-  const result = await render(<ResearchAssistant />)
+  const result = await run(<ResearchAssistant />)
 
   console.log('\n' + '═'.repeat(60))
   console.log('✅ Final Result:\n')

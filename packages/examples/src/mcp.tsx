@@ -8,14 +8,14 @@
  * This example uses Cloudflare's public demo MCP server.
  */
 
-import { render, Agent, System, Message, MCP } from 'agentry'
+import { run, Agent, System, Message, MCP } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 const MCP_SERVER_URL = 'https://demo-day.mcp.cloudflare.com/sse'
 
 console.log('Using MCP server:', MCP_SERVER_URL)
 
-const result = await render(
+const result = await run(
   <Agent model={MODEL} maxTokens={4096}>
     <System>
       You are a helpful assistant with access to external tools via MCP servers.

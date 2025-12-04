@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { z } from 'zod'
-import { render, Agent, System, Tools, Tool, Context } from 'agentry'
+import { run, Agent, System, Tools, Tool, Context } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 function CTFGame() {
@@ -42,6 +42,6 @@ function CTFGame() {
   )
 }
 
-const agent = await render(<CTFGame />, { mode: 'interactive' })
+const agent = await run(<CTFGame />, { mode: 'interactive' })
 const result = await agent.sendMessage('Guess the secret number.')
 console.log('Result:', result.content)

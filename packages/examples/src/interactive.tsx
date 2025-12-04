@@ -1,13 +1,5 @@
 import { z } from 'zod'
-import {
-  render,
-  defineTool,
-  Agent,
-  System,
-  Tools,
-  Tool,
-  WebSearch,
-} from 'agentry'
+import { run, defineTool, Agent, System, Tools, Tool, WebSearch } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 const InteractiveAgent = () => {
@@ -36,7 +28,7 @@ const InteractiveAgent = () => {
   )
 }
 
-const agent = await render(<InteractiveAgent />, { mode: 'interactive' })
+const agent = await run(<InteractiveAgent />, { mode: 'interactive' })
 
 const question1 = 'What frameworks are popular for building React apps?'
 console.log(`User: ${question1}\n`)

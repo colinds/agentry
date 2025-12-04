@@ -13,7 +13,7 @@
 import { useState, useEffect } from 'react'
 import { z } from 'zod'
 import {
-  render,
+  run,
   Agent,
   System,
   Message,
@@ -174,7 +174,7 @@ console.log('  • Using search results to inform subsequent actions\n')
 console.log('═'.repeat(60) + '\n')
 
 try {
-  const result = await render(<TechnicalResearcher />)
+  const result = await run(<TechnicalResearcher />)
 
   console.log('\n' + '═'.repeat(60))
   console.log('✅ Research Complete:\n')

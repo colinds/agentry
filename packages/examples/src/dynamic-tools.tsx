@@ -1,14 +1,6 @@
 import { useState } from 'react'
 import { z } from 'zod'
-import {
-  render,
-  defineTool,
-  Agent,
-  System,
-  Tools,
-  Tool,
-  Message,
-} from 'agentry'
+import { run, defineTool, Agent, System, Tools, Tool, Message } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 function MathAgent() {
@@ -99,7 +91,7 @@ function MathAgent() {
   )
 }
 
-const result = await render(<MathAgent />)
+const result = await run(<MathAgent />)
 
 console.log('Result:', result.content)
 console.log('Usage:', result.usage)

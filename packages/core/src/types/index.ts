@@ -24,7 +24,7 @@ export {
   type WebSearchTool,
   type MemoryTool,
   type MemoryHandlers,
-  type SpawnAgentOptions,
+  type RunAgentOptions,
   isCodeExecutionTool,
   isMemoryTool,
 } from './tools.ts'

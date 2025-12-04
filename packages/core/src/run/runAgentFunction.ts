@@ -7,7 +7,7 @@ import { createSubagentInstance } from '../instances/createInstance.ts'
 /**
  * Options for spawning an agent programmatically
  */
-export interface SpawnAgentOptions {
+export interface RunAgentOptions {
   /** Override parent's model */
   model?: Model
   /** Override maxTokens (defaults to half parent's) */
@@ -21,30 +21,30 @@ export interface SpawnAgentOptions {
 /**
  * Context for creating a spawn agent function
  */
-export interface SpawnAgentContext {
+export interface RunAgentContext {
   client: Anthropic
   model?: Model
   signal?: AbortSignal
 }
 
 /**
- * Create a spawnAgent function bound to a specific execution context.
+ * Create a runAgent function bound to a specific execution context.
  * This function is attached to ToolContext and allows tool handlers to
  * programmatically spawn and execute agents on-demand.
  *
  * @param context - The execution context (client, model, signal)
- * @returns A spawnAgent function that can execute React agent elements
+ * @returns A runAgent function that can execute React agent elements
  *
  * @example
  * ```tsx
- * const spawnAgent = createSpawnAgent({
+ * const runSubagent = createRunAgent({
  *   client: anthropicClient,
  *   model: 'claude-sonnet-4',
- *   signal: abortController.signal
+ *   signal: abortController.signal,
  * })
  *
  * // In a tool handler:
- * const result = await spawnAgent(
+ * const result = await runAgent(
  *   <Agent name="researcher">
  *     <System>You are a research expert.</System>
  *     <Message role="user">Research: {input.topic}</Message>
@@ -52,10 +52,10 @@ export interface SpawnAgentContext {
  * )
  * ```
  */
-export function createSpawnAgent(context: SpawnAgentContext) {
-  return async function spawnAgent(
+export function createRunAgent(context: RunAgentContext) {
+  return async function runAgent(
     agentElement: React.ReactElement,
-    options: SpawnAgentOptions = {},
+    options: RunAgentOptions = {},
   ): Promise<AgentResult> {
     const elementProps = agentElement.props as {
       name?: string

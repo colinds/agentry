@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { render, type AgentResult } from '../src/index.ts'
+import { run, type AgentResult } from '../src/index.ts'
 import { Agent, System, Tools, Tool, Message } from '@agentry/components'
 import {
   createStepMockClient,
@@ -9,7 +9,7 @@ import {
 import { z } from 'zod'
 import { TEST_MODEL } from '@agentry/shared'
 
-test('spawnAgent executes subagent and returns result', async () => {
+test('runAgent executes subagent and returns result', async () => {
   const { client, controller } = createStepMockClient([
     {
       content: [mockToolUse('spawn_researcher', { topic: 'AI' })],
@@ -25,7 +25,7 @@ test('spawnAgent executes subagent and returns result', async () => {
     },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL}>
       <System>Test agent with spawn capability</System>
       <Tools>
@@ -34,7 +34,7 @@ test('spawnAgent executes subagent and returns result', async () => {
           description="Spawn a research agent"
           parameters={z.object({ topic: z.string() })}
           handler={async (input, context) => {
-            const spawnedResult = await context.spawnAgent(
+            const spawnedResult = await context.runAgent(
               <Agent name="researcher">
                 <System>You are a research expert.</System>
                 <Message role="user">Research topic: {input.topic}</Message>
@@ -59,7 +59,7 @@ test('spawnAgent executes subagent and returns result', async () => {
   expect(result.content).toBe('Research completed successfully')
 })
 
-test('spawnAgent supports parallel spawning', async () => {
+test('runAgent supports parallel spawning', async () => {
   const { client, controller } = createStepMockClient([
     {
       content: [mockToolUse('parallel_analyze', { content: 'test' })],
@@ -79,7 +79,7 @@ test('spawnAgent supports parallel spawning', async () => {
     },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL}>
       <System>Parallel analysis coordinator</System>
       <Tools>
@@ -89,13 +89,13 @@ test('spawnAgent supports parallel spawning', async () => {
           parameters={z.object({ content: z.string() })}
           handler={async (input, context) => {
             const [techResult, bizResult] = await Promise.all([
-              context.spawnAgent(
+              context.runAgent(
                 <Agent name="tech">
                   <System>Technical analyst</System>
                   <Message role="user">Analyze: {input.content}</Message>
                 </Agent>,
               ),
-              context.spawnAgent(
+              context.runAgent(
                 <Agent name="biz">
                   <System>Business analyst</System>
                   <Message role="user">Analyze: {input.content}</Message>
@@ -124,7 +124,7 @@ test('spawnAgent supports parallel spawning', async () => {
   expect(result.content).toBe('All analyses complete')
 })
 
-test('spawnAgent respects custom model option', async () => {
+test('runAgent respects custom model option', async () => {
   let capturedModel: string | undefined
 
   const { client, controller } = createStepMockClient([
@@ -168,7 +168,7 @@ test('spawnAgent respects custom model option', async () => {
     return originalStream(params, options)
   }) as typeof client.beta.messages.stream
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL}>
       <System>Test</System>
       <Tools>
@@ -177,7 +177,7 @@ test('spawnAgent respects custom model option', async () => {
           description="Test"
           parameters={z.object({})}
           handler={async (input, context) => {
-            await context.spawnAgent(
+            await context.runAgent(
               <Agent name="spawned">
                 <System>Test</System>
                 <Message role="user">Test</Message>
@@ -205,7 +205,7 @@ test('spawnAgent respects custom model option', async () => {
   expect(capturedModel).toBe('claude-opus-4')
 })
 
-test('spawnAgent respects custom maxTokens option', async () => {
+test('runAgent respects custom maxTokens option', async () => {
   let capturedMaxTokens: number | undefined
 
   const { client, controller } = createStepMockClient([
@@ -241,7 +241,7 @@ test('spawnAgent respects custom maxTokens option', async () => {
     return originalCreate(params, options)
   }) as typeof client.beta.messages.create
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL} maxTokens={4096}>
       <System>Test</System>
       <Tools>
@@ -250,7 +250,7 @@ test('spawnAgent respects custom maxTokens option', async () => {
           description="Test"
           parameters={z.object({})}
           handler={async (input, context) => {
-            await context.spawnAgent(
+            await context.runAgent(
               <Agent name="spawned">
                 <System>Test</System>
                 <Message role="user">Test</Message>
@@ -278,7 +278,7 @@ test('spawnAgent respects custom maxTokens option', async () => {
   expect(capturedMaxTokens).toBe(1024)
 })
 
-test('spawnAgent handles errors gracefully', async () => {
+test('runAgent handles errors gracefully', async () => {
   const { client, controller } = createStepMockClient([
     {
       content: [mockToolUse('spawn_tool', {})],
@@ -304,7 +304,7 @@ test('spawnAgent handles errors gracefully', async () => {
     return originalCreate(params, options)
   }) as typeof client.beta.messages.create
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL}>
       <System>Test error handling</System>
       <Tools>
@@ -314,7 +314,7 @@ test('spawnAgent handles errors gracefully', async () => {
           parameters={z.object({})}
           handler={async (input, context) => {
             try {
-              await context.spawnAgent(
+              await context.runAgent(
                 <Agent name="failing">
                   <System>Test</System>
                   <Message role="user">Test</Message>
@@ -344,7 +344,7 @@ test('spawnAgent handles errors gracefully', async () => {
   expect(result.content).toContain('Error caught: Subagent execution failed')
 })
 
-test('spawnAgent returns full AgentResult', async () => {
+test('runAgent returns full AgentResult', async () => {
   let capturedResult: AgentResult | null = null
 
   const { client, controller } = createStepMockClient([
@@ -362,7 +362,7 @@ test('spawnAgent returns full AgentResult', async () => {
     },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL}>
       <System>Test</System>
       <Tools>
@@ -371,7 +371,7 @@ test('spawnAgent returns full AgentResult', async () => {
           description="Test"
           parameters={z.object({})}
           handler={async (input, context) => {
-            const result = await context.spawnAgent(
+            const result = await context.runAgent(
               <Agent name="spawned">
                 <System>Test</System>
                 <Message role="user">Test</Message>
@@ -403,7 +403,7 @@ test('spawnAgent returns full AgentResult', async () => {
   expect(result.stopReason).toBe('end_turn')
 })
 
-test('spawnAgent with conditional agent selection', async () => {
+test('runAgent with conditional agent selection', async () => {
   const { client, controller } = createStepMockClient([
     {
       content: [mockToolUse('conditional_spawn', { complexity: 'high' })],
@@ -419,7 +419,7 @@ test('spawnAgent with conditional agent selection', async () => {
     },
   ])
 
-  const runPromise = render(
+  const runPromise = run(
     <Agent model={TEST_MODEL}>
       <System>Conditional spawner</System>
       <Tools>
@@ -430,7 +430,7 @@ test('spawnAgent with conditional agent selection', async () => {
             complexity: z.enum(['high', 'low']),
           })}
           handler={async (input, context) => {
-            const agentResult = await context.spawnAgent(
+            const agentResult = await context.runAgent(
               input.complexity === 'high' ? (
                 <Agent name="expert">
                   <System>Expert analyst</System>

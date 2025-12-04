@@ -16,13 +16,13 @@ import {
 } from '../src/types/index.ts'
 import { createStepMockClient } from '../src/test-utils/index.ts'
 import type { ToolContext } from '../src/types/tools.ts'
-import { createSpawnAgent } from '../src/render/spawnAgent.ts'
+import { createRunAgent } from '../src/run/runAgentFunction.ts'
 
 const { client } = createStepMockClient([])
 const mockContext: ToolContext = {
   agentName: 'test-agent',
   client,
-  spawnAgent: createSpawnAgent({ client, model: 'claude-sonnet-4-5' }),
+  runAgent: createRunAgent({ client, model: 'claude-sonnet-4-5' }),
 }
 
 test('defineTool creates a type-safe tool', () => {

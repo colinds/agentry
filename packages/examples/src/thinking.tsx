@@ -1,4 +1,4 @@
-import { render, Agent, System, Message } from 'agentry'
+import { run, Agent, System, Message } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 /**
@@ -12,7 +12,7 @@ import { MODEL } from '@agentry/shared'
  * https://platform.claude.com/docs/en/build-with-claude/extended-thinking
  */
 
-const result = await render(
+const result = await run(
   <Agent
     model={MODEL}
     maxTokens={4096}

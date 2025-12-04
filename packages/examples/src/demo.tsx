@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { z } from 'zod'
 import {
-  render,
+  run,
   Agent,
   System,
   Tools,
@@ -105,6 +105,6 @@ function Coordinator() {
   )
 }
 
-const agent = await render(<Coordinator />, { mode: 'interactive' })
+const agent = await run(<Coordinator />, { mode: 'interactive' })
 const result = await agent.sendMessage('Tell me more about Cursor.')
 console.log('Result:', result.content)

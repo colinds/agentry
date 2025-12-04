@@ -89,9 +89,9 @@ export function isMemoryTool(tool: SdkTool): tool is MemoryTool {
 }
 
 /**
- * Options for spawning an agent programmatically from a tool handler
+ * Options for running an agent programmatically from a tool handler
  */
-export interface SpawnAgentOptions {
+export interface RunAgentOptions {
   /** Override parent's model */
   model?: Model
   /** Override maxTokens (defaults to half parent's) */
@@ -110,18 +110,18 @@ export interface ToolContext {
   signal?: AbortSignal
   metadata?: Record<string, unknown>
   /**
-   * Programmatically spawn and execute an agent from within a tool handler.
+   * Programmatically run an agent from within a tool handler.
    * The spawned agent runs to completion and returns its result.
    * Results are returned to the tool handler only (not visible to Claude).
    *
-   * @param agent - React element representing the agent to spawn
+   * @param agent - React element representing the agent to run
    * @param options - Optional configuration (model, maxTokens, temperature, signal)
    * @returns Promise resolving to the full AgentResult
    *
    * @example
    * ```tsx
    * handler: async (input, context) => {
-   *   const result = await context.spawnAgent(
+   *   const result = await context.runAgent(
    *     <Agent name="researcher">
    *       <System>You are a research expert.</System>
    *       <Message role="user">Research: {input.topic}</Message>
@@ -131,9 +131,9 @@ export interface ToolContext {
    * }
    * ```
    */
-  spawnAgent: (
+  runAgent: (
     agent: ReactElement,
-    options?: SpawnAgentOptions,
+    options?: RunAgentOptions,
   ) => Promise<AgentResult>
 }
 

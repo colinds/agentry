@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { z } from 'zod'
-import { render, Agent, System, Tools, Tool, Message, AgentTool } from 'agentry'
+import { run, Agent, System, Tools, Tool, Message, AgentTool } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 /**
@@ -214,7 +214,7 @@ function Factory() {
 }
 
 console.log('🚀 Starting dynamic subagent creation example...\n')
-const result = await render(<Factory />)
+const result = await run(<Factory />)
 console.log('\n✅ Final Result:')
 console.log(result.content)
 const totalTokens = result.usage.inputTokens + result.usage.outputTokens

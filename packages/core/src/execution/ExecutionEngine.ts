@@ -38,7 +38,7 @@ import {
 import type { SdkTool } from '../types/index.ts'
 import { toApiTool, executeTool } from '../tools/index.ts'
 import { executeMemoryTool } from '../tools/memoryTool.ts'
-import { createSpawnAgent } from '../render/spawnAgent.ts'
+import { createRunAgent } from '../run/runAgentFunction.ts'
 import { debug } from '../debug.ts'
 import { buildSystemPrompt } from './createEngineConfig.ts'
 import { flushSync } from '../reconciler/renderer.ts'
@@ -400,7 +400,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         currentState.status === 'streaming'
           ? currentState.abortController.signal
           : undefined,
-      spawnAgent: createSpawnAgent({
+      runAgent: createRunAgent({
         client: this.client,
         model: this.config.model,
         signal:

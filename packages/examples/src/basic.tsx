@@ -1,13 +1,5 @@
 import { z } from 'zod'
-import {
-  render,
-  defineTool,
-  Agent,
-  System,
-  Tools,
-  Tool,
-  Message,
-} from 'agentry'
+import { run, defineTool, Agent, System, Tools, Tool, Message } from 'agentry'
 import { MODEL } from '@agentry/shared'
 
 const parametersSchema = z.object({
@@ -38,7 +30,7 @@ const calculatorTool = defineTool({
   },
 })
 
-const result = await render(
+const result = await run(
   <Agent model={MODEL} maxTokens={1024}>
     <System>You are a helpful math assistant.</System>
     <Tools>

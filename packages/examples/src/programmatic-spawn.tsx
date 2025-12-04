@@ -1,12 +1,4 @@
-import {
-  render,
-  Agent,
-  System,
-  Tools,
-  Tool,
-  Message,
-  useMessages,
-} from 'agentry'
+import { run, Agent, System, Tools, Tool, Message, useMessages } from 'agentry'
 import { MODEL } from '@agentry/shared'
 import { z } from 'zod'
 import type React from 'react'
@@ -14,7 +6,7 @@ import type React from 'react'
 /**
  * Example: Programmatic Agent Spawning
  *
- * Demonstrates how to use context.spawnAgent() to programmatically
+ * Demonstrates how to use context.runAgent() to programmatically
  * create and execute agents on-demand from within tool handlers.
  *
  * Key features:
@@ -202,7 +194,7 @@ function SummarizerAgent({
 
 console.log('🚀 Programmatic Agent Spawning Example\n')
 
-const result = await render(
+const result = await run(
   <Agent model={MODEL} maxTokens={8192}>
     <System>
       You are a content analyzer that can spawn specialized agents based on the
@@ -232,7 +224,7 @@ const result = await render(
                 ? TypeScriptExpertAgent
                 : RustExpertAgent
 
-          const result = await context.spawnAgent(
+          const result = await context.runAgent(
             <AgentComponent code={input.code} />,
           )
 
@@ -273,7 +265,7 @@ const result = await render(
                       ? CreativeAnalystAgent
                       : SecurityAnalystAgent
 
-              const result = await context.spawnAgent(
+              const result = await context.runAgent(
                 <AgentComponent content={input.content} />,
               )
 
@@ -326,7 +318,7 @@ const result = await render(
                 ? { maxTokens: 2048, temperature: 0.5 }
                 : { maxTokens: 4096, temperature: 0.7 }
 
-          const result = await context.spawnAgent(
+          const result = await context.runAgent(
             <ResearcherAgent topic={input.topic} depth={input.depth} />,
             config,
           )
@@ -350,7 +342,7 @@ const result = await render(
           console.log(`\n📚 Step 1: Researching ${input.topic}...`)
 
           // First spawn: Research agent
-          const researchResult = await context.spawnAgent(
+          const researchResult = await context.runAgent(
             <ResearcherAgent topic={input.topic} depth="detailed" />,
             { temperature: 0.5 },
           )
@@ -361,7 +353,7 @@ const result = await render(
           console.log(`\n📝 Step 2: Summarizing research...`)
 
           // Second spawn: Summarizer agent
-          const summaryResult = await context.spawnAgent(
+          const summaryResult = await context.runAgent(
             <SummarizerAgent research={researchResult.content} />,
           )
 
