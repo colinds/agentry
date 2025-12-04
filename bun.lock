@@ -20,7 +20,7 @@
     },
     "packages/agentry": {
       "name": "agentry",
-      "version": "0.0.0",
+      "version": "0.0.1",
       "dependencies": {
         "@agentry/components": "workspace:*",
         "@agentry/core": "workspace:*",

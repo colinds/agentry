@@ -21,6 +21,7 @@ function CTFGame() {
             number: z.number().describe('Your guess (1-100)'),
           })}
           handler={async ({ number }) => {
+            console.log('Guess:', number)
             if (number === secretNumber) {
               setFound(true)
               return 'correct! You found the secret number!'

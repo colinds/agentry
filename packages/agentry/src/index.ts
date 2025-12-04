@@ -1,4 +1,4 @@
-export { run, createAgent } from '@agentry/core'
+export { run, createAgent, AgentHandle } from '@agentry/core'
 export { defineTool, defineAgentTool } from '@agentry/core/tools'
 export {
   Agent,

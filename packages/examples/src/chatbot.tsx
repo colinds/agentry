@@ -1,8 +1,16 @@
 import { z } from 'zod'
-import { run, defineTool, Agent, System, Tools, Tool, WebSearch } from 'agentry'
+import {
+  run,
+  defineTool,
+  Agent,
+  System,
+  Tools,
+  Tool,
+  WebSearch,
+  AgentTool,
+} from 'agentry'
 import { MODEL } from '@agentry/shared'
-import readline from 'node:readline'
-import type { Interface } from 'node:readline'
+import { runInteractive } from './utils/interactive.ts'
 
 const ChatbotAgent = () => {
   // Calculator tool for basic math
@@ -87,67 +95,24 @@ const ChatbotAgent = () => {
         <Tool {...calculatorTool} />
         <Tool {...timeTool} />
         <Tool {...jokeTool} />
-        <WebSearchSubagent />
+        <AgentTool
+          name="web_researcher"
+          description="Specialist subagent for web research using the web_search tool"
+          parameters={z.object({})}
+          agent={() => <WebSearchSubagent />}
+        />
       </Tools>
     </Agent>
   )
 }
 
 async function main() {
-  console.clear()
-  console.log('🤖 AI Chatbot')
-  console.log('━'.repeat(50))
-  console.log('Type your messages and press Enter. Type "exit" to quit.\n')
-
   const agent = await run(<ChatbotAgent />, { mode: 'interactive' })
 
-  const rl: Interface = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
+  runInteractive(agent, {
+    title: '🤖 AI Chatbot',
+    subtitle: 'Type your messages and press Enter.',
   })
-
-  const askQuestion = () => {
-    rl.question('\n\x1b[32mYou:\x1b[0m ', async (input: string) => {
-      const userMessage = input.trim()
-
-      if (!userMessage) {
-        askQuestion()
-        return
-      }
-
-      if (userMessage.toLowerCase() === 'exit') {
-        console.log('\nGoodbye! 👋\n')
-        agent.close()
-        rl.close()
-        process.exit(0)
-      }
-
-      process.stdout.write('\n\x1b[34mAI:\x1b[0m ')
-
-      try {
-        for await (const event of agent.stream(userMessage)) {
-          if (event.type === 'text') {
-            process.stdout.write(event.text)
-          } else if (event.type === 'tool_use_start') {
-            process.stdout.write(
-              `\n\x1b[90m[Using tool: ${event.toolName}]\x1b[0m\n`,
-            )
-          }
-        }
-
-        console.log() // New line after response
-        askQuestion()
-      } catch (error) {
-        console.error(
-          '\n\x1b[31mError:\x1b[0m',
-          error instanceof Error ? error.message : error,
-        )
-        askQuestion()
-      }
-    })
-  }
-
-  askQuestion()
 }
 
 main().catch(console.error)
