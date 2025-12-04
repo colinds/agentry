@@ -5,6 +5,7 @@ import { defineTool } from '@agentry/core/tools'
 import {
   Agent,
   System,
+  Context,
   Tools,
   Tool,
   Message,
@@ -478,4 +479,216 @@ test('subagent errors when it has no messages', async () => {
   expect(toolResults.length).toBeGreaterThan(0)
   expect(toolResults[0]?.is_error).toBe(true)
   expect(toolResults[0]?.content).toContain('Subagent has no messages')
+})
+
+test('System with cache="ephemeral" creates block with cache_control', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Hello')] },
+  ])
+
+  const runPromise = run(
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <System cache="ephemeral">Ephemeral instructions</System>
+      <Message role="user">Test</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.waitForNextCall()
+  const call = controller.peekNextCall()
+  expect(call).not.toBeNull()
+
+  expect(Array.isArray(call!.params.system)).toBe(true)
+  const systemBlocks = call!.params.system as Array<{
+    type: string
+    text: string
+    cache_control?: { type: string }
+  }>
+
+  expect(systemBlocks.length).toBe(1)
+  expect(systemBlocks[0]).toEqual({
+    type: 'text',
+    text: 'Ephemeral instructions',
+    cache_control: { type: 'ephemeral' },
+  })
+
+  await controller.nextTurn()
+  await runPromise
+})
+
+test('Context with cache="ephemeral" creates block with cache_control', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Hello')] },
+  ])
+
+  const runPromise = run(
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <Context cache="ephemeral">Ephemeral context</Context>
+      <Message role="user">Test</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.waitForNextCall()
+  const call = controller.peekNextCall()
+  expect(call).not.toBeNull()
+
+  const systemBlocks = call!.params.system as Array<{
+    type: string
+    text: string
+    cache_control?: { type: string }
+  }>
+
+  expect(systemBlocks.length).toBe(1)
+  expect(systemBlocks[0]).toEqual({
+    type: 'text',
+    text: 'Ephemeral context',
+    cache_control: { type: 'ephemeral' },
+  })
+
+  await controller.nextTurn()
+  await runPromise
+})
+
+test('System without cache creates simple string', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Hello')] },
+  ])
+
+  const runPromise = run(
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <System>Regular instructions</System>
+      <Message role="user">Test</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.waitForNextCall()
+  const call = controller.peekNextCall()
+  expect(call).not.toBeNull()
+
+  expect(typeof call!.params.system).toBe('string')
+  expect(call!.params.system).toBe('Regular instructions')
+
+  await controller.nextTurn()
+  await runPromise
+})
+
+test('Mixed System and Context parts maintain order and cache flags', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Hello')] },
+  ])
+
+  const runPromise = run(
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <System>First cached part</System>
+      <Context cache="ephemeral">Ephemeral context</Context>
+      <System cache="ephemeral">Ephemeral instructions</System>
+      <Context>Second cached part</Context>
+      <Message role="user">Test</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.waitForNextCall()
+  const call = controller.peekNextCall()
+  expect(call).not.toBeNull()
+
+  expect(Array.isArray(call!.params.system)).toBe(true)
+  const systemBlocks = call!.params.system as Array<{
+    type: string
+    text: string
+    cache_control?: { type: string }
+  }>
+
+  expect(systemBlocks.length).toBe(4)
+  expect(systemBlocks[0]).toEqual({
+    type: 'text',
+    text: 'First cached part',
+  })
+  expect(systemBlocks[1]).toEqual({
+    type: 'text',
+    text: 'Ephemeral context',
+    cache_control: { type: 'ephemeral' },
+  })
+  expect(systemBlocks[2]).toEqual({
+    type: 'text',
+    text: 'Ephemeral instructions',
+    cache_control: { type: 'ephemeral' },
+  })
+  expect(systemBlocks[3]).toEqual({
+    type: 'text',
+    text: 'Second cached part',
+  })
+
+  await controller.nextTurn()
+  await runPromise
+})
+
+test('Multiple ephemeral parts are all marked correctly', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Hello')] },
+  ])
+
+  const runPromise = run(
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <System cache="ephemeral">First ephemeral</System>
+      <Context cache="ephemeral">Second ephemeral</Context>
+      <System cache="ephemeral">Third ephemeral</System>
+      <Message role="user">Test</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.waitForNextCall()
+  const call = controller.peekNextCall()
+  expect(call).not.toBeNull()
+
+  const systemBlocks = call!.params.system as Array<{
+    type: string
+    text: string
+    cache_control?: { type: string }
+  }>
+
+  expect(systemBlocks.length).toBe(3)
+  systemBlocks.forEach((block) => {
+    expect(block.cache_control).toEqual({ type: 'ephemeral' })
+  })
+
+  await controller.nextTurn()
+  await runPromise
+})
+
+test('Multiple System and Context parts use array format', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Hello')] },
+  ])
+
+  const runPromise = run(
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <System>First part</System>
+      <Context>Second part</Context>
+      <System>Third part</System>
+      <Message role="user">Test</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.waitForNextCall()
+  const call = controller.peekNextCall()
+  expect(call).not.toBeNull()
+
+  expect(Array.isArray(call!.params.system)).toBe(true)
+  const systemBlocks = call!.params.system as Array<{
+    type: string
+    text: string
+  }>
+
+  expect(systemBlocks.length).toBe(3)
+  expect(systemBlocks[0]!.text).toBe('First part')
+  expect(systemBlocks[1]!.text).toBe('Second part')
+  expect(systemBlocks[2]!.text).toBe('Third part')
+
+  await controller.nextTurn()
+  await runPromise
 })

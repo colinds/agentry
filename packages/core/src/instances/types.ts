@@ -24,7 +24,7 @@ export interface AgentInstance extends BaseInstance {
   props: AgentProps
   client: Anthropic
   engine: ExecutionEngine | null
-  systemParts: Array<{ content: string }>
+  systemParts: Array<{ content: string; cache?: 'ephemeral' }>
   tools: InternalTool[]
   sdkTools: SdkTool[]
   mcpServers: BetaRequestMCPServerURLDefinition[]
@@ -45,11 +45,13 @@ export interface SdkToolInstance extends BaseInstance {
 export interface SystemInstance extends BaseInstance {
   type: 'system'
   content: string
+  cache?: 'ephemeral'
 }
 
 export interface ContextInstance extends BaseInstance {
   type: 'context'
   content: string
+  cache?: 'ephemeral'
 }
 
 export interface MessageInstance extends BaseInstance {
@@ -73,7 +75,7 @@ export interface SubagentInstance extends BaseInstance {
   description?: string
   props: AgentProps
   children: Instance[]
-  systemParts: Array<{ content: string }>
+  systemParts: Array<{ content: string; cache?: 'ephemeral' }>
   tools: InternalTool[]
   sdkTools: SdkTool[]
   mcpServers: BetaRequestMCPServerURLDefinition[]

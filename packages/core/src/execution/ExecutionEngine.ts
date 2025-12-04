@@ -66,7 +66,7 @@ function sanitizeContentBlocks(
 interface CreateMessageParams {
   model: string
   max_tokens: number
-  system?: string
+  system?: SystemPrompt
   messages: BetaMessageParam[]
   tools?: BetaToolUnion[]
   mcp_servers?: BetaRequestMCPServerURLDefinition[]
@@ -86,11 +86,19 @@ export interface ExecutionEngineEvents {
   stepFinish: (result: OnStepFinishResult) => void
 }
 
+export type SystemPrompt =
+  | string
+  | Array<{
+      type: 'text'
+      text: string
+      cache_control?: { type: 'ephemeral' }
+    }>
+
 export interface ExecutionEngineConfig {
   client: Anthropic
   model: Model
   maxTokens: number
-  system?: string
+  system?: SystemPrompt
   stream?: boolean
   maxIterations?: number
   compactionControl?: CompactionControl
@@ -320,7 +328,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       tools: params.tools?.map((t) => ('name' in t ? t.name : t.type)),
       messageCount: params.messages.length,
       system: params.system
-        ? `${params.system.substring(0, 80)}...`
+        ? typeof params.system === 'string'
+          ? `${params.system.substring(0, 80)}...`
+          : `${params.system.length} blocks`
         : undefined,
       ...(params.mcp_servers?.length
         ? { mcpServers: params.mcp_servers?.map((s) => s.name) }

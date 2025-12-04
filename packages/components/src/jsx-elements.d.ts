@@ -20,9 +20,9 @@ export interface AgentryElements {
 
   sdk_tool: { tool: BetaToolUnion; key?: string }
 
-  system: { children: ReactNode }
+  system: { children: ReactNode; cache?: 'ephemeral' }
 
-  context: { children: ReactNode }
+  context: { children: ReactNode; cache?: 'ephemeral' }
 
   message: { role: 'user' | 'assistant'; children: ReactNode }
 

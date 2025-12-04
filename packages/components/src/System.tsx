@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 export interface SystemProps {
   children: ReactNode
+  cache?: 'ephemeral'
 }
 
 /**
@@ -17,6 +18,6 @@ export interface SystemProps {
  * </Agent>
  * ```
  */
-export function System({ children }: SystemProps): ReactNode {
-  return <system>{children}</system>
+export function System({ children, cache }: SystemProps): ReactNode {
+  return <system cache={cache}>{children}</system>
 }

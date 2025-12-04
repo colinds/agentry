@@ -191,6 +191,7 @@ function createSystemInstance(props: SystemComponentProps): SystemInstance {
   return {
     type: 'system',
     content: reactNodeToString(props.children),
+    cache: props.cache,
     parent: null,
   }
 }
@@ -199,6 +200,7 @@ function createContextInstance(props: ContextComponentProps): ContextInstance {
   return {
     type: 'context',
     content: reactNodeToString(props.children),
+    cache: props.cache,
     parent: null,
   }
 }

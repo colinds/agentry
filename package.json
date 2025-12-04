@@ -32,7 +32,8 @@
     "example:ctf": "bun run packages/examples/src/ctf.tsx",
     "example:demo": "bun run packages/examples/src/demo.tsx",
     "example:thinking": "bun run packages/examples/src/thinking.tsx",
-    "example:programmatic-spawn": "bun run packages/examples/src/programmatic-spawn.tsx"
+    "example:programmatic-spawn": "bun run packages/examples/src/programmatic-spawn.tsx",
+    "example:cache-ephemeral": "bun run packages/examples/src/cache-ephemeral.tsx"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

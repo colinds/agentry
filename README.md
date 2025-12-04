@@ -16,6 +16,8 @@ Agentry brings React's declarative component model to AI agent orchestration. Yo
 
 > 🚧 **WIP:** This library is still in its early stages and should not be used in any sort of production environment. This project was more of a learning exercise for me to understand how the React reconciler works.
 
+> ⚠️ Agentry currently only supports Anthropic models.
+
 ## Quick Start
 
 ### Installation
@@ -70,6 +72,7 @@ console.log(result.content)
 - **React hooks** - `useExecutionState()`, `useMessages()` for reactive state
 - **Component composition** - Organize agent logic into reusable components
 - **Streaming support** - Both pull (AsyncIterator) and push (EventEmitter) interfaces
+- **Prompt caching** - Supports Anthropic's prompt caching
 - **Built-in tools** - `<WebSearch />`, `<CodeExecution />`, `<Memory />`, `<MCP />`
 
 ## Examples
@@ -89,6 +92,7 @@ See `packages/examples/src/` for comprehensive examples:
 | `create-subagent.tsx`           | Dynamic subagent creation               |
 | `create-ephemeral-subagent.tsx` | Ephemeral subagents                     |
 | `programmatic-spawn.tsx`        | Programmatic agent spawning from tools  |
+| `cache-ephemeral.tsx`           | Prompt caching with ephemeral content   |
 
 Run an example:
 
@@ -217,6 +221,25 @@ function DynamicAgent() {
 }
 ```
 
+### Prompt Caching
+
+Use `cache="ephemeral"` on `<System>` or `<Context>` components to mark dynamic content that shouldn't be cached.
+
+```tsx
+<Agent model="claude-sonnet-4-5">
+  {/* Stable instructions - will be cached */}
+  <System>You are a helpful assistant. Always be concise and accurate.</System>
+
+  {/* Dynamic context - NOT cached (ephemeral) */}
+  <Context cache="ephemeral">
+    Current user: {user.name}
+    Current time: {new Date().toISOString()}
+  </Context>
+
+  <Message role="user">What's my name?</Message>
+</Agent>
+```
+
 ### Compaction Control
 
 For long-running conversations, you can enable automatic message compaction to manage context window usage. When the token threshold is exceeded, the framework automatically summarizes previous messages:
@@ -267,8 +290,8 @@ const handle: AgentHandle = await run(<Agent>...</Agent>, {
 ### Components
 
 - **`<Agent>`** - Root container. Props: `model`, `name`, `description`, `maxTokens`, `temperature`, `stream`, `onComplete`, `compactionControl`, etc.
-- **`<System>`** - System instructions. Props: `children`
-- **`<Context>`** - Additional context. Props: `children`
+- **`<System>`** - System instructions. Props: `children`, `cache?: 'ephemeral'`
+- **`<Context>`** - Additional context. Props: `children`, `cache?: 'ephemeral'`
 - **`<Message>`** - Conversation message. Props: `role: 'user' | 'assistant'`, `children`
 - **`<Tools>`** - Tool container. Props: `children`
 - **`<Tool>`** - Custom tool. Props: `name`, `description`, `parameters` (Zod schema), `handler`. The handler receives `(input, context)` where `context` includes `runAgent()` for programmatic agent spawning

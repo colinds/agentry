@@ -30,10 +30,12 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
   } else if (isSystemInstance(child)) {
     agent.systemParts.push({
       content: child.content,
+      cache: child.cache,
     })
   } else if (isContextInstance(child)) {
     agent.systemParts.push({
       content: child.content,
+      cache: child.cache,
     })
   } else if (isMessageInstance(child)) {
     // Write directly to store instead of agent.messages

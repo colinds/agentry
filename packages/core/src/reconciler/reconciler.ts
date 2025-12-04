@@ -355,6 +355,7 @@ function rebuildSystemPrompt(agent: AgentInstance): void {
     if (isSystemInstance(child) || isContextInstance(child)) {
       parts.push({
         content: child.content,
+        cache: child.cache,
       })
     }
   }

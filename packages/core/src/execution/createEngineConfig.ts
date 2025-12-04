@@ -15,13 +15,33 @@ export interface EngineConfigResult {
   store: AgentStore
 }
 
-/**
- * Build system prompt from agent's collected parts
- */
-export function buildSystemPrompt(agent: AgentInstance): string | undefined {
-  return agent.systemParts.length > 0
-    ? agent.systemParts.map((p) => p.content).join('\n\n')
-    : undefined
+export interface SystemBlock {
+  type: 'text'
+  text: string
+  cache_control?: { type: 'ephemeral' }
+}
+
+export function buildSystemPrompt(
+  agent: AgentInstance,
+): string | SystemBlock[] | undefined {
+  if (agent.systemParts.length === 0) {
+    return undefined
+  }
+
+  if (agent.systemParts.length === 1 && !agent.systemParts[0]?.cache) {
+    return agent.systemParts[0]!.content
+  }
+
+  return agent.systemParts.map((part) => {
+    const block: SystemBlock = {
+      type: 'text',
+      text: part.content,
+    }
+    if (part.cache === 'ephemeral') {
+      block.cache_control = { type: 'ephemeral' }
+    }
+    return block
+  })
 }
 
 /**

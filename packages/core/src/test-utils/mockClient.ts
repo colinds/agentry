@@ -4,6 +4,7 @@ import type {
   BetaContentBlock,
   BetaMessageParam,
 } from '@anthropic-ai/sdk/resources/beta'
+import type { SystemPrompt } from '../execution/ExecutionEngine'
 
 export interface MockResponse {
   content: BetaContentBlock[]
@@ -13,7 +14,7 @@ export interface MockResponse {
 interface CreateMessageParams {
   model: string
   max_tokens: number
-  system?: string
+  system?: SystemPrompt
   messages: BetaMessageParam[]
   tools?: unknown[]
   mcp_servers?: unknown[]
