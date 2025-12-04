@@ -1,7 +1,8 @@
 {
   "name": "agentry",
-  "private": true,
   "type": "module",
+  "author": "Colin D'Souza",
+  "license": "MIT",
   "workspaces": [
     "packages/*"
   ],

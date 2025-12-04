@@ -4,7 +4,7 @@
 
 **A React reconciler-based framework for declarative AI agent orchestration**
 
-Treat agent systems like React treats UI—components: describe _what_ the system should be, the reconciler determines _how_ to execute it.
+Compose and reuse AI agents like React components.
 
 </div>
 
@@ -12,9 +12,9 @@ Treat agent systems like React treats UI—components: describe _what_ the syste
 
 ## What is Agentry?
 
-Agentry brings React's declarative component model to AI agent orchestration. Just as React separates UI description from rendering, Agentry separates agent system description from execution.
+Agentry brings React's declarative component model to AI agent orchestration. You can design your agent's behavior declaratively and the framework will handle the execution.
 
-Agentry uses a custom React reconciler to translate your JSX into agent execution plans.
+> 🚧 **WIP:** This library is still in its early stages and should not be used in any sort of production environment. This project was more of a learning exercise for me to understand how the React reconciler works.
 
 ## Quick Start
 
@@ -27,10 +27,10 @@ bun add agentry react zod
 ### Your First Agent
 
 ```tsx
-import { render, Agent, System, Tools, Tool, Message } from 'agentry'
+import { run, Agent, System, Tools, Tool, Message } from 'agentry'
 import { z } from 'zod'
 
-const result = await render(
+const result = await run(
   <Agent model="claude-haiku-4-5" maxTokens={1024}>
     <System>You are a helpful math assistant</System>
     <Tools>
@@ -103,13 +103,13 @@ bun run packages/examples/src/basic.tsx
 **Batch mode** (default) - Runs to completion:
 
 ```tsx
-const result = await render(<Agent>...</Agent>)
+const result = await run(<Agent>...</Agent>)
 ```
 
 **Interactive mode** - Returns a handle for ongoing interaction:
 
 ```tsx
-const agent = await render(<Agent>...</Agent>, { mode: 'interactive' })
+const agent = await run(<Agent>...</Agent>, { mode: 'interactive' })
 await agent.sendMessage('Hello')
 for await (const event of agent.stream('Tell me more')) {
   if (event.type === 'text') process.stdout.write(event.text)
@@ -218,16 +218,16 @@ function DynamicAgent() {
 
 ## API Reference
 
-### `render(element, options?)`
+### `run(element, options?)`
 
-Renders an agent and returns a result or handle.
+Runs an agent and returns a result or handle.
 
 ```tsx
 // Batch mode
-const result: AgentResult = await render(<Agent>...</Agent>)
+const result: AgentResult = await run(<Agent>...</Agent>)
 
 // Interactive mode
-const handle: AgentHandle = await render(<Agent>...</Agent>, {
+const handle: AgentHandle = await run(<Agent>...</Agent>, {
   mode: 'interactive',
 })
 ```

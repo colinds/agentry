@@ -10,11 +10,11 @@ export interface RunOptions {
 }
 
 /**
- * render an agent element and return a handle or result
+ * run an agent element and return a handle or result
  *
  * @example batch mode (default) - runs to completion
  * ```ts
- * const result = await render(
+ * const result = await run(
  *   <Agent model="claude-sonnet-4-5">
  *     <System>You are a helpful assistant</System>
  *     <Message role="user">Hello!</Message>
@@ -25,7 +25,7 @@ export interface RunOptions {
  *
  * @example interactive mode - returns handle for ongoing interaction
  * ```ts
- * const agent = await render(
+ * const agent = await run(
  *   <Agent model="claude-sonnet-4-5">
  *     <System>You are a helpful assistant</System>
  *     <Tools><WebSearch /></Tools>

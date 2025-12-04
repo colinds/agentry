@@ -56,7 +56,7 @@ bun run packages/examples/src/<example-name>.tsx
 
 - **`packages/agentry`** - Main entry point package
   - Re-exports from `@agentry/core` and `@agentry/components`
-  - Single import point for users: `import { render, Agent, ... } from 'agentry'`
+  - Single import point for users: `import { run, Agent, ... } from 'agentry'`
 
 - **`packages/shared`** - Shared constants
   - `MODEL`, `TEST_MODEL` constants
@@ -74,7 +74,7 @@ bun run packages/examples/src/<example-name>.tsx
 
 **Execution Flow**
 
-1. `render()` creates an AgentHandle with the JSX element
+1. `run()` creates an AgentHandle with the JSX element
 2. AgentHandle uses the reconciler to build an AgentInstance tree
 3. ExecutionEngine manages the conversation loop with the Anthropic API
 4. Tool calls trigger handler execution and potential re-renders (for dynamic tools)
@@ -192,9 +192,9 @@ Common test patterns:
 - SubagentHandle automatically cleans up on completion or error
 - Run agents (via `runAgent()`) handle errors the same way - errors can be caught in the tool handler
 
-**Render Functions**
+**Run Functions**
 
-- `render/agent.ts` - Main `render()` function and `createAgent()` utility
-- `render/subagent.ts` - Internal `renderSubagent()` function for executing subagents
-- `render/runAgent.ts` - `createRunAgent()` function for programmatic agent running
-- All exports are re-exported from `render/index.ts` for backward compatibility
+- `run/agent.ts` - Main `run()` function and `createAgent()` utility
+- `run/subagent.ts` - Internal `runSubagent()` function for executing subagents
+- `run/runAgent.ts` - `createRunAgent()` function for programmatic agent running
+- All exports are re-exported from `run/index.ts` for backward compatibility

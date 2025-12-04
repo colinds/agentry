@@ -52,7 +52,7 @@ test('root agent sees pre-loaded JSX messages', async () => {
   expect(result.content).toBe('3+3 equals 6.')
 })
 
-test('render creates an agent and executes in batch mode', async () => {
+test('run creates an agent and executes in batch mode', async () => {
   const { client, controller } = createStepMockClient([
     { content: [mockText('Hello, world!')] },
   ])
@@ -76,7 +76,7 @@ test('render creates an agent and executes in batch mode', async () => {
   expect(result.messages.length).toBeGreaterThanOrEqual(2)
 })
 
-test('render handles tools correctly', async () => {
+test('run handles tools correctly', async () => {
   let toolCalled = false
   const testTool = defineTool({
     name: 'get_info',

@@ -1,9 +1,25 @@
 {
   "name": "agentry",
-  "version": "0.0.0",
+  "author": "Colin D'Souza",
+  "license": "MIT",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/colinds/agentry"
+  },
+  "homepage": "https://github.com/colinds/agentry",
+  "bugs": {
+    "url": "https://github.com/colinds/agentry/issues"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "react",
+    "declarative",
+    "reconciler",
+    "framework"
+  ],
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
   },
