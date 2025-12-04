@@ -40,10 +40,10 @@ export class AgentHandle extends AbstractAgentHandle {
       tools: [],
       sdkTools: [],
       contextParts: [],
-      messages: [],
       mcpServers: [],
       children: [],
       parent: null,
+      store,
     }
 
     const containerInfo = createContainer(rootAgent)

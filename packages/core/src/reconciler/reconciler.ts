@@ -20,10 +20,7 @@ import {
 import type { AgentProps, CompactionControl, Model } from '../types/index.ts'
 import { debug } from '../debug.ts'
 import { diffProps, disposeOnIdle } from './utils.ts'
-import {
-  getHandlerRegistry,
-  type ChildCollectionHandler,
-} from './collections.ts'
+import { collectChild, uncollectChild } from './collectors.ts'
 
 function createReconciler<
   Type,
@@ -298,23 +295,17 @@ function findParentAgent(instance: Instance): AgentLike | null {
   return null
 }
 
-function getHandlers(): Map<Instance['type'], ChildCollectionHandler> {
-  return getHandlerRegistry(collectFromChild, uncollectFromChild)
-}
-
-const handlers = getHandlers()
-
 function appendChild(parent: Instance, child: Instance): void {
   child.parent = parent
   addChildToArray(parent, child)
 
   const agent = getEffectiveAgent(parent)
-  if (agent) {
+  if (agent && isAgentInstance(agent)) {
     debug(
       'reconciler',
-      `appendChild: Adding child to ${isAgentInstance(agent) ? agent.props.name : 'subagent'}, child type: ${child.type}, isSubagent: ${isSubagentInstance(child)}`,
+      `appendChild: Adding child to ${agent.props.name}, child type: ${child.type}`,
     )
-    collectFromChild(agent, child)
+    collectChild(agent, child)
   }
 }
 
@@ -327,12 +318,12 @@ function insertBefore(
   insertChildInArray(parent, child, beforeChild)
 
   const agent = getEffectiveAgent(parent)
-  if (agent) {
+  if (agent && isAgentInstance(agent)) {
     debug(
       'reconciler',
-      `insertBefore: Adding child to ${isAgentInstance(agent) ? agent.props.name : 'subagent'}, child type: ${child.type}, isSubagent: ${isSubagentInstance(child)}`,
+      `insertBefore: Adding child to ${agent.props.name ?? 'unnamed agent'}, child type: ${child.type}`,
     )
-    collectFromChild(agent, child)
+    collectChild(agent, child)
   }
 }
 
@@ -341,8 +332,8 @@ function removeChild(parent: Instance, child: Instance): void {
   removeChildFromArray(parent, child)
 
   const agent = getEffectiveAgent(parent)
-  if (agent) {
-    uncollectFromChild(agent, child)
+  if (agent && isAgentInstance(agent)) {
+    uncollectChild(agent, child)
   }
 
   disposeOnIdle(() => {
@@ -351,30 +342,10 @@ function removeChild(parent: Instance, child: Instance): void {
       child.sdkTools = []
       child.systemParts = []
       child.contextParts = []
-      child.messages = []
       child.mcpServers = []
       child.children = []
     }
   })
-}
-
-function collectFromChild(agent: AgentLike, child: Instance): void {
-  const agentName = isAgentInstance(agent) ? agent.props.name : agent.name
-  debug(
-    'reconciler',
-    `collectFromChild: agent=${agentName}, child.type=${child.type}, isSubagent=${isSubagentInstance(child)}`,
-  )
-  const handler = handlers.get(child.type)
-  if (handler) {
-    handler.add(agent, child)
-  }
-}
-
-function uncollectFromChild(agent: AgentLike, child: Instance): void {
-  const handler = handlers.get(child.type)
-  if (handler) {
-    handler.remove(agent, child)
-  }
 }
 
 function rebuildParts(

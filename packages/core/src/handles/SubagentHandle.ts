@@ -24,6 +24,8 @@ export class SubagentHandle extends AbstractAgentHandle {
   ) {
     const { client, signal } = options
 
+    const store = createAgentStore()
+
     const container: AgentInstance = {
       type: 'agent',
       props: { ...subagent.props },
@@ -33,14 +35,13 @@ export class SubagentHandle extends AbstractAgentHandle {
       tools: [],
       sdkTools: [],
       contextParts: [],
-      messages: [],
       mcpServers: [],
       children: [],
       parent: null,
+      store,
     }
 
     const containerInfo = createContainer(container)
-    const store = createAgentStore()
 
     super(client, containerInfo, store)
 
@@ -106,12 +107,6 @@ export class SubagentHandle extends AbstractAgentHandle {
       ...(stopSequences !== undefined && { stopSequences }),
       ...(stream !== undefined && { stream }),
     })
-
-    for (const msg of this.subagent.messages) {
-      agentInstance.messages.push(msg)
-    }
-
-    agentInstance.client = this.client
 
     return agentInstance
   }

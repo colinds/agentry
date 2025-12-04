@@ -65,7 +65,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   }
 
   protected pushMessage(message: BetaMessageParam): void {
-    this.store.setState((s) => ({ messages: [...s.messages, message] }))
+    this.store.getState().actions.pushMessage(message)
   }
 
   /**
@@ -75,7 +75,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   protected abstract beforeExecution(
     agent: AgentInstance,
     config: ExecutionEngineConfig,
-    messagesToUse: readonly BetaMessageParam[],
+    messages: readonly BetaMessageParam[],
   ): void
 
   /**
@@ -85,26 +85,18 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   protected async executeAgent(
     agent: AgentInstance,
     options: {
-      initialMessages?: BetaMessageParam[]
       emitEvents?: boolean
     } = {},
   ): Promise<AgentResult> {
-    const { initialMessages, emitEvents = true } = options
-
-    const storeMessages = this.store.getState().messages
-    const messagesToUse =
-      storeMessages.length > 0
-        ? [...storeMessages]
-        : (initialMessages ?? agent.messages)
+    const { emitEvents = true } = options
 
     const { config } = createEngineConfig({
       agent,
       client: this.client,
       store: this.store,
-      overrideMessages: messagesToUse,
     })
 
-    this.beforeExecution(agent, config, messagesToUse)
+    this.beforeExecution(agent, config, this.store.getState().messages)
 
     this.engine = new ExecutionEngine(config)
 

@@ -1,5 +1,4 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
 import type { AgentInstance } from '../instances/types.ts'
 import type { AgentStore } from '../store.ts'
 import { createAgentStore } from '../store.ts'
@@ -9,7 +8,6 @@ export interface EngineConfigOptions {
   agent: AgentInstance
   client: Anthropic
   store?: AgentStore
-  overrideMessages?: BetaMessageParam[]
 }
 
 export interface EngineConfigResult {
@@ -44,17 +42,11 @@ export function buildSystemPrompt(agent: AgentInstance): string | undefined {
 export function createEngineConfig(
   options: EngineConfigOptions,
 ): EngineConfigResult {
-  const { agent, client, overrideMessages } = options
+  const { agent, client } = options
 
   const store = options.store ?? createAgentStore()
 
   const system = buildSystemPrompt(agent)
-
-  const initialMessages = overrideMessages ?? agent.messages
-
-  if (initialMessages.length > 0 && store.getState().messages.length === 0) {
-    store.setState({ messages: [...initialMessages] })
-  }
 
   const config = {
     client,

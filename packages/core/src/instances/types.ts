@@ -11,6 +11,7 @@ import type {
   InternalAgentTool,
 } from '../types/index.ts'
 import type { ExecutionEngine } from '../execution/index.ts'
+import type { AgentStore } from '../store.ts'
 import type { z } from 'zod'
 
 export interface BaseInstance {
@@ -27,9 +28,9 @@ export interface AgentInstance extends BaseInstance {
   tools: InternalTool[]
   sdkTools: SdkTool[]
   contextParts: Array<{ content: string; priority: number }>
-  messages: BetaMessageParam[]
   mcpServers: BetaRequestMCPServerURLDefinition[]
   children: Instance[]
+  store: AgentStore
 }
 
 export interface ToolInstance extends BaseInstance {
@@ -79,7 +80,6 @@ export interface SubagentInstance extends BaseInstance {
   tools: InternalTool[]
   sdkTools: SdkTool[]
   contextParts: Array<{ content: string; priority: number }>
-  messages: BetaMessageParam[]
   mcpServers: BetaRequestMCPServerURLDefinition[]
   agentNode: React.ReactNode | null
 }

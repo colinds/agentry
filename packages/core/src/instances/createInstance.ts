@@ -104,17 +104,16 @@ function createAgentInstance(
   rootContainer?: unknown,
 ): AgentInstance {
   if (
-    rootContainer &&
-    isInstance(rootContainer) &&
-    isAgentInstance(rootContainer) &&
-    rootContainer.children.length > 0
+    !rootContainer ||
+    !isInstance(rootContainer) ||
+    !isAgentInstance(rootContainer) ||
+    !rootContainer.store
   ) {
-    throw new Error(
-      'Cannot nest <Agent>. You can use <AgentTool> to create agents available as tools.',
-    )
+    throw new Error('No store found in root container.')
   }
 
-  const client = props.client ?? new Anthropic()
+  const client = props.client ?? rootContainer.client ?? new Anthropic()
+  const store = rootContainer.store
 
   const instance: AgentInstance = {
     type: 'agent',
@@ -140,10 +139,10 @@ function createAgentInstance(
     tools: [],
     sdkTools: [],
     contextParts: [],
-    messages: [],
     mcpServers: [],
     children: [],
     parent: null,
+    store,
   }
 
   if (
@@ -310,7 +309,6 @@ export function createSubagentInstance(
     tools: [],
     sdkTools: [],
     contextParts: [],
-    messages: [],
     mcpServers: [],
     children: [],
     parent: null,

@@ -18,6 +18,7 @@ import {
   Message,
   Tools,
   Tool,
+  AgentTool,
   useExecutionState,
   useMessages,
 } from 'agentry'
@@ -170,7 +171,7 @@ function NewsTools() {
 /**
  * AnalystSubagent - A specialist subagent for data analysis (conditionally rendered)
  *
- * Demonstrates: Agent as a tool (subagent pattern)
+ * Demonstrates: Agent as a tool (subagent pattern) using AgentTool
  */
 function AnalystSubagent() {
   useEffect(() => {
@@ -179,20 +180,25 @@ function AnalystSubagent() {
   }, [])
 
   return (
-    <Tools>
-      <Agent
-        name="data_analyst"
-        description="A specialist subagent that analyzes data and provides insights. Delegate complex analysis tasks to this expert."
-        temperature={0.3}
-      >
-        <System>
-          You are a data analysis expert. When given data or topics to analyze:
-          1. Break down the key components 2. Identify patterns and trends 3.
-          Provide actionable insights 4. Be concise but thorough Always
-          structure your analysis clearly with bullet points or numbered lists.
-        </System>
-      </Agent>
-    </Tools>
+    <AgentTool
+      name="data_analyst"
+      description="A specialist subagent that analyzes data and provides insights. Delegate complex analysis tasks to this expert."
+      parameters={z.object({
+        task: z.string().describe('The analysis task to perform'),
+      })}
+      agent={(input) => (
+        <Agent temperature={0.3}>
+          <System>
+            You are a data analysis expert. When given data or topics to
+            analyze: 1. Break down the key components 2. Identify patterns and
+            trends 3. Provide actionable insights 4. Be concise but thorough
+            Always structure your analysis clearly with bullet points or
+            numbered lists.
+          </System>
+          <Message role="user">{input.task}</Message>
+        </Agent>
+      )}
+    />
   )
 }
 

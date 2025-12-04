@@ -168,12 +168,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   }
 
   pushMessage(message: BetaMessageParam): void {
-    this.store.setState((s) => ({ messages: [...s.messages, message] }))
+    this.store.getState().actions.pushMessage(message)
   }
 
   private transition(event: Parameters<typeof transition>[1]): void {
     const newState = transition(this.store.getState().executionState, event)
-    this.store.setState({ executionState: newState })
+    this.store.getState().actions.setExecutionState(newState)
     this.emit('stateChange', newState)
   }
 
@@ -647,14 +647,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       return false
     }
 
-    this.store.setState({
-      messages: [
-        {
-          role: 'user',
-          content: [{ type: 'text', text: summaryBlock.text }],
-        },
-      ],
-    })
+    this.store.getState().actions.setMessages([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: summaryBlock.text }],
+      },
+    ])
 
     return true
   }
