@@ -63,15 +63,14 @@ console.log(result.content)
 ## Features
 
 - **Type-safe tools** - Handler params inferred from Zod schemas
-- **Structured outputs** - Use `strict` on tools for guaranteed schema compliance
-- **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
-- **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.runAgent()`
-- **Conditional routing** (experimental) - Use `<Router>` and `<Route>` to conditionally render agent components based on state or natural language intent
 - **Dynamic tools via React state** - Add/remove tools during execution with `useState`
-- **Compaction control** - Automatic message compaction for long conversations to manage context window usage
 - **React hooks** - `useExecutionState()`, `useMessages()` for reactive state
-- **Component composition** - Organize agent logic into reusable components
-- **Streaming support** - Both pull (AsyncIterator) and push (EventEmitter) interfaces
+- **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
+- **Streaming support** - Stream responses
+- **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.runAgent()`
+- **Compaction control** - Automatic message compaction for long conversations to manage context window usage
+- **Conditional rendering** - Use `<Condition>` to conditionally render agent components based on state or natural language intent
+- **Structured outputs** - Use `strict` on tools
 - **Prompt caching** - Supports Anthropic's prompt caching
 - **Built-in tools** - `<WebSearch />`, `<CodeExecution />`, `<Memory />`, `<MCP />`
 
@@ -197,58 +196,65 @@ handler={async (input, context) => {
 }}
 ```
 
-### Conditional Routing
+### Conditional Rendering
 
-> ⚠️ **Experimental:** Router functionality is experimental and might change in future versions.
+> ⚠️ **Experimental:** <Condition /> is experimental and might change in future versions.
 
-Use `<Router>` and `<Route>` to conditionally render agent components (tools, system prompts, context) based on state or natural language intent. Routes support both boolean conditions and natural language descriptions:
+Use `<Condition>` to conditionally render agent components based on state or natural language intent. Conditions support both boolean and natural language evaluation:
 
 ```tsx
 function AuthAgent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isPremium, setIsPremium] = useState(false)
 
   return (
     <Agent model="claude-haiku-4-5">
-      <Router>
-        {/* Boolean route - evaluated synchronously */}
-        <Route when={!isAuthenticated}>
-          <System>Please authenticate first</System>
-          <Tools>
-            <Tool
-              name="authenticate"
-              handler={async () => {
-                setIsAuthenticated(true)
-                return 'Authenticated!'
-              }}
-            />
-          </Tools>
-        </Route>
+      {/* Boolean condition */}
+      <Condition when={!isAuthenticated}>
+        <System>Please authenticate first</System>
+        <Tools>
+          <Tool
+            name="authenticate"
+            handler={async () => {
+              setIsAuthenticated(true)
+              return 'Authenticated!'
+            }}
+          />
+        </Tools>
+      </Condition>
 
-        {/* Boolean route - authenticated state */}
-        <Route when={isAuthenticated}>
-          <System>You are authenticated</System>
-          <Tools>
-            <Tool name="protected_action" ... />
-          </Tools>
-        </Route>
+      <Condition when={isAuthenticated}>
+        <System>You are authenticated</System>
+        <Tools>
+          <Tool name="protected_action" ... />
+        </Tools>
 
-        {/* Natural language route - evaluated via LLM */}
-        <Route when="user wants to do math or calculations">
+        {/* Nested condition - only accessible when authenticated AND premium */}
+        <Condition when={isPremium}>
+          <System>Premium features enabled</System>
           <Tools>
-            <Tool name="calculate" ... />
+            <Tool name="premium_feature" ... />
           </Tools>
-        </Route>
-      </Router>
+        </Condition>
+      </Condition>
+
+      {/* Natural language condition - evaluated via LLM */}
+      <Condition when="user wants to do math or calculations">
+        <Tools>
+          <Tool name="calculate" ... />
+        </Tools>
+      </Condition>
     </Agent>
   )
 }
 ```
 
-Routes are evaluated before each API call:
+Conditions are evaluated before each API call:
 
-- Boolean routes (`when={boolean}`) are checked first
-- Natural language routes (`when="..."`) are evaluated via LLM
-- Multiple routes can be active simultaneously (parallel routing)
+- Boolean conditions (`when={boolean}`) are checked first
+- Natural language conditions (`when="..."`) are evaluated via LLM
+- Multiple conditions can be active simultaneously
+- Conditions can be nested - both parent and child must be active for grandchildren to render
 
 ### Dynamic Tools
 
@@ -411,18 +417,12 @@ const handle: AgentHandle = await run(<Agent>...</Agent>, {
 | `parameters`  | `ZodSchema`                      | Zod schema for input validation |
 | `agent`       | `(input) => ReactElement<Agent>` | Function returning the Agent    |
 
-#### `<Router>`
-
-| Prop       | Type        | Description      |
-| ---------- | ----------- | ---------------- |
-| `children` | `ReactNode` | Route components |
-
-#### `<Route>`
+#### `<Condition>`
 
 | Prop       | Type                | Description                                            |
 | ---------- | ------------------- | ------------------------------------------------------ |
 | `when`     | `boolean \| string` | Condition (boolean or NL description evaluated by LLM) |
-| `children` | `ReactNode`         | Route content (tools, system, context)                 |
+| `children` | `ReactNode`         | Content to render when condition is true               |
 
 #### `<WebSearch>`
 

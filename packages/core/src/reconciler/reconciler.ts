@@ -4,7 +4,6 @@ import {
   type Instance,
   type AgentInstance,
   type AgentLike,
-  type RouteInstance,
   isAgentInstance,
   isSubagentInstance,
   isAgentLike,
@@ -12,8 +11,7 @@ import {
   isSystemInstance,
   isContextInstance,
   isToolInstance,
-  isRouterInstance,
-  isRouteInstance,
+  isConditionInstance,
 } from '../instances/index.ts'
 import {
   createInstance,
@@ -246,9 +244,7 @@ function addChildToArray(parent: Instance, child: Instance): void {
     parent.children.push(child)
   } else if (isToolsContainerInstance(parent)) {
     parent.children.push(child)
-  } else if (isRouterInstance(parent)) {
-    parent.children.push(child as RouteInstance)
-  } else if (isRouteInstance(parent)) {
+  } else if (isConditionInstance(parent)) {
     parent.children.push(child)
   }
 }
@@ -263,9 +259,7 @@ function insertChildInArray(
     children = parent.children
   } else if (isToolsContainerInstance(parent)) {
     children = parent.children
-  } else if (isRouterInstance(parent)) {
-    children = parent.children
-  } else if (isRouteInstance(parent)) {
+  } else if (isConditionInstance(parent)) {
     children = parent.children
   } else {
     return
@@ -285,9 +279,7 @@ function removeChildFromArray(parent: Instance, child: Instance): void {
     children = parent.children
   } else if (isToolsContainerInstance(parent)) {
     children = parent.children
-  } else if (isRouterInstance(parent)) {
-    children = parent.children
-  } else if (isRouteInstance(parent)) {
+  } else if (isConditionInstance(parent)) {
     children = parent.children
   } else {
     return
@@ -417,12 +409,17 @@ function applyUpdate(
       if (agent && isAgentLike(agent)) {
         const toolName = instance.tool.name
         const index = agent.tools.findIndex((t) => t.name === toolName)
-        if (index >= 0) {
-          agent.tools.splice(index, 1)
-        }
         instance.tool = payload.tool
-        agent.tools.push(payload.tool)
+        // only update if tool was already collected
+        if (index >= 0) {
+          agent.tools.splice(index, 1, payload.tool)
+        }
       }
+    }
+  } else if (isConditionInstance(instance)) {
+    const payload = updatePayload as { when?: boolean | string }
+    if (payload.when !== undefined) {
+      instance.when = payload.when
     }
   }
 }

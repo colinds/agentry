@@ -9,8 +9,7 @@ import {
   isToolsContainerInstance,
   isAgentToolInstance,
   isAgentInstance,
-  isRouterInstance,
-  isRouteInstance,
+  isConditionInstance,
 } from '../instances/index.ts'
 import { debug } from '../debug.ts'
 import { createAgentSyntheticTool } from '../tools/agentSyntheticTool.ts'
@@ -53,42 +52,22 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
     agent.tools.push(tool)
     debug('reconciler', `Agent tool added: ${tool.name}`)
   } else if (isToolsContainerInstance(child)) {
-    // Handle tools container - process its children for collection
-    // (children are already in the tree, we just need to collect them)
+    // recursively collect each child (they'll go through the guard)
     for (const grandchild of child.children) {
-      // Process grandchild for collection without adding to tree again
-      if (isToolInstance(grandchild)) {
-        agent.tools.push(grandchild.tool)
-        debug('reconciler', `Tool added: ${grandchild.tool.name}`)
-      } else if (isSdkToolInstance(grandchild)) {
-        agent.sdkTools.push(grandchild.tool)
-        debug('reconciler', `SDK tool added: ${grandchild.tool.name}`)
-      } else if (isMCPServerInstance(grandchild)) {
-        agent.mcpServers.push(grandchild.config)
-        debug('reconciler', `MCP server added: ${grandchild.config.name}`)
-      } else if (isAgentToolInstance(grandchild)) {
-        const tool = createAgentSyntheticTool(grandchild)
-        agent.tools.push(tool)
-        debug('reconciler', `Agent tool added: ${tool.name}`)
-      } else if (isAgentInstance(grandchild)) {
+      if (isAgentInstance(grandchild)) {
         throw new Error(
           'Cannot place <Agent> directly inside <Tools>. Use <AgentTool> instead to create subagents as tools.',
         )
-      } else {
-        throw new Error(`Unknown child of <Tools/>: ${grandchild.type}`)
+      }
+      collectChild(agent, grandchild)
+    }
+  } else if (isConditionInstance(child)) {
+    // only collect children if condition is active
+    if (child.isActive) {
+      for (const conditionChild of child.children) {
+        collectChild(agent, conditionChild)
       }
     }
-  } else if (isRouterInstance(child)) {
-    for (const routeIndex of child.activeRouteIndices) {
-      const activeRoute = child.children[routeIndex]
-      if (activeRoute) {
-        for (const routeChild of activeRoute.children) {
-          collectChild(agent, routeChild)
-        }
-      }
-    }
-  } else if (isRouteInstance(child)) {
-    // Routes are managed by Router
   }
 }
 
@@ -140,48 +119,15 @@ export function uncollectChild(agent: AgentInstance, child: Instance): void {
       debug('reconciler', `Agent tool removed: ${child.name}`)
     }
   } else if (isToolsContainerInstance(child)) {
-    // Remove all grandchildren from agent arrays
+    // recursively uncollect each child
     for (const grandchild of child.children) {
-      if (isToolInstance(grandchild)) {
-        const index = agent.tools.findIndex(
-          (t) => t.name === grandchild.tool.name,
-        )
-        if (index >= 0) {
-          agent.tools.splice(index, 1)
-          debug('reconciler', `Tool removed: ${grandchild.tool.name}`)
-        }
-      } else if (isSdkToolInstance(grandchild)) {
-        const index = agent.sdkTools.findIndex((t) => t === grandchild.tool)
-        if (index >= 0) {
-          agent.sdkTools.splice(index, 1)
-          debug('reconciler', `SDK tool removed: ${grandchild.tool.name}`)
-        }
-      } else if (isMCPServerInstance(grandchild)) {
-        const index = agent.mcpServers.findIndex(
-          (s) => s.name === grandchild.config.name,
-        )
-        if (index >= 0) {
-          agent.mcpServers.splice(index, 1)
-          debug('reconciler', `MCP server removed: ${grandchild.config.name}`)
-        }
-      } else if (isAgentToolInstance(grandchild)) {
-        const index = agent.tools.findIndex((t) => t.name === grandchild.name)
-        if (index >= 0) {
-          agent.tools.splice(index, 1)
-          debug('reconciler', `Agent tool removed: ${grandchild.name}`)
-        }
-      }
+      uncollectChild(agent, grandchild)
     }
-  } else if (isRouterInstance(child)) {
-    for (const routeIndex of child.activeRouteIndices) {
-      const activeRoute = child.children[routeIndex]
-      if (activeRoute) {
-        for (const routeChild of activeRoute.children) {
-          uncollectChild(agent, routeChild)
-        }
-      }
+  } else if (isConditionInstance(child)) {
+    // uncollect all children regardless of active state
+    // (called when condition is being removed from tree)
+    for (const conditionChild of child.children) {
+      uncollectChild(agent, conditionChild)
     }
-  } else if (isRouteInstance(child)) {
-    // Routes are managed by Router
   }
 }

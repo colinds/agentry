@@ -86,7 +86,6 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     agent: AgentInstance,
     options: {
       emitEvents?: boolean
-      initiator?: 'user'
     } = {},
   ): Promise<AgentResult> {
     const { emitEvents = true } = options
@@ -146,9 +145,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
         this.engine.on('stepFinish', onStepFinish)
       }
 
-      const result = await this.engine.run({
-        initiator: options.initiator,
-      })
+      const result = await this.engine.run()
 
       if (emitEvents) {
         this.emit('complete', result)
@@ -213,7 +210,6 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
       return await this.executeAgent(agent, {
         emitEvents: this.shouldEmitEvents(),
-        initiator: firstMessage ? 'user' : undefined,
       })
     } finally {
       this.running = false

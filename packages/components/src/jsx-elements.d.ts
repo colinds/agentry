@@ -36,9 +36,7 @@ export interface AgentryElements {
     key?: string
   }
 
-  router: { children?: ReactNode }
-
-  route: { when: boolean | string; children?: ReactNode }
+  condition: { when: boolean | string; children?: ReactNode }
 }
 
 declare module 'react' {

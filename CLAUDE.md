@@ -50,7 +50,7 @@ bun run packages/examples/src/<example-name>.tsx
   - `tests/` - Core functionality tests
 
 - **`packages/components`** - React components for agent orchestration
-  - JSX components: `<Agent>`, `<Tool>`, `<AgentTool>`, `<System>`, `<Context>`, `<Message>`, `<Tools>`, `<Router>`, `<Route>`
+  - JSX components: `<Agent>`, `<Tool>`, `<AgentTool>`, `<System>`, `<Context>`, `<Message>`, `<Tools>`, `<Condition>`
   - Built-in tools: `<WebSearch>`, `<CodeExecution>`, `<Memory>`, `<MCP>`
   - Hooks: `useExecutionState()`, `useMessages()`, `useAgentState()`
 
@@ -132,33 +132,40 @@ Example pattern:
 />
 ```
 
-**Router/Route (Conditional Routing)**
+**Conditional Rendering (Condition)**
 
-- Router and Route components enable conditional rendering of agent components based on state or natural language intent
-- Routes can contain any agent components (System, Context, Tools, etc.)
-- Boolean routes (`when={boolean}`) are evaluated synchronously before each API call
-- Natural language routes (`when="..."`) are evaluated via LLM based on conversation context
-- Route evaluation happens in `ExecutionEngine.buildParams()` before building the API request
-- Multiple routes can be active simultaneously (parallel routing) - all matching routes' children are collected
-- Route evaluation is implemented in `evaluateRoutes()` which:
-  - First checks all boolean routes and collects matches
-  - Then evaluates NL routes via LLM if any remain unmatched
-  - Returns array of active route indices
-- RouterInstance tracks `activeRouteIndices` which is updated before each API call
-- Collectors (`collectChild`/`uncollectChild`) handle Router instances by collecting children from all active routes
+- Condition components enable conditional rendering based on state or natural language intent
+- Conditions can wrap any agent components (System, Context, Tools, etc.)
+- Boolean conditions (`when={boolean}`) evaluated synchronously before each API call
+- Natural language conditions (`when="..."`) evaluated via LLM based on conversation context
+- Condition evaluation happens in `ExecutionEngine.evaluateAllConditions()` before building the API request
+- Multiple conditions can be active simultaneously (parallel evaluation)
+- Condition evaluation implemented in `evaluateConditions()` which:
+  - First checks all boolean conditions synchronously
+  - Then evaluates NL conditions via single batched LLM call
+  - Updates `isActive` state on each ConditionInstance
+- ConditionInstance tracks `isActive` which is checked by collectors
+- Collectors (`collectChild`) only collect children from conditions where `isActive === true`
+- Conditions can be nested - both parent and child must be active for grandchildren to be collected
 
 Example pattern:
 
 ```tsx
-<Router>
-  <Route when={isAuthenticated}>
-    <System>You are authenticated</System>
-    <Tools><Tool name="protected_action" ... /></Tools>
-  </Route>
-  <Route when="user wants to do math">
-    <Tools><Tool name="calculate" ... /></Tools>
-  </Route>
-</Router>
+<Condition when={isAuthenticated}>
+  <System>You are authenticated</System>
+  <Tools><Tool name="protected_action" ... /></Tools>
+</Condition>
+
+<Condition when="user wants to do math">
+  <Tools><Tool name="calculate" ... /></Tools>
+</Condition>
+
+{/* Nested conditions */}
+<Condition when={isAuthenticated}>
+  <Condition when={isPremium}>
+    <Tools><Tool name="premium_feature" ... /></Tools>
+  </Condition>
+</Condition>
 ```
 
 **Dynamic Tools**

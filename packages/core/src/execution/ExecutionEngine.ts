@@ -27,13 +27,9 @@ import type {
   StepToolResult,
 } from '../types/index.ts'
 import { ANTHROPIC_BETAS } from '../constants.ts'
-import type {
-  AgentInstance,
-  RouterInstance,
-  Instance,
-} from '../instances/index.ts'
-import { isMessageInstance, isRouterInstance } from '../instances/index.ts'
-import { evaluateRoutes } from './router.ts'
+import type { AgentInstance } from '../instances/index.ts'
+import { isMessageInstance } from '../instances/index.ts'
+import { evaluateConditions } from './conditions.ts'
 import {
   transition,
   extractToolUses,
@@ -246,47 +242,23 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     return params
   }
 
-  private async evaluateRouters(routers: RouterInstance[]): Promise<boolean> {
-    for (const router of routers) {
-      const previous = router.activeRouteIndices
-      const newActiveRouteIndices = await evaluateRoutes(
-        router,
-        this.messages as BetaMessageParam[],
-        this.client,
-        this.config.model,
-        undefined, // signal
-      )
-
-      const hasNewRoutes =
-        newActiveRouteIndices.length !== previous.length ||
-        new Set([...previous, ...newActiveRouteIndices]).size !==
-          previous.length + newActiveRouteIndices.length
-
-      if (hasNewRoutes) {
-        router.activeRouteIndices = newActiveRouteIndices
-        return true
-      }
-    }
-    return false
+  private async evaluateAllConditions(options?: {
+    evaluateNL?: boolean
+  }): Promise<boolean> {
+    return evaluateConditions(
+      this.agentInstance,
+      this.messages as BetaMessageParam[],
+      this.client,
+      this.config.model,
+      undefined, // signal
+      options,
+    )
   }
 
-  private findAllRouters(): RouterInstance[] {
-    const routers: RouterInstance[] = []
-
-    const traverse = (inst: Instance) => {
-      if (isRouterInstance(inst)) {
-        routers.push(inst)
-      }
-      if ('children' in inst && Array.isArray(inst.children)) {
-        inst.children.forEach(traverse)
-      }
-    }
-
-    traverse(this.agentInstance)
-    return routers
-  }
-
-  private collectRouteChildren(): void {
+  // todo(colin): not a huge fan on recollecting everything
+  // ideally we should compute changesets and only recollect the necessary children
+  // that is why this is still experimental
+  private recollectAll(): void {
     this.agentInstance.tools = []
     this.agentInstance.systemParts = []
     this.agentInstance.sdkTools = []
@@ -300,7 +272,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     }
   }
 
-  async run(options?: { initiator?: 'user' }): Promise<AgentResult> {
+  async run(): Promise<AgentResult> {
     this.aborted = false
     this.iterationCount = 0
 
@@ -317,16 +289,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         const abortController = new AbortController()
         this.transition({ type: 'start_streaming', abortController })
 
-        const routers = this.findAllRouters()
-        if (
-          this.iterationCount === 1 &&
-          options?.initiator === 'user' &&
-          routers.length > 0
-        ) {
-          const routesChanged = await this.evaluateRouters(routers)
-          if (routesChanged) {
-            this.collectRouteChildren()
-          }
+        const isFirstIteration = this.iterationCount === 1
+        const conditionsChanged = await this.evaluateAllConditions({
+          evaluateNL: isFirstIteration, // only evaluate NL conditions from the user's history
+        })
+        if (conditionsChanged) {
+          this.recollectAll()
         }
 
         const message = await this.makeApiCall(abortController)

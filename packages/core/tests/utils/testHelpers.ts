@@ -2,7 +2,7 @@ import { useExecutionState, useMessages } from '@agentry/components'
 import { type AgentState, type BetaMessageParam } from '@agentry/core/types'
 import {
   isAgentInstance,
-  isRouterInstance,
+  isConditionInstance,
   type Instance,
 } from '@agentry/core/instances/types'
 import type { AgentHandle } from '@agentry/core/handles'
@@ -116,10 +116,10 @@ export function getAllRegisteredTools(handle: AgentHandle): {
 }
 
 /**
- * Test-only helper to verify router instances have routes collected
- * This ensures the reconciler properly adds Route children to RouterInstance.children
+ * Test-only helper to verify condition instances are properly collected
+ * This ensures the reconciler properly adds Condition children
  */
-export function verifyRouterHasRoutes(handle: AgentHandle): boolean {
+export function verifyConditionsExist(handle: AgentHandle): boolean {
   const containerInfo = handle.__getContainerInfo()
   if (!containerInfo || !containerInfo.container) {
     return false
@@ -130,31 +130,19 @@ export function verifyRouterHasRoutes(handle: AgentHandle): boolean {
     return false
   }
 
-  function findRouters(instance: Instance): Instance[] {
-    const routers: Instance[] = []
-    if (isRouterInstance(instance)) {
-      routers.push(instance)
+  function findConditions(instance: Instance): Instance[] {
+    const conditions: Instance[] = []
+    if (isConditionInstance(instance)) {
+      conditions.push(instance)
     }
     if ('children' in instance && Array.isArray(instance.children)) {
       for (const child of instance.children) {
-        routers.push(...findRouters(child))
+        conditions.push(...findConditions(child))
       }
     }
-    return routers
+    return conditions
   }
 
-  const routers = findRouters(container)
-
-  if (routers.length === 0) {
-    return false
-  }
-
-  const allHaveRoutes = routers.every((router) => {
-    if (isRouterInstance(router)) {
-      return router.children.length > 0
-    }
-    return false
-  })
-
-  return allHaveRoutes
+  const conditions = findConditions(container)
+  return conditions.length > 0
 }
