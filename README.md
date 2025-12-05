@@ -1,10 +1,8 @@
-# Agentry
+# Agentry 🤖 🏗️
 
 <div align="center">
 
-**A React reconciler-based framework for declarative AI agent orchestration**
-
-Compose and reuse AI agents like React components.
+**Compose and reuse your AI agents like React components.**
 
 </div>
 
@@ -12,9 +10,9 @@ Compose and reuse AI agents like React components.
 
 ## What is Agentry?
 
-Agentry brings React's declarative component model to AI agent orchestration. You can design your agent's behavior declaratively and the framework will handle the execution.
+Agentry adapts React’s component model for AI agents. Define behavior declaratively, compose agents like you would components, and let the framework manage the flow and execution.
 
-> 🚧 **WIP:** This library is still in its early stages and should not be used in any sort of production environment. This project was more of a learning exercise for me to understand how the React reconciler works.
+> 🚧 **WIP:** This library is still in its early stages and should not be used in any sort of production environment at this time.
 
 > ⚠️ Agentry currently only supports Anthropic models.
 
@@ -251,7 +249,6 @@ Routes are evaluated before each API call:
 - Boolean routes (`when={boolean}`) are checked first
 - Natural language routes (`when="..."`) are evaluated via LLM
 - Multiple routes can be active simultaneously (parallel routing)
-- Active routes' children are collected into the agent configuration
 
 ### Dynamic Tools
 
@@ -525,6 +522,10 @@ bun install
 bun run typecheck
 bun test
 ```
+
+## Why "Agentry"?
+
+Agent + Gantry.
 
 ## License
 
