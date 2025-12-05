@@ -109,6 +109,7 @@ function AuthWorkflowAgent() {
           <Tool
             name="submit_secret_word"
             description="Submit the secret word to complete authentication"
+            strict
             parameters={z.object({
               secretWord: z.string().describe("the user's secret word"),
             })}
@@ -143,7 +144,7 @@ function AuthWorkflowAgent() {
               name="transfer_funds"
               description="Transfer funds to another account"
               parameters={z.object({
-                toEmail: z.string().email().describe('recipient email'),
+                toEmail: z.string().describe('recipient email'),
                 amount: z.number().positive().describe('amount to transfer'),
               })}
               handler={async ({ toEmail, amount }) => {

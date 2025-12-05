@@ -72,6 +72,7 @@ export function createEngineConfig(
     temperature: agent.props.temperature,
     agentName: agent.props.name,
     thinking: agent.props.thinking,
+    betas: agent.props.betas,
     agentInstance: agent,
     store,
   }

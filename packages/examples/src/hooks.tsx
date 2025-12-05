@@ -37,6 +37,7 @@ function ResearchTools({
       <Tool
         name="research_topic"
         description="Research a topic area to discover what capabilities it unlocks"
+        strict
         parameters={z.object({
           topic: z
             .enum(['weather', 'news', 'analytics'])
@@ -62,6 +63,7 @@ function ResearchTools({
       <Tool
         name="unlock_capability"
         description="Unlock a discovered capability to gain access to new tools"
+        strict
         parameters={z.object({
           capability: z
             .enum(['WEATHER', 'NEWS', 'ANALYST'])
@@ -98,6 +100,7 @@ function WeatherTools() {
       <Tool
         name="get_weather"
         description="Get current weather for a location"
+        strict
         parameters={z.object({
           location: z.string().describe('The location to check'),
         })}
@@ -132,6 +135,7 @@ function NewsTools() {
       <Tool
         name="get_news"
         description="Get latest news headlines by category"
+        strict
         parameters={z.object({
           category: z
             .enum(['tech', 'science', 'business'])

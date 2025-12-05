@@ -207,6 +207,7 @@ const result = await run(
       <Tool
         name="analyze_code"
         description="Analyze code by spawning the appropriate specialist agent based on programming language"
+        strict
         parameters={z.object({
           code: z.string().describe('The code to analyze'),
           language: z
@@ -240,6 +241,7 @@ const result = await run(
       <Tool
         name="multi_perspective_analysis"
         description="Analyze content from multiple perspectives in parallel by spawning multiple expert agents concurrently"
+        strict
         parameters={z.object({
           content: z.string().describe('Content to analyze'),
           perspectives: z
@@ -299,6 +301,7 @@ const result = await run(
       <Tool
         name="research_with_depth"
         description="Conduct research with configurable depth level by spawning agents with different token limits"
+        strict
         parameters={z.object({
           topic: z.string().describe('Research topic'),
           depth: z
@@ -335,6 +338,7 @@ const result = await run(
       <Tool
         name="research_and_summarize"
         description="First spawn a research agent, then spawn a summarizer agent with the research results"
+        strict
         parameters={z.object({
           topic: z.string().describe('Topic to research and summarize'),
         })}

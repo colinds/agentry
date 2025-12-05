@@ -62,6 +62,19 @@ test('toApiTool converts to Anthropic format', () => {
   expect(apiTool.input_schema).toBeDefined()
 })
 
+test('strict tool sets strict on tool and API output', () => {
+  const tool = defineTool({
+    name: 'extract',
+    description: 'Extract data',
+    strict: true,
+    parameters: z.object({ name: z.string() }),
+    handler: async () => 'result',
+  })
+
+  expect(tool.strict).toBe(true)
+  expect(toApiTool(tool as InternalTool)).toHaveProperty('strict', true)
+})
+
 test('parseToolInput validates input correctly', () => {
   const tool = defineTool({
     name: 'math',

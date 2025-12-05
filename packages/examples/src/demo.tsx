@@ -85,6 +85,7 @@ function Coordinator() {
         <Tool
           name="spawn_company_researcher"
           description="Spawn a company researcher for a specific company"
+          strict
           parameters={z.object({
             company: z.string().describe('Startup to research'),
             context: z.string().describe('Context for the research'),

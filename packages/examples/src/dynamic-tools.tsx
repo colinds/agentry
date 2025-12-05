@@ -21,6 +21,7 @@ function MathAgent() {
           {...defineTool({
             name: 'calculator',
             description: 'perform basic math (add, subtract)',
+            strict: true,
             parameters: z.object({
               operation: z
                 .enum(['add', 'subtract'])
@@ -41,6 +42,7 @@ function MathAgent() {
               name: 'unlock_advanced',
               description:
                 'unlock advanced math operations (multiply, divide, power)',
+              strict: true,
               parameters: z.object({
                 confirm: z.boolean().describe('set to true to confirm'),
               }),
@@ -60,6 +62,7 @@ function MathAgent() {
             {...defineTool({
               name: 'advanced_calculator',
               description: 'perform advanced math (multiply, divide, power)',
+              strict: true,
               parameters: z.object({
                 operation: z
                   .enum(['multiply', 'divide', 'power'])

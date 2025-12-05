@@ -692,3 +692,33 @@ test('Multiple System and Context parts use array format', async () => {
   await controller.nextTurn()
   await runPromise
 })
+
+test('strict tool enables structured-outputs beta', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Done')] },
+  ])
+
+  const runPromise = run(
+    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+      <Tools>
+        <Tool
+          name="extract"
+          description="Extract data"
+          strict
+          parameters={z.object({ name: z.string() })}
+          handler={async () => 'ok'}
+        />
+      </Tools>
+      <Message role="user">Extract name</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.waitForNextCall()
+  const call = controller.peekNextCall()
+
+  expect(call!.params.betas).toContain('structured-outputs-2025-11-13')
+
+  await controller.nextTurn()
+  await runPromise
+})

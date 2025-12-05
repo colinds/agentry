@@ -25,18 +25,26 @@ export function defineTool<TSchema extends z.ZodType>(options: {
   name: string
   description: string
   parameters: TSchema
+  strict?: boolean
   handler: (
     input: z.infer<TSchema>,
     context: ToolContext,
   ) => Promise<ToolResult> | ToolResult
 }): InternalTool<z.infer<TSchema>> {
-  const { name, description, parameters, handler } = options
+  const { name, description, parameters, strict, handler } = options
+
+  const jsonSchema = z.toJSONSchema(parameters) as Record<string, unknown>
+
+  if (strict && jsonSchema.type === 'object') {
+    jsonSchema.additionalProperties = false
+  }
 
   return {
     name,
     description,
     parameters,
-    jsonSchema: z.toJSONSchema(parameters),
+    jsonSchema,
+    strict,
     handler,
   } as InternalTool<z.infer<TSchema>>
 }
@@ -50,6 +58,7 @@ export function toApiTool(tool: InternalTool): BetaTool {
     name: tool.name,
     description: tool.description,
     input_schema: tool.jsonSchema as BetaTool.InputSchema,
+    ...(tool.strict ? { strict: true } : {}),
   }
 }
 

@@ -58,6 +58,7 @@ async function evaluateNaturalLanguageRoutes(
   const conversationSummary = summarizeMessages(messages)
   const validIndices = routes.map(({ index }) => index)
 
+  const startTime = performance.now()
   const response = await client.beta.messages.create(
     {
       model: 'claude-haiku-4-5',
@@ -102,6 +103,7 @@ Return ALL indices of routes that match the current conversation state.`,
     },
     { signal },
   )
+  const durationMs = Math.round(performance.now() - startTime)
 
   const toolUse = response.content.find((block) => block.type === 'tool_use')
   if (toolUse && toolUse.type === 'tool_use') {
@@ -109,7 +111,7 @@ Return ALL indices of routes that match the current conversation state.`,
     const matches = input.matchingRouteIndices || []
     debug(
       'reconciler:router',
-      `NL route evaluation result: [${matches.join(', ')}]`,
+      `NL route evaluation (${durationMs}ms): [${matches.join(', ')}]`,
     )
     return matches
   }

@@ -26,7 +26,7 @@ import type {
   StepToolCall,
   StepToolResult,
 } from '../types/index.ts'
-import { ANTHROPIC_BETAS, type AnthropicBeta } from '../constants.ts'
+import { ANTHROPIC_BETAS } from '../constants.ts'
 import type {
   AgentInstance,
   RouterInstance,
@@ -60,6 +60,10 @@ function sanitizeContentBlocks(
 ): BetaContentBlockParam[] {
   return content.map((block) => {
     if (block.type === 'text') {
+      // structured outputs would set a parsed field
+      if ('parsed' in block) {
+        block.parsed = undefined
+      }
       return block as BetaTextBlockParam
     }
     return block as BetaContentBlockParam
@@ -112,6 +116,7 @@ export interface ExecutionEngineConfig {
   agentInstance: AgentInstance
   store: AgentStore
   thinking?: BetaThinkingConfigParam
+  betas?: string[]
 }
 
 const DEFAULT_TOKEN_THRESHOLD = 100_000
@@ -209,15 +214,18 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       }
     }
 
-    const betas: AnthropicBeta[] = []
+    const betas: Set<string> = new Set([...(this.config.betas ?? [])])
     if (mcpServers?.length) {
-      betas.push(ANTHROPIC_BETAS.MCP_CLIENT)
+      betas.add(ANTHROPIC_BETAS.MCP_CLIENT)
     }
     if (sdkTools.some(isCodeExecutionTool)) {
-      betas.push(ANTHROPIC_BETAS.CODE_EXECUTION)
+      betas.add(ANTHROPIC_BETAS.CODE_EXECUTION)
     }
     if (sdkTools.some(isMemoryTool)) {
-      betas.push(ANTHROPIC_BETAS.CONTEXT_MANAGEMENT)
+      betas.add(ANTHROPIC_BETAS.CONTEXT_MANAGEMENT)
+    }
+    if (internalTools.some(({ strict }) => strict)) {
+      betas.add(ANTHROPIC_BETAS.STRUCTURED_OUTPUTS)
     }
 
     const system = buildSystemPrompt(this.agentInstance)
@@ -231,7 +239,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       mcp_servers: mcpServers?.length ? mcpServers : undefined,
       stop_sequences: this.config.stopSequences,
       temperature: this.config.temperature,
-      betas: betas.length > 0 ? betas : undefined,
+      betas: betas.size > 0 ? Array.from(betas) : undefined,
       thinking: this.config.thinking,
     }
 
@@ -405,6 +413,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         : {}),
     })
 
+    const startTime = performance.now()
     let response: BetaMessage
     if (this.config.stream) {
       response = await this.streamApiCall(params, abortController)
@@ -414,8 +423,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         { signal: abortController.signal },
       )
     }
+    const durationMs = Math.round(performance.now() - startTime)
 
     debug('api', `Response #${this.iterationCount}`, {
+      durationMs,
       stopReason: response.stop_reason,
       toolUses: extractToolUses(response).map((t) => t.name),
       textLength: extractText(response).length,
@@ -704,6 +715,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       }
     }
 
+    const startTime = performance.now()
     const response = await this.client.beta.messages.create({
       model,
       messages: [
@@ -715,6 +727,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       ],
       max_tokens: this.config.maxTokens,
     })
+    const durationMs = Math.round(performance.now() - startTime)
+
+    debug('api', `Compaction response`, { durationMs, model })
 
     const summaryBlock = response.content.find(
       (block): block is BetaTextBlock => block.type === 'text',

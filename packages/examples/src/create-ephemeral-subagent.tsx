@@ -17,7 +17,6 @@ interface Subagent {
   name: string
   description: string
   systemPrompt: string
-  temperature?: number
 }
 
 /**
@@ -35,7 +34,6 @@ function EphemeralAgent({
   return (
     <Agent
       name={config.name}
-      temperature={config.temperature}
       onStepFinish={(result) => {
         console.log(
           `\n📝 [Subagent "${config.name}"] Step ${result.stepNumber} finished`,
@@ -94,6 +92,7 @@ function CreateSubagentTool({
     <Tool
       name="create_subagent"
       description="Create a new temporary subagent that will automatically remove itself when done. Requires: name (lowercase with underscores), description (what it does), systemPrompt (full instructions)."
+      strict
       parameters={z.object({
         name: z
           .string()
@@ -108,15 +107,9 @@ function CreateSubagentTool({
           .describe(
             "Complete system prompt/instructions that define the subagent's behavior (required)",
           ),
-        temperature: z
-          .number()
-          .min(0)
-          .max(2)
-          .optional()
-          .describe('Temperature 0-2, optional'),
       })}
       handler={async (input) => {
-        const { name, description, systemPrompt, temperature } = input
+        const { name, description, systemPrompt } = input
 
         if (subagents.some((s) => s.name === name)) {
           return `Error: ${name} already exists`
@@ -126,7 +119,7 @@ function CreateSubagentTool({
         }
 
         console.log(`🚀 [create_subagent] Spawning: ${name} - ${description}`)
-        onCreate({ name, description, systemPrompt, temperature })
+        onCreate({ name, description, systemPrompt })
         return `Created ${name}. Use ${name}(task) to call it. It will automatically remove itself when done.`
       }}
     />

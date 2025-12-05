@@ -149,6 +149,7 @@ export interface RunnableTool<TInput = unknown> {
 
 export interface InternalTool<TInput = unknown> extends RunnableTool<TInput> {
   jsonSchema: Record<string, unknown>
+  strict?: boolean
 }
 
 export type DefineToolOptions<TSchema extends z.ZodType> = Omit<
@@ -156,6 +157,7 @@ export type DefineToolOptions<TSchema extends z.ZodType> = Omit<
   'parameters'
 > & {
   parameters: TSchema
+  strict?: boolean
 }
 
 export type ToolUnion = InternalTool | SdkTool

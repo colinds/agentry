@@ -6,6 +6,7 @@ const InteractiveAgent = () => {
   const docsSearchTool = defineTool({
     name: 'search_docs',
     description: 'search through documentation',
+    strict: true,
     parameters: z.object({
       query: z.string().describe('search query'),
       limit: z.number().optional().default(5).describe('max results'),

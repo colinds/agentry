@@ -11,6 +11,8 @@ export const ANTHROPIC_BETAS = {
   CODE_EXECUTION: 'code-execution-2025-08-25',
   /** Context management for memory tool */
   CONTEXT_MANAGEMENT: 'context-management-2025-06-27',
+  /** Structured outputs */
+  STRUCTURED_OUTPUTS: 'structured-outputs-2025-11-13',
 } as const
 
 export type AnthropicBeta =

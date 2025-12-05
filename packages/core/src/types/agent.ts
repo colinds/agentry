@@ -18,6 +18,7 @@ export interface AgentProps {
   temperature?: number
   stream?: boolean
   thinking?: BetaThinkingConfigParam
+  betas?: string[]
   onMessage?: (message: AgentStreamEvent) => void
   onComplete?: (result: AgentResult) => void
   onError?: (error: Error) => void

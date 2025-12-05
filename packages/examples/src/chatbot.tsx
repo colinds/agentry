@@ -17,6 +17,7 @@ const ChatbotAgent = () => {
   const calculatorTool = defineTool({
     name: 'calculate',
     description: 'Perform basic math calculations',
+    strict: true,
     parameters: z.object({
       expression: z
         .string()

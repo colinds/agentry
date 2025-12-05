@@ -14,6 +14,7 @@ const calculatorTool = defineTool({
   name: 'calculator',
   description: 'perform basic math calculations',
   parameters: parametersSchema,
+  strict: true,
   handler: async ({ operation, a, b }) => {
     console.log(`Calculating: ${a} ${operation} ${b}`)
     switch (operation) {

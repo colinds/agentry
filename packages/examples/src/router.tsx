@@ -50,10 +50,9 @@ function RouterDemoAgent() {
         {/* Route 1: Not authenticated - Only auth tool available */}
         <Route when={!isAuthenticated}>
           <Context>
-            🔒 USER NOT AUTHENTICATED
-
-            The user has not authenticated yet. Only the authenticate tool is
-            available. Politely inform them they need to authenticate first.
+            🔒 USER NOT AUTHENTICATED The user has not authenticated yet. Only
+            the authenticate tool is available. Politely inform them they need
+            to authenticate first.
           </Context>
           <Tools>
             <Tool
@@ -67,7 +66,9 @@ function RouterDemoAgent() {
                   .describe('Whether this user has admin privileges'),
               })}
               handler={async ({ email, isAdmin: admin }) => {
-                console.log(`\n✅ [AUTH] Authenticated as ${email}${admin ? ' (ADMIN)' : ''}\n`)
+                console.log(
+                  `\n✅ [AUTH] Authenticated as ${email}${admin ? ' (ADMIN)' : ''}\n`,
+                )
                 setIsAuthenticated(true)
                 if (admin) {
                   setIsAdmin(true)
@@ -81,9 +82,8 @@ function RouterDemoAgent() {
         {/* Route 2: Authenticated - General tools available */}
         <Route when={isAuthenticated}>
           <Context>
-            ✅ USER AUTHENTICATED
-
-            The user is authenticated. General tools are available.
+            ✅ USER AUTHENTICATED The user is authenticated. General tools are
+            available.
           </Context>
           <Tools>
             <Tool
@@ -119,10 +119,8 @@ ${isAdmin ? '- Access admin functions' : ''}`
         {/* Route 3: Admin privileges - Admin tools available */}
         <Route when={isAdmin}>
           <Context>
-            👑 ADMIN MODE ACTIVE
-
-            The user has admin privileges. Admin tools are available in addition
-            to regular tools.
+            👑 ADMIN MODE ACTIVE The user has admin privileges. Admin tools are
+            available in addition to regular tools.
           </Context>
           <Tools>
             <Tool
@@ -152,15 +150,14 @@ ${isAdmin ? '- Access admin functions' : ''}`
         {/* Route 4: Math intent - Calculator available */}
         <Route when="user wants to do math, calculations, or arithmetic">
           <Context>
-            🧮 MATH MODE ACTIVE
-
-            The conversation indicates mathematical intent. The calculate tool is
-            available for performing calculations.
+            🧮 MATH MODE ACTIVE The conversation indicates mathematical intent.
+            The calculate tool is available for performing calculations.
           </Context>
           <Tools>
             <Tool
               name="calculate"
               description="Perform mathematical calculations and evaluate expressions"
+              strict
               parameters={z.object({
                 expression: z
                   .string()
@@ -186,19 +183,21 @@ ${isAdmin ? '- Access admin functions' : ''}`
         {/* Route 5: Information intent - Knowledge base available */}
         <Route when="user wants information, knowledge, facts, or to learn about something">
           <Context>
-            📚 INFORMATION MODE ACTIVE
-
-            The conversation indicates the user wants to learn or get information.
-            The search tool is available for retrieving knowledge.
+            📚 INFORMATION MODE ACTIVE The conversation indicates the user wants
+            to learn or get information. The search tool is available for
+            retrieving knowledge.
           </Context>
           <Tools>
             <Tool
               name="search_info"
               description="Search for information about a topic"
+              strict
               parameters={z.object({
                 topic: z
                   .string()
-                  .describe('Topic to search for and retrieve information about'),
+                  .describe(
+                    'Topic to search for and retrieve information about',
+                  ),
               })}
               handler={async ({ topic }) => {
                 // Simulate a knowledge base lookup
@@ -231,8 +230,12 @@ async function main() {
   console.log('📋 Features Demonstrated:')
   console.log('  • State-based routing: Routes activate based on boolean state')
   console.log('  • Natural language routing: LLM evaluates conversation intent')
-  console.log('  • Parallel routing: Multiple routes can be active simultaneously')
-  console.log('  • Dynamic tools: Available tools change as routes activate/deactivate')
+  console.log(
+    '  • Parallel routing: Multiple routes can be active simultaneously',
+  )
+  console.log(
+    '  • Dynamic tools: Available tools change as routes activate/deactivate',
+  )
   console.log()
   console.log('💡 Try these commands to see routing in action:')
   console.log()

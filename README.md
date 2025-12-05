@@ -65,6 +65,7 @@ console.log(result.content)
 ## Features
 
 - **Type-safe tools** - Handler params inferred from Zod schemas
+- **Structured outputs** - Use `strict` on tools for guaranteed schema compliance
 - **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
 - **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.runAgent()`
 - **Conditional routing** (experimental) - Use `<Router>` and `<Route>` to conditionally render agent components based on state or natural language intent
@@ -345,70 +346,170 @@ const handle: AgentHandle = await run(<Agent>...</Agent>, {
 
 ### Components
 
-- **`<Agent>`** - Root container. Props: `model`, `name`, `description`, `maxTokens`, `temperature`, `stream`, `onComplete`, `compactionControl`, etc.
-- **`<System>`** - System instructions. Props: `children`, `cache?: 'ephemeral'`
-- **`<Context>`** - Additional context. Props: `children`, `cache?: 'ephemeral'`
-- **`<Message>`** - Conversation message. Props: `role: 'user' | 'assistant'`, `children`
-- **`<Tools>`** - Tool container. Props: `children`
-- **`<Tool>`** - Custom tool. Props: `name`, `description`, `parameters` (Zod schema), `handler`. The handler receives `(input, context)` where `context` includes `runAgent()` for programmatic agent spawning
-- **`<AgentTool>`** - Subagent tool. Props: `name`, `description`, `parameters` (Zod schema), `agent` (function that receives parsed params and returns `<Agent>` JSX)
-- **`<Router>`** - Conditional routing container. Props: `children`
-- **`<Route>`** - Conditional route. Props: `when: boolean | string`, `children`. Boolean routes evaluate synchronously; string routes are evaluated via LLM based on conversation context
-- **`<WebSearch />`** - Built-in web search. Props: `maxUses?`, `allowedDomains?`, `blockedDomains?`
-- **`<CodeExecution />`** - Built-in code execution
-- **`<Memory />`** - Built-in memory tool. Props: `onView?`, `onCreate?`, `onDelete?`, etc.
-- **`<MCP />`** - MCP server connection. Props: `name`, `url`, `authorization_token?`
+#### `<Agent>`
+
+| Prop                 | Type                                         | Description                              |
+| -------------------- | -------------------------------------------- | ---------------------------------------- |
+| `model`              | `string`                                     | Claude model (e.g. `claude-sonnet-4-5`)  |
+| `name?`              | `string`                                     | Agent identifier                         |
+| `description?`       | `string`                                     | Agent description                        |
+| `maxTokens?`         | `number`                                     | Max output tokens (default: `4096`)      |
+| `maxIterations?`     | `number`                                     | Max tool call iterations (default: `20`) |
+| `stopSequences?`     | `string[]`                                   | Stop sequences                           |
+| `temperature?`       | `number`                                     | Sampling temperature (0-1)               |
+| `stream?`            | `boolean`                                    | Enable streaming (default: `true`)       |
+| `betas?`             | `string[]`                                   | Additional beta features to enable       |
+| `thinking?`          | `{ type: 'enabled', budget_tokens: number }` | Extended thinking config                 |
+| `compactionControl?` | `CompactionControl`                          | Context compaction settings (see below)  |
+| `onMessage?`         | `(event: AgentStreamEvent) => void`          | Stream event callback                    |
+| `onComplete?`        | `(result: AgentResult) => void`              | Completion callback                      |
+| `onError?`           | `(error: Error) => void`                     | Error callback                           |
+| `onStepFinish?`      | `(result: OnStepFinishResult) => void`       | Step completion callback                 |
+
+**CompactionControl:**
+
+| Field                    | Type      | Description                                      |
+| ------------------------ | --------- | ------------------------------------------------ |
+| `enabled`                | `boolean` | Enable/disable compaction                        |
+| `contextTokenThreshold?` | `number`  | Token threshold to trigger (default: `100000`)   |
+| `model?`                 | `string`  | Model for summarization (default: agent's model) |
+| `summaryPrompt?`         | `string`  | Custom summary prompt                            |
+
+#### `<System>` / `<Context>`
+
+| Prop       | Type          | Description                              |
+| ---------- | ------------- | ---------------------------------------- |
+| `children` | `ReactNode`   | Content                                  |
+| `cache?`   | `'ephemeral'` | Mark as non-cacheable for prompt caching |
+
+#### `<Message>`
+
+| Prop       | Type                    | Description     |
+| ---------- | ----------------------- | --------------- |
+| `role`     | `'user' \| 'assistant'` | Message role    |
+| `children` | `ReactNode`             | Message content |
+
+#### `<Tools>`
+
+| Prop       | Type        | Description     |
+| ---------- | ----------- | --------------- |
+| `children` | `ReactNode` | Tool components |
+
+#### `<Tool>`
+
+| Prop          | Type                                                   | Description                                   |
+| ------------- | ------------------------------------------------------ | --------------------------------------------- |
+| `name`        | `string`                                               | Tool name                                     |
+| `description` | `string`                                               | Description for the model                     |
+| `parameters`  | `ZodSchema`                                            | Zod schema for input validation               |
+| `strict?`     | `boolean`                                              | Enable structured outputs (auto-enables beta) |
+| `handler`     | `(input, context: ToolContext) => Promise<ToolResult>` | Tool handler                                  |
+
+#### `<AgentTool>`
+
+| Prop          | Type                             | Description                     |
+| ------------- | -------------------------------- | ------------------------------- |
+| `name`        | `string`                         | Tool name                       |
+| `description` | `string`                         | Description for the model       |
+| `parameters`  | `ZodSchema`                      | Zod schema for input validation |
+| `agent`       | `(input) => ReactElement<Agent>` | Function returning the Agent    |
+
+#### `<Router>`
+
+| Prop       | Type        | Description      |
+| ---------- | ----------- | ---------------- |
+| `children` | `ReactNode` | Route components |
+
+#### `<Route>`
+
+| Prop       | Type                | Description                                            |
+| ---------- | ------------------- | ------------------------------------------------------ |
+| `when`     | `boolean \| string` | Condition (boolean or NL description evaluated by LLM) |
+| `children` | `ReactNode`         | Route content (tools, system, context)                 |
+
+#### `<WebSearch>`
+
+| Prop              | Type                                                                      | Description                    |
+| ----------------- | ------------------------------------------------------------------------- | ------------------------------ |
+| `maxUses?`        | `number`                                                                  | Max searches allowed           |
+| `allowedDomains?` | `string[]`                                                                | Restrict to these domains      |
+| `blockedDomains?` | `string[]`                                                                | Block these domains            |
+| `userLocation?`   | `{ city?: string, region?: string, country?: string, timezone?: string }` | Location for localized results |
+
+#### `<CodeExecution>`
+
+No props. Enables sandboxed code execution.
+
+#### `<Memory>`
+
+| Prop            | Type                                                                                     | Description                 |
+| --------------- | ---------------------------------------------------------------------------------------- | --------------------------- |
+| `onView?`       | `(input: { path: string, view_range?: [number, number] }) => Promise<string>`            | View file/directory handler |
+| `onCreate?`     | `(input: { path: string, file_text: string }) => Promise<string>`                        | Create file handler         |
+| `onStrReplace?` | `(input: { path: string, old_str: string, new_str: string }) => Promise<string>`         | Replace text handler        |
+| `onInsert?`     | `(input: { path: string, insert_line: number, insert_text: string }) => Promise<string>` | Insert text handler         |
+| `onDelete?`     | `(input: { path: string }) => Promise<string>`                                           | Delete file handler         |
+| `onRename?`     | `(input: { old_path: string, new_path: string }) => Promise<string>`                     | Rename/move handler         |
+
+#### `<MCP>`
+
+| Prop                   | Type                                              | Description           |
+| ---------------------- | ------------------------------------------------- | --------------------- |
+| `name`                 | `string`                                          | Server name           |
+| `url`                  | `string`                                          | SSE endpoint URL      |
+| `authorization_token?` | `string`                                          | Auth token            |
+| `tool_configuration?`  | `{ enabled?: boolean, allowed_tools?: string[] }` | Tool filtering config |
 
 ### Hooks
 
-- **`useExecutionState()`** - Returns current execution state
-- **`useMessages()`** - Returns conversation messages
-- **`useAgentState()`** - Returns full agent state
+| Hook                  | Returns              | Description             |
+| --------------------- | -------------------- | ----------------------- |
+| `useExecutionState()` | `AgentState`         | Current execution state |
+| `useMessages()`       | `BetaMessageParam[]` | Conversation messages   |
+| `useAgentState()`     | `AgentStoreState`    | Full agent state        |
 
 ### AgentHandle (Interactive Mode)
 
-- `sendMessage(content: string): Promise<AgentResult>`
-- `stream(message: string): AsyncGenerator<AgentStreamEvent, AgentResult>`
-- `run(firstMessage?: string): Promise<AgentResult>`
-- `abort(): void`
-- `close(): void`
-- Properties: `state`, `messages`, `isRunning`
+| Method / Property      | Type                                                        | Description                     |
+| ---------------------- | ----------------------------------------------------------- | ------------------------------- |
+| `sendMessage(content)` | `(string) => Promise<AgentResult>`                          | Send a message and get response |
+| `stream(message)`      | `(string) => AsyncGenerator<AgentStreamEvent, AgentResult>` | Stream a response               |
+| `run(firstMessage?)`   | `(string?) => Promise<AgentResult>`                         | Run agent to completion         |
+| `abort()`              | `() => void`                                                | Abort current execution         |
+| `close()`              | `() => void`                                                | Clean up resources              |
+| `state`                | `AgentState`                                                | Current execution state         |
+| `messages`             | `BetaMessageParam[]`                                        | Conversation history            |
+| `isRunning`            | `boolean`                                                   | Whether agent is processing     |
 
 ### Utilities
 
-- **`defineTool(options)`** - Define a tool programmatically
-- **`defineAgentTool(options)`** - Define a subagent tool programmatically
-- **`createAgent(element, options?)`** - Create an agent handle without running
-- **`createRunAgent(context)`** - Create a `runAgent` function bound to an execution context (used internally by ToolContext)
+| Function                         | Description                                                                                        |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `defineTool(options)`            | Define a tool programmatically. Options: `name`, `description`, `parameters`, `strict?`, `handler` |
+| `defineAgentTool(options)`       | Define a subagent tool. Options: `name`, `description`, `parameters`, `agent`                      |
+| `createAgent(element, options?)` | Create an agent handle without running                                                             |
 
 ### ToolContext
 
-Tool handlers receive a `context` object with the following properties:
+Tool handlers receive a `context` object:
 
-- `agentName: string` - Name of the current agent
-- `client: Anthropic` - Anthropic client instance
-- `model?: Model` - Current agent's model
-- `signal?: AbortSignal` - Abort signal for cancellation
-- `metadata?: Record<string, unknown>` - Custom metadata
-- `runAgent(agent, options?): Promise<AgentResult>` - Run an agent programmatically
+| Property    | Type                                                                       | Description                   |
+| ----------- | -------------------------------------------------------------------------- | ----------------------------- |
+| `agentName` | `string`                                                                   | Name of the current agent     |
+| `client`    | `Anthropic`                                                                | Anthropic client instance     |
+| `model?`    | `string`                                                                   | Current agent's model         |
+| `signal?`   | `AbortSignal`                                                              | Abort signal for cancellation |
+| `metadata?` | `Record<string, unknown>`                                                  | Custom metadata               |
+| `runAgent`  | `(agent: ReactElement, options?: RunAgentOptions) => Promise<AgentResult>` | Run an agent programmatically |
 
-**Example:**
+**RunAgentOptions:**
 
-```tsx
-<Tool
-  name="research"
-  handler={async (input, context) => {
-    const result = await context.runAgent(
-      <Agent name="researcher">
-        <System>You are a research expert</System>
-        <Message role="user">Research: {input.topic}</Message>
-      </Agent>,
-      { maxTokens: 2048 }, // Optional: override configuration
-    )
-    return result.content
-  }}
-/>
-```
+| Field          | Type          | Description             |
+| -------------- | ------------- | ----------------------- |
+| `model?`       | `string`      | Override parent's model |
+| `maxTokens?`   | `number`      | Override max tokens     |
+| `temperature?` | `number`      | Override temperature    |
+| `signal?`      | `AbortSignal` | Custom abort signal     |
 
 ## Requirements
 

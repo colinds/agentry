@@ -35,6 +35,7 @@ function CreateSubagentTool({
     <Tool
       name="create_subagent"
       description="Create a new specialist subagent. The subagent will be available as a tool in the next step."
+      strict
       parameters={z.object({
         name: z
           .string()

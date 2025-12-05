@@ -54,6 +54,7 @@ function AuthenticatedAgent() {
             <Tool
               name="send_message"
               description="send a message"
+              strict
               parameters={z.object({ message: z.string() })}
               handler={async ({ message }) => {
                 return `Message sent from ${email}: "${message}"`

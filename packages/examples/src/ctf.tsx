@@ -17,6 +17,7 @@ function CTFGame() {
         <Tool
           name="guess"
           description="Guess a number between 1 and 100."
+          strict
           parameters={z.object({
             number: z.number().describe('Your guess (1-100)'),
           })}
