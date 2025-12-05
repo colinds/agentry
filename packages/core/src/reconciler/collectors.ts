@@ -9,6 +9,8 @@ import {
   isToolsContainerInstance,
   isAgentToolInstance,
   isAgentInstance,
+  isRouterInstance,
+  isRouteInstance,
 } from '../instances/index.ts'
 import { debug } from '../debug.ts'
 import { createAgentSyntheticTool } from '../tools/agentSyntheticTool.ts'
@@ -76,6 +78,17 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
         throw new Error(`Unknown child of <Tools/>: ${grandchild.type}`)
       }
     }
+  } else if (isRouterInstance(child)) {
+    for (const routeIndex of child.activeRouteIndices) {
+      const activeRoute = child.children[routeIndex]
+      if (activeRoute) {
+        for (const routeChild of activeRoute.children) {
+          collectChild(agent, routeChild)
+        }
+      }
+    }
+  } else if (isRouteInstance(child)) {
+    // Routes are managed by Router
   }
 }
 
@@ -159,5 +172,16 @@ export function uncollectChild(agent: AgentInstance, child: Instance): void {
         }
       }
     }
+  } else if (isRouterInstance(child)) {
+    for (const routeIndex of child.activeRouteIndices) {
+      const activeRoute = child.children[routeIndex]
+      if (activeRoute) {
+        for (const routeChild of activeRoute.children) {
+          uncollectChild(agent, routeChild)
+        }
+      }
+    }
+  } else if (isRouteInstance(child)) {
+    // Routes are managed by Router
   }
 }

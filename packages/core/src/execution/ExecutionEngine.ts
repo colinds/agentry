@@ -27,7 +27,13 @@ import type {
   StepToolResult,
 } from '../types/index.ts'
 import { ANTHROPIC_BETAS, type AnthropicBeta } from '../constants.ts'
-import type { AgentInstance } from '../instances/index.ts'
+import type {
+  AgentInstance,
+  RouterInstance,
+  Instance,
+} from '../instances/index.ts'
+import { isMessageInstance, isRouterInstance } from '../instances/index.ts'
+import { evaluateRoutes } from './router.ts'
 import {
   transition,
   extractToolUses,
@@ -43,6 +49,7 @@ import { debug } from '../debug.ts'
 import { buildSystemPrompt } from './createEngineConfig.ts'
 import { flushSync } from '../reconciler/renderer.ts'
 import type { AgentStore } from '../store.ts'
+import { collectChild } from '../reconciler/collectors.ts'
 
 /**
  * Sanitize content blocks from API responses to be safe for sending back as parameters.
@@ -53,9 +60,6 @@ function sanitizeContentBlocks(
 ): BetaContentBlockParam[] {
   return content.map((block) => {
     if (block.type === 'text') {
-      if ('parsed' in block) {
-        delete block.parsed
-      }
       return block as BetaTextBlockParam
     }
     return block as BetaContentBlockParam
@@ -105,7 +109,7 @@ export interface ExecutionEngineConfig {
   stopSequences?: string[]
   temperature?: number
   agentName?: string
-  agentInstance?: AgentInstance
+  agentInstance: AgentInstance
   store: AgentStore
   thinking?: BetaThinkingConfigParam
 }
@@ -152,7 +156,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private iterationCount = 0
   private lastMessage: BetaMessage | null = null
   private aborted = false
-  private agentInstance: AgentInstance | null = null
+  private agentInstance: AgentInstance
   private toolExecutionTimes = new Map<string, number>()
 
   constructor(config: ExecutionEngineConfig) {
@@ -160,7 +164,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.client = config.client
     this.config = config
     this.store = config.store
-    this.agentInstance = config.agentInstance ?? null
+    this.agentInstance = config.agentInstance
   }
 
   get executionState(): AgentState {
@@ -185,14 +189,14 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.emit('stateChange', newState)
   }
 
-  private buildParams(): CreateMessageParams {
+  private async buildParams(): Promise<CreateMessageParams> {
     const tools: BetaToolUnion[] = []
 
     const {
       tools: internalTools = [],
       sdkTools = [],
       mcpServers = [],
-    } = this.agentInstance ?? {}
+    } = this.agentInstance
     tools.push(...internalTools.map(toApiTool))
     tools.push(...sdkTools.map(toApiSdkTool))
 
@@ -216,9 +220,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       betas.push(ANTHROPIC_BETAS.CONTEXT_MANAGEMENT)
     }
 
-    const system = this.agentInstance
-      ? buildSystemPrompt(this.agentInstance)
-      : this.config.system // default to static system prompt if no agent instance
+    const system = buildSystemPrompt(this.agentInstance)
 
     const params: CreateMessageParams = {
       model: this.config.model,
@@ -236,7 +238,61 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     return params
   }
 
-  async run(): Promise<AgentResult> {
+  private async evaluateRouters(routers: RouterInstance[]): Promise<boolean> {
+    for (const router of routers) {
+      const previous = router.activeRouteIndices
+      const newActiveRouteIndices = await evaluateRoutes(
+        router,
+        this.messages as BetaMessageParam[],
+        this.client,
+        this.config.model,
+        undefined, // signal
+      )
+
+      const hasNewRoutes =
+        newActiveRouteIndices.length !== previous.length ||
+        new Set([...previous, ...newActiveRouteIndices]).size !==
+          previous.length + newActiveRouteIndices.length
+
+      if (hasNewRoutes) {
+        router.activeRouteIndices = newActiveRouteIndices
+        return true
+      }
+    }
+    return false
+  }
+
+  private findAllRouters(): RouterInstance[] {
+    const routers: RouterInstance[] = []
+
+    const traverse = (inst: Instance) => {
+      if (isRouterInstance(inst)) {
+        routers.push(inst)
+      }
+      if ('children' in inst && Array.isArray(inst.children)) {
+        inst.children.forEach(traverse)
+      }
+    }
+
+    traverse(this.agentInstance)
+    return routers
+  }
+
+  private collectRouteChildren(): void {
+    this.agentInstance.tools = []
+    this.agentInstance.systemParts = []
+    this.agentInstance.sdkTools = []
+    this.agentInstance.mcpServers = []
+
+    for (const child of this.agentInstance.children) {
+      if (isMessageInstance(child)) {
+        continue
+      }
+      collectChild(this.agentInstance, child)
+    }
+  }
+
+  async run(options?: { initiator?: 'user' }): Promise<AgentResult> {
     this.aborted = false
     this.iterationCount = 0
 
@@ -252,6 +308,18 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         this.iterationCount++
         const abortController = new AbortController()
         this.transition({ type: 'start_streaming', abortController })
+
+        const routers = this.findAllRouters()
+        if (
+          this.iterationCount === 1 &&
+          options?.initiator === 'user' &&
+          routers.length > 0
+        ) {
+          const routesChanged = await this.evaluateRouters(routers)
+          if (routesChanged) {
+            this.collectRouteChildren()
+          }
+        }
 
         const message = await this.makeApiCall(abortController)
         this.lastMessage = message
@@ -321,7 +389,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private async makeApiCall(
     abortController: AbortController,
   ): Promise<BetaMessage> {
-    const params = this.buildParams()
+    const params = await this.buildParams()
 
     debug('api', `Request #${this.iterationCount}`, {
       model: params.model,
@@ -329,8 +397,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       messageCount: params.messages.length,
       system: params.system
         ? typeof params.system === 'string'
-          ? `${params.system.substring(0, 80)}...`
-          : `${params.system.length} blocks`
+          ? `${params.system}`
+          : params.system.map(({ text }) => text).join('\n')
         : undefined,
       ...(params.mcp_servers?.length
         ? { mcpServers: params.mcp_servers?.map((s) => s.name) }
@@ -420,8 +488,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       }),
     }
 
-    const { tools: internalTools = [], sdkTools = [] } =
-      this.agentInstance ?? {}
+    const { tools: internalTools = [], sdkTools = [] } = this.agentInstance
 
     const results = await Promise.all(
       pendingTools.map(async (toolCall) => {

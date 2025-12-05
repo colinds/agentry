@@ -67,6 +67,7 @@ console.log(result.content)
 - **Type-safe tools** - Handler params inferred from Zod schemas
 - **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
 - **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.runAgent()`
+- **Conditional routing** (experimental) - Use `<Router>` and `<Route>` to conditionally render agent components based on state or natural language intent
 - **Dynamic tools via React state** - Add/remove tools during execution with `useState`
 - **Compaction control** - Automatic message compaction for long conversations to manage context window usage
 - **React hooks** - `useExecutionState()`, `useMessages()` for reactive state
@@ -93,6 +94,7 @@ See `packages/examples/src/` for comprehensive examples:
 | `create-ephemeral-subagent.tsx` | Ephemeral subagents                     |
 | `programmatic-spawn.tsx`        | Programmatic agent spawning from tools  |
 | `cache-ephemeral.tsx`           | Prompt caching with ephemeral content   |
+| `router.tsx`                    | Conditional routing with state and NL   |
 
 Run an example:
 
@@ -196,6 +198,60 @@ handler={async (input, context) => {
 }}
 ```
 
+### Conditional Routing
+
+> ⚠️ **Experimental:** Router functionality is experimental and might change in future versions.
+
+Use `<Router>` and `<Route>` to conditionally render agent components (tools, system prompts, context) based on state or natural language intent. Routes support both boolean conditions and natural language descriptions:
+
+```tsx
+function AuthAgent() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  return (
+    <Agent model="claude-haiku-4-5">
+      <Router>
+        {/* Boolean route - evaluated synchronously */}
+        <Route when={!isAuthenticated}>
+          <System>Please authenticate first</System>
+          <Tools>
+            <Tool
+              name="authenticate"
+              handler={async () => {
+                setIsAuthenticated(true)
+                return 'Authenticated!'
+              }}
+            />
+          </Tools>
+        </Route>
+
+        {/* Boolean route - authenticated state */}
+        <Route when={isAuthenticated}>
+          <System>You are authenticated</System>
+          <Tools>
+            <Tool name="protected_action" ... />
+          </Tools>
+        </Route>
+
+        {/* Natural language route - evaluated via LLM */}
+        <Route when="user wants to do math or calculations">
+          <Tools>
+            <Tool name="calculate" ... />
+          </Tools>
+        </Route>
+      </Router>
+    </Agent>
+  )
+}
+```
+
+Routes are evaluated before each API call:
+
+- Boolean routes (`when={boolean}`) are checked first
+- Natural language routes (`when="..."`) are evaluated via LLM
+- Multiple routes can be active simultaneously (parallel routing)
+- Active routes' children are collected into the agent configuration
+
 ### Dynamic Tools
 
 Tools can be added/removed during execution using React state:
@@ -296,6 +352,8 @@ const handle: AgentHandle = await run(<Agent>...</Agent>, {
 - **`<Tools>`** - Tool container. Props: `children`
 - **`<Tool>`** - Custom tool. Props: `name`, `description`, `parameters` (Zod schema), `handler`. The handler receives `(input, context)` where `context` includes `runAgent()` for programmatic agent spawning
 - **`<AgentTool>`** - Subagent tool. Props: `name`, `description`, `parameters` (Zod schema), `agent` (function that receives parsed params and returns `<Agent>` JSX)
+- **`<Router>`** - Conditional routing container. Props: `children`
+- **`<Route>`** - Conditional route. Props: `when: boolean | string`, `children`. Boolean routes evaluate synchronously; string routes are evaluated via LLM based on conversation context
 - **`<WebSearch />`** - Built-in web search. Props: `maxUses?`, `allowedDomains?`, `blockedDomains?`
 - **`<CodeExecution />`** - Built-in code execution
 - **`<Memory />`** - Built-in memory tool. Props: `onView?`, `onCreate?`, `onDelete?`, etc.

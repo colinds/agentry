@@ -4,6 +4,7 @@ import { createAgentStore } from '../src/store.ts'
 import { createStepMockClient, mockText } from '../src/test-utils/index.ts'
 import { TEST_MODEL } from '@agentry/shared'
 import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
+import type { AgentInstance } from '../src/instances/types.ts'
 
 test('compactionControl compacts messages when threshold is exceeded', async () => {
   const { client, controller } = createStepMockClient([
@@ -27,11 +28,26 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
     messages: originalMessages,
   }))
 
+  const agentInstance: AgentInstance = {
+    type: 'agent',
+    props: { model: TEST_MODEL, maxTokens: 100 },
+    client,
+    engine: null,
+    systemParts: [],
+    tools: [],
+    sdkTools: [],
+    mcpServers: [],
+    children: [],
+    parent: null,
+    store,
+  }
+
   const engine = new ExecutionEngine({
     client,
     model: TEST_MODEL,
     maxTokens: 100,
     store,
+    agentInstance,
     compactionControl: {
       enabled: true,
       contextTokenThreshold: 10,
@@ -117,11 +133,26 @@ test('compactionControl does nothing when under threshold', async () => {
     messages: originalMessages,
   }))
 
+  const agentInstance: AgentInstance = {
+    type: 'agent',
+    props: { model: TEST_MODEL, maxTokens: 100 },
+    client,
+    engine: null,
+    systemParts: [],
+    tools: [],
+    sdkTools: [],
+    mcpServers: [],
+    children: [],
+    parent: null,
+    store,
+  }
+
   const engine = new ExecutionEngine({
     client,
     model: TEST_MODEL,
     maxTokens: 100,
     store,
+    agentInstance,
     compactionControl: {
       enabled: true,
       contextTokenThreshold: 1_000_000,

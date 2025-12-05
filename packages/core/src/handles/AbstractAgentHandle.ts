@@ -86,6 +86,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     agent: AgentInstance,
     options: {
       emitEvents?: boolean
+      initiator?: 'user'
     } = {},
   ): Promise<AgentResult> {
     const { emitEvents = true } = options
@@ -145,7 +146,9 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
         this.engine.on('stepFinish', onStepFinish)
       }
 
-      const result = await this.engine.run()
+      const result = await this.engine.run({
+        initiator: options.initiator,
+      })
 
       if (emitEvents) {
         this.emit('complete', result)
@@ -210,6 +213,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
       return await this.executeAgent(agent, {
         emitEvents: this.shouldEmitEvents(),
+        initiator: firstMessage ? 'user' : undefined,
       })
     } finally {
       this.running = false
@@ -228,9 +232,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
       )
     }
 
-    this.pushMessage({ role: 'user', content })
-
-    return this.run()
+    return this.run(content)
   }
 
   async *stream(
@@ -241,8 +243,6 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
         'Agent is already running. Wait for current execution to complete or call abort() first.',
       )
     }
-
-    this.pushMessage({ role: 'user', content: message })
 
     const events: AgentStreamEvent[] = []
     let resolveNext: ((event: AgentStreamEvent | null) => void) | null = null
@@ -281,7 +281,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     this.on('complete', onComplete)
     this.on('error', onError)
 
-    const runPromise = this.run().catch((e) => {
+    const runPromise = this.run(message).catch((e) => {
       error = e
       done = true
     })

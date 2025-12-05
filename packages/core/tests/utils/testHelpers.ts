@@ -1,6 +1,10 @@
 import { useExecutionState, useMessages } from '@agentry/components'
 import { type AgentState, type BetaMessageParam } from '@agentry/core/types'
-import { isAgentInstance } from '@agentry/core/instances/types'
+import {
+  isAgentInstance,
+  isRouterInstance,
+  type Instance,
+} from '@agentry/core/instances/types'
 import type { AgentHandle } from '@agentry/core/handles'
 
 /**
@@ -109,4 +113,48 @@ export function getAllRegisteredTools(handle: AgentHandle): {
       return 'unknown'
     }),
   }
+}
+
+/**
+ * Test-only helper to verify router instances have routes collected
+ * This ensures the reconciler properly adds Route children to RouterInstance.children
+ */
+export function verifyRouterHasRoutes(handle: AgentHandle): boolean {
+  const containerInfo = handle.__getContainerInfo()
+  if (!containerInfo || !containerInfo.container) {
+    return false
+  }
+
+  const container = containerInfo.container
+  if (!isAgentInstance(container)) {
+    return false
+  }
+
+  function findRouters(instance: Instance): Instance[] {
+    const routers: Instance[] = []
+    if (isRouterInstance(instance)) {
+      routers.push(instance)
+    }
+    if ('children' in instance && Array.isArray(instance.children)) {
+      for (const child of instance.children) {
+        routers.push(...findRouters(child))
+      }
+    }
+    return routers
+  }
+
+  const routers = findRouters(container)
+
+  if (routers.length === 0) {
+    return false
+  }
+
+  const allHaveRoutes = routers.every((router) => {
+    if (isRouterInstance(router)) {
+      return router.children.length > 0
+    }
+    return false
+  })
+
+  return allHaveRoutes
 }

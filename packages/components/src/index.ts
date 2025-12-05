@@ -7,6 +7,8 @@ export { System } from './System.tsx'
 export { Context } from './Context.tsx'
 export { Message } from './Message.tsx'
 export { Tools } from './Tools.tsx'
+export { Router } from './Router.tsx'
+export { Route } from './Route.tsx'
 
 export { WebSearch } from './built-ins/WebSearch.tsx'
 export { CodeExecution } from './built-ins/CodeExecution.tsx'

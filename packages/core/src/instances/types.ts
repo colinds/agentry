@@ -91,6 +91,20 @@ export interface AgentToolInstance extends BaseInstance {
   agent: AgentToolFunction<z.ZodType>
 }
 
+export interface RouterInstance extends BaseInstance {
+  type: 'router'
+  children: RouteInstance[]
+  activeRouteIndices: number[]  // Array of active route indices (supports parallel routes)
+  isEvaluating: boolean
+}
+
+export interface RouteInstance extends BaseInstance {
+  type: 'route'
+  parent: RouterInstance | null
+  when: boolean | string
+  children: Instance[]
+}
+
 export type AgentLike = AgentInstance | SubagentInstance
 
 export type Instance =
@@ -104,6 +118,8 @@ export type Instance =
   | MessageInstance
   | ToolsContainerInstance
   | MCPServerInstance
+  | RouterInstance
+  | RouteInstance
 
 export interface AgentComponentProps extends AgentProps {
   client?: Anthropic
@@ -145,6 +161,15 @@ export interface MCPServerComponentProps {
 }
 
 export interface ToolsContainerProps {
+  children?: React.ReactNode
+}
+
+export interface RouterComponentProps {
+  children?: React.ReactNode
+}
+
+export interface RouteComponentProps {
+  when: boolean | string
   children?: React.ReactNode
 }
 
@@ -206,6 +231,16 @@ export function isAgentToolInstance(
   instance: Instance,
 ): instance is AgentToolInstance {
   return instance.type === 'agent_tool'
+}
+
+export function isRouterInstance(
+  instance: Instance,
+): instance is RouterInstance {
+  return instance.type === 'router'
+}
+
+export function isRouteInstance(instance: Instance): instance is RouteInstance {
+  return instance.type === 'route'
 }
 
 export function isInstance(value: unknown): value is Instance {

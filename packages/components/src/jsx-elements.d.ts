@@ -35,6 +35,10 @@ export interface AgentryElements {
     tool_configuration?: BetaRequestMCPServerToolConfiguration
     key?: string
   }
+
+  router: { children?: ReactNode }
+
+  route: { when: boolean | string; children?: ReactNode }
 }
 
 declare module 'react' {

@@ -50,7 +50,7 @@ bun run packages/examples/src/<example-name>.tsx
   - `tests/` - Core functionality tests
 
 - **`packages/components`** - React components for agent orchestration
-  - JSX components: `<Agent>`, `<Tool>`, `<AgentTool>`, `<System>`, `<Context>`, `<Message>`, `<Tools>`
+  - JSX components: `<Agent>`, `<Tool>`, `<AgentTool>`, `<System>`, `<Context>`, `<Message>`, `<Tools>`, `<Router>`, `<Route>`
   - Built-in tools: `<WebSearch>`, `<CodeExecution>`, `<Memory>`, `<MCP>`
   - Hooks: `useExecutionState()`, `useMessages()`, `useAgentState()`
 
@@ -130,6 +130,35 @@ Example pattern:
     return result.content
   }}
 />
+```
+
+**Router/Route (Conditional Routing)**
+
+- Router and Route components enable conditional rendering of agent components based on state or natural language intent
+- Routes can contain any agent components (System, Context, Tools, etc.)
+- Boolean routes (`when={boolean}`) are evaluated synchronously before each API call
+- Natural language routes (`when="..."`) are evaluated via LLM based on conversation context
+- Route evaluation happens in `ExecutionEngine.buildParams()` before building the API request
+- Multiple routes can be active simultaneously (parallel routing) - all matching routes' children are collected
+- Route evaluation is implemented in `evaluateRoutes()` which:
+  - First checks all boolean routes and collects matches
+  - Then evaluates NL routes via LLM if any remain unmatched
+  - Returns array of active route indices
+- RouterInstance tracks `activeRouteIndices` which is updated before each API call
+- Collectors (`collectChild`/`uncollectChild`) handle Router instances by collecting children from all active routes
+
+Example pattern:
+
+```tsx
+<Router>
+  <Route when={isAuthenticated}>
+    <System>You are authenticated</System>
+    <Tools><Tool name="protected_action" ... /></Tools>
+  </Route>
+  <Route when="user wants to do math">
+    <Tools><Tool name="calculate" ... /></Tools>
+  </Route>
+</Router>
 ```
 
 **Dynamic Tools**

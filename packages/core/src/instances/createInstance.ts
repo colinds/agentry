@@ -12,6 +12,8 @@ import type {
   MessageInstance,
   ToolsContainerInstance,
   MCPServerInstance,
+  RouterInstance,
+  RouteInstance,
   AgentComponentProps,
   AgentToolComponentProps,
   ToolComponentProps,
@@ -21,6 +23,8 @@ import type {
   MessageComponentProps,
   ToolsContainerProps,
   MCPServerComponentProps,
+  RouterComponentProps,
+  RouteComponentProps,
 } from './types.ts'
 import { isAgentInstance, isInstance } from './types.ts'
 import type { AgentProps, CompactionControl, Model } from '../types/index.ts'
@@ -56,6 +60,8 @@ export type ElementType =
   | 'message'
   | 'tools'
   | 'mcp_server'
+  | 'router'
+  | 'route'
 
 export type ElementProps =
   | AgentComponentProps
@@ -67,6 +73,8 @@ export type ElementProps =
   | MessageComponentProps
   | ToolsContainerProps
   | MCPServerComponentProps
+  | RouterComponentProps
+  | RouteComponentProps
 
 export function createInstance(
   type: ElementType,
@@ -94,6 +102,10 @@ export function createInstance(
       return createToolsContainerInstance(props as ToolsContainerProps)
     case 'mcp_server':
       return createMCPServerInstance(props as MCPServerComponentProps)
+    case 'router':
+      return createRouterInstance(props as RouterComponentProps)
+    case 'route':
+      return createRouteInstance(props as RouteComponentProps)
     default:
       throw new Error(`Unknown element type: ${type}`)
   }
@@ -257,6 +269,27 @@ function createMCPServerInstance(
       authorization_token: props.authorization_token,
       tool_configuration: props.tool_configuration,
     },
+    parent: null,
+  }
+}
+
+function createRouterInstance(
+  _props: RouterComponentProps, // eslint-disable-line @typescript-eslint/no-unused-vars
+): RouterInstance {
+  return {
+    type: 'router',
+    children: [],
+    activeRouteIndices: [],
+    isEvaluating: false,
+    parent: null,
+  }
+}
+
+function createRouteInstance(props: RouteComponentProps): RouteInstance {
+  return {
+    type: 'route',
+    when: props.when,
+    children: [],
     parent: null,
   }
 }

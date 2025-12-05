@@ -4,6 +4,7 @@ import {
   type Instance,
   type AgentInstance,
   type AgentLike,
+  type RouteInstance,
   isAgentInstance,
   isSubagentInstance,
   isAgentLike,
@@ -11,6 +12,8 @@ import {
   isSystemInstance,
   isContextInstance,
   isToolInstance,
+  isRouterInstance,
+  isRouteInstance,
 } from '../instances/index.ts'
 import {
   createInstance,
@@ -243,6 +246,10 @@ function addChildToArray(parent: Instance, child: Instance): void {
     parent.children.push(child)
   } else if (isToolsContainerInstance(parent)) {
     parent.children.push(child)
+  } else if (isRouterInstance(parent)) {
+    parent.children.push(child as RouteInstance)
+  } else if (isRouteInstance(parent)) {
+    parent.children.push(child)
   }
 }
 
@@ -255,6 +262,10 @@ function insertChildInArray(
   if (isAgentLike(parent)) {
     children = parent.children
   } else if (isToolsContainerInstance(parent)) {
+    children = parent.children
+  } else if (isRouterInstance(parent)) {
+    children = parent.children
+  } else if (isRouteInstance(parent)) {
     children = parent.children
   } else {
     return
@@ -273,6 +284,10 @@ function removeChildFromArray(parent: Instance, child: Instance): void {
   if (isAgentLike(parent)) {
     children = parent.children
   } else if (isToolsContainerInstance(parent)) {
+    children = parent.children
+  } else if (isRouterInstance(parent)) {
+    children = parent.children
+  } else if (isRouteInstance(parent)) {
     children = parent.children
   } else {
     return

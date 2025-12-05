@@ -8,6 +8,8 @@ export {
   Context,
   Message,
   Tools,
+  Router,
+  Route,
   WebSearch,
   CodeExecution,
   Memory,
