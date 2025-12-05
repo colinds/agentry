@@ -345,7 +345,7 @@ describe('Condition', () => {
                     expression: z.string(),
                   })}
                   handler={async ({ expression }) => {
-                    // eslint-disable-next-line no-eval
+                    // eslint-disable-next-line react-hooks/unsupported-syntax
                     const result = eval(expression)
                     return `Result: ${result}`
                   }}
@@ -402,7 +402,10 @@ describe('Condition', () => {
                   name="calculate"
                   description="Calculate"
                   parameters={z.object({ expr: z.string() })}
-                  handler={async ({ expr }) => `Result: ${eval(expr)}`}
+                  handler={async ({ expr }) => {
+                    // eslint-disable-next-line react-hooks/unsupported-syntax
+                    return `Result: ${eval(expr)}`
+                  }}
                 />
               </Tools>
             </Condition>
@@ -647,7 +650,7 @@ describe('Condition', () => {
                     description="Perform calculation"
                     parameters={z.object({ expression: z.string() })}
                     handler={async ({ expression }) => {
-                      // eslint-disable-next-line no-eval
+                      // eslint-disable-next-line react-hooks/unsupported-syntax
                       const result = eval(expression)
                       return `Result: ${result}`
                     }}
