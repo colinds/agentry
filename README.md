@@ -198,7 +198,7 @@ handler={async (input, context) => {
 
 ### Conditional Rendering
 
-> ⚠️ **Experimental:** <Condition /> is experimental and might change in future versions.
+> ⚠️ **Experimental:** `<Condition />` is experimental and might change in future versions.
 
 Use `<Condition>` to conditionally render agent components based on state or natural language intent. Conditions support both boolean and natural language evaluation:
 
@@ -523,7 +523,7 @@ bun run typecheck
 bun test
 ```
 
-## Why "Agentry"?
+## Why call it "Agentry"?
 
 Agent + Gantry.
 
