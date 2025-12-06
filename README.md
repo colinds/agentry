@@ -523,9 +523,15 @@ bun run typecheck
 bun test
 ```
 
-## Why call it "Agentry"?
+## FAQ
+
+### Why call it "Agentry"?
 
 Agent + Gantry.
+
+### Why make this?
+
+I wanted to build an AI Agent and was exploring different ways to represent one. I started sketching it out in React and realized the component model made composition and structure really intuitive. As a bonus, React has concepts like hooks, lifecycles, and state which made developing the functionality I wanted straightforward. It was also the perfect excuse to dig into how the React Reconciler works under the hood.
 
 ## License
 
