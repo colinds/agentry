@@ -11,7 +11,7 @@ import {
   useMessages,
   useAgentState,
 } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from '../src/test-utils'
+import { createStepMockClient, mockText, mockToolUse } from './utils'
 import { TEST_MODEL } from '../src/constants'
 import { createStateWatcher, createMessageCollector } from './utils/testHelpers'
 

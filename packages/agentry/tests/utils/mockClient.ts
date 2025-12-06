@@ -4,7 +4,7 @@ import type {
   BetaContentBlock,
   BetaMessageParam,
 } from '@anthropic-ai/sdk/resources/beta'
-import type { SystemPrompt } from '../execution/ExecutionEngine'
+import type { SystemPrompt } from '../../src/execution/ExecutionEngine'
 
 export interface MockResponse {
   content: BetaContentBlock[]
@@ -427,3 +427,4 @@ export function createStepMockClient(responses: MockResponse[]): {
 
   return { client, controller }
 }
+

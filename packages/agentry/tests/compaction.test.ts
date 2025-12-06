@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { ExecutionEngine } from '../src/execution'
 import { createAgentStore } from '../src/store'
-import { createStepMockClient, mockText } from '../src/test-utils'
+import { createStepMockClient, mockText } from './utils'
 import { TEST_MODEL } from '../src/constants'
 import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
 import type { AgentInstance } from '../src/instances'

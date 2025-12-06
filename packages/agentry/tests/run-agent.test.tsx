@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { run, type AgentResult } from '../src'
 import { Agent, System, Tools, Tool, Message } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from '../src/test-utils'
+import { createStepMockClient, mockText, mockToolUse } from './utils'
 import { z } from 'zod'
 import { TEST_MODEL } from '../src/constants'
 

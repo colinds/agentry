@@ -10,7 +10,7 @@ import {
   Tool,
   Message,
 } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from '../src/test-utils'
+import { createStepMockClient, mockText, mockToolUse } from './utils'
 import { z } from 'zod'
 
 describe('Condition', () => {

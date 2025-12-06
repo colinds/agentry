@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { run } from '../src'
 import { defineTool } from '../src/tools'
 import { Agent, System, Tools, Tool, Message } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from '../src/test-utils'
+import { createStepMockClient, mockText, mockToolUse } from './utils'
 import { TEST_MODEL } from '../src/constants'
 
 test('state changes trigger reconciler updates', async () => {

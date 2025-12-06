@@ -181,11 +181,11 @@ Example pattern:
 
 ## Testing
 
-Tests use Bun's built-in test runner. Mock client available via `createStepMockClient` from `@agentry/core/test-utils`.
+Tests use Bun's built-in test runner. Mock client available via `createStepMockClient` from `tests/utils`.
 
 Common test patterns:
 
-- Import test utilities: `import { createStepMockClient } from '../src/test-utils/index.ts'`
+- Import test utilities: `import { createStepMockClient } from './utils'`
 - Use `expect` from `bun:test`
 - Mock Anthropic responses for deterministic testing
 

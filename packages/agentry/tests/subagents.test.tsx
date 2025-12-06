@@ -12,7 +12,7 @@ import {
   Message,
   useMessages,
 } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from '../src/test-utils'
+import { createStepMockClient, mockText, mockToolUse } from './utils'
 import { TEST_MODEL } from '../src/constants'
 import { z } from 'zod'
 import { getRegisteredTools } from './utils/testHelpers'

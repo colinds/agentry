@@ -2,7 +2,7 @@ import {
   mockToolUse,
   mockText,
   type MockResponse,
-} from '../../src/test-utils'
+} from './mockClient'
 
 /**
  * Create a mock response sequence for subagent execution

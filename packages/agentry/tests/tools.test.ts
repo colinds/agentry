@@ -9,7 +9,7 @@ import {
   isProcessing,
   type InternalTool,
 } from '../src/types'
-import { createStepMockClient } from '../src/test-utils'
+import { createStepMockClient } from './utils'
 import type { ToolContext } from '../src/types'
 import { createRunAgent } from '../src/run/runAgentFunction'
 
