@@ -107,8 +107,9 @@ async function evaluateNaturalLanguageConditions(
     .map((c, index) => `${index}. ${c.when}`)
     .join('\n')
 
-  const conversationSummary = summarizeMessages(messages)
   const validIndices = conditions.map((_, index) => index)
+
+  const evalMessages = ensureValidMessageStart(messages)
 
   const startTime = performance.now()
   const response = await client.beta.messages.create(
@@ -122,9 +123,10 @@ ${conditionDescriptions}
 
 Return ALL indices of conditions that are TRUE based on the current conversation state.`,
       messages: [
+        ...evalMessages,
         {
           role: 'user',
-          content: `Conversation:\n${conversationSummary}\n\nWhich conditions are true?`,
+          content: 'Which conditions are true?',
         },
       ],
       tools: [
@@ -178,18 +180,31 @@ Return ALL indices of conditions that are TRUE based on the current conversation
   return conditions.map(() => false)
 }
 
-function summarizeMessages(messages: BetaMessageParam[]): string {
-  const recent = messages.slice(-10)
-  return recent
-    .map((msg) => {
-      const content =
-        typeof msg.content === 'string'
-          ? msg.content.slice(0, 500)
-          : msg.content
-              .map((c) => (c.type === 'text' ? c.text : '[non-text]'))
-              .join(' ')
-              .slice(0, 500)
-      return `${msg.role}: ${content}`
-    })
-    .join('\n')
+// ensure messages don't start with a tool_result (which requires a preceding tool_use)
+function ensureValidMessageStart(
+  messages: BetaMessageParam[],
+): BetaMessageParam[] {
+  if (messages.length === 0) return messages
+
+  // find the first user message that doesn't contain tool_results
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]!
+    if (msg.role !== 'user') continue
+
+    // string content is fine
+    if (typeof msg.content === 'string') {
+      return messages.slice(i)
+    }
+
+    // check if it has tool_results (which would need a preceding tool_use)
+    const hasToolResult = msg.content.some(
+      (block) => block.type === 'tool_result',
+    )
+    if (!hasToolResult) {
+      return messages.slice(i)
+    }
+  }
+
+  // no valid start found, return empty
+  return []
 }

@@ -75,6 +75,7 @@ export function runInteractive(
         console.error(
           '\n\x1b[31mError:\x1b[0m',
           error instanceof Error ? error.message : error,
+          error,
         )
         askQuestion()
       }

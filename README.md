@@ -196,7 +196,7 @@ handler={async (input, context) => {
 }}
 ```
 
-### Conditional Rendering
+### Conditions Rendering
 
 > ⚠️ **Experimental:** `<Condition />` is experimental and might change in future versions.
 
@@ -253,8 +253,6 @@ Conditions are evaluated before each API call:
 
 - Boolean conditions (`when={boolean}`) are checked first
 - Natural language conditions (`when="..."`) are evaluated via LLM
-- Multiple conditions can be active simultaneously
-- Conditions can be nested - both parent and child must be active for grandchildren to render
 
 ### Dynamic Tools
 
@@ -351,23 +349,23 @@ const handle: AgentHandle = await run(<Agent>...</Agent>, {
 
 #### `<Agent>`
 
-| Prop                 | Type                                         | Description                              |
-| -------------------- | -------------------------------------------- | ---------------------------------------- |
-| `model`              | `string`                                     | Claude model (e.g. `claude-sonnet-4-5`)  |
-| `name?`              | `string`                                     | Agent identifier                         |
-| `description?`       | `string`                                     | Agent description                        |
-| `maxTokens?`         | `number`                                     | Max output tokens (default: `4096`)      |
-| `maxIterations?`     | `number`                                     | Max tool call iterations (default: `20`) |
-| `stopSequences?`     | `string[]`                                   | Stop sequences                           |
-| `temperature?`       | `number`                                     | Sampling temperature (0-1)               |
-| `stream?`            | `boolean`                                    | Enable streaming (default: `true`)       |
-| `betas?`             | `string[]`                                   | Additional beta features to enable       |
-| `thinking?`          | `{ type: 'enabled', budget_tokens: number }` | Extended thinking config                 |
-| `compactionControl?` | `CompactionControl`                          | Context compaction settings (see below)  |
-| `onMessage?`         | `(event: AgentStreamEvent) => void`          | Stream event callback                    |
-| `onComplete?`        | `(result: AgentResult) => void`              | Completion callback                      |
-| `onError?`           | `(error: Error) => void`                     | Error callback                           |
-| `onStepFinish?`      | `(result: OnStepFinishResult) => void`       | Step completion callback                 |
+| Prop                 | Type                                         | Description                                  |
+| -------------------- | -------------------------------------------- | -------------------------------------------- |
+| `model`              | `string`                                     | Claude model (e.g. `claude-sonnet-4-5`)      |
+| `name?`              | `string`                                     | Agent identifier                             |
+| `description?`       | `string`                                     | Agent description                            |
+| `maxTokens?`         | `number`                                     | Max output tokens (default: `4096`)          |
+| `maxIterations?`     | `number`                                     | Max tool call iterations (default: `20`)     |
+| `stopSequences?`     | `string[]`                                   | Stop sequences                               |
+| `temperature?`       | `number`                                     | Sampling temperature (0-1)                   |
+| `stream?`            | `boolean`                                    | Enable streaming (default: `true`)           |
+| `betas?`             | `string[]`                                   | Additional Anthropic beta features to enable |
+| `thinking?`          | `{ type: 'enabled', budget_tokens: number }` | Extended thinking config                     |
+| `compactionControl?` | `CompactionControl`                          | Context compaction settings (see below)      |
+| `onMessage?`         | `(event: AgentStreamEvent) => void`          | Stream event callback                        |
+| `onComplete?`        | `(result: AgentResult) => void`              | Completion callback                          |
+| `onError?`           | `(error: Error) => void`                     | Error callback                               |
+| `onStepFinish?`      | `(result: OnStepFinishResult) => void`       | Step completion callback                     |
 
 **CompactionControl:**
 

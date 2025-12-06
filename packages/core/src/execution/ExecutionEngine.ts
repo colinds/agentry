@@ -56,11 +56,13 @@ function sanitizeContentBlocks(
 ): BetaContentBlockParam[] {
   return content.map((block) => {
     if (block.type === 'text') {
-      // structured outputs would set a parsed field
-      if ('parsed' in block) {
-        block.parsed = undefined
+      // structured outputs sets parsed_output field (parsed is deprecated)
+      // we cannot mutate since the SDK response is frozen
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { parsed_output, ...rest } = block as BetaTextBlockParam & {
+        parsed_output?: unknown
       }
-      return block as BetaTextBlockParam
+      return rest as BetaTextBlockParam
     }
     return block as BetaContentBlockParam
   })
