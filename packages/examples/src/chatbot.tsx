@@ -9,8 +9,8 @@ import {
   WebSearch,
   AgentTool,
 } from 'agentry'
-import { MODEL } from '@agentry/shared'
-import { runInteractive } from './utils/interactive.ts'
+import { MODEL } from './constants'
+import { runInteractive } from './utils/interactive'
 
 const ChatbotAgent = () => {
   // Calculator tool for basic math

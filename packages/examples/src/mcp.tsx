@@ -9,7 +9,7 @@
  */
 
 import { run, Agent, System, Message, MCP } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 const MCP_SERVER_URL = 'https://demo-day.mcp.cloudflare.com/sse'
 

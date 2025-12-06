@@ -3,9 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "agentry": "workspace:*",
-    "@agentry/shared": "workspace:*",
     "zod": "^4.1.13"
   },
   "peerDependencies": {

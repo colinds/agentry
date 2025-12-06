@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { z } from 'zod'
 import { run, Agent, System, Tools, Tool } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 import readline from 'node:readline'
 import type { Interface } from 'node:readline'
 

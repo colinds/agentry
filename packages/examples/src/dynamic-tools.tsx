@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { z } from 'zod'
 import { run, defineTool, Agent, System, Tools, Tool, Message } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 function MathAgent() {
   const [isUnlocked, setIsUnlocked] = useState(false)

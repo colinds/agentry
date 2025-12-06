@@ -1,5 +1,5 @@
 import { run, Agent, System, Message } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 /**
  * Extended thinking example

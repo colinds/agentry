@@ -11,8 +11,8 @@
 import { useState } from 'react'
 import { z } from 'zod'
 import { run, Agent, System, Context, Tools, Tool } from 'agentry'
-import { MODEL } from '@agentry/shared'
-import { runInteractive } from './utils/interactive.ts'
+import { MODEL } from './constants'
+import { runInteractive } from './utils/interactive'
 
 // simulated user database
 const USERS: Record<string, { secretWord: string; name: string }> = {

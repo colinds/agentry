@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { run, defineTool, Agent, System, Tools, Tool, WebSearch } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 const InteractiveAgent = () => {
   const docsSearchTool = defineTool({

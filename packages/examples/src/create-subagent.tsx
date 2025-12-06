@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { z } from 'zod'
 import { run, Agent, System, Tools, Tool, Message, AgentTool } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 /**
  * Example: Dynamically Creating Subagents with AgentTool

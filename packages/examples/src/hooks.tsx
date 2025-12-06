@@ -22,7 +22,7 @@ import {
   useExecutionState,
   useMessages,
 } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 /**
  * ResearchTools - Core research capabilities

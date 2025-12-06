@@ -16,9 +16,9 @@
 
 import { useState } from 'react'
 import { run, Agent, System, Context, Condition, Tools, Tool } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 import { z } from 'zod'
-import { runInteractive } from './utils/interactive.ts'
+import { runInteractive } from './utils/interactive'
 
 function ConditionDemoAgent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)

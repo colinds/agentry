@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { z } from 'zod'
 import { run, Agent, System, Tools, Tool, Context } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 function CTFGame() {
   const secretNumber = 70

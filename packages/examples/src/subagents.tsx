@@ -1,5 +1,5 @@
 import { run, Agent, System, Tools, Message, AgentTool } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 import { z } from 'zod'
 
 // Example showing the new AgentTool component for explicit agent nesting

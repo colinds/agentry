@@ -22,54 +22,26 @@
       "name": "agentry",
       "version": "0.0.1",
       "dependencies": {
-        "@agentry/components": "workspace:*",
-        "@agentry/core": "workspace:*",
+        "@anthropic-ai/sdk": "^0.71.1",
+        "eventemitter3": "^5.0.1",
+        "react-reconciler": "^0.33.0",
+        "scheduler": "^0.27.0",
+        "zustand": "^5.0.3",
+      },
+      "devDependencies": {
+        "@types/react": "^19.0.0",
+        "@types/react-reconciler": "^0.32.3",
+        "@types/scheduler": "^0.26.0",
       },
       "peerDependencies": {
         "react": "^19.0.0",
         "zod": "^4.0.0",
       },
     },
-    "packages/components": {
-      "name": "@agentry/components",
-      "version": "0.0.1",
-      "dependencies": {
-        "@agentry/core": "workspace:*",
-        "@anthropic-ai/sdk": "^0.71.0",
-        "zod": "^4.1.13",
-        "zustand": "^5.0.3",
-      },
-      "peerDependencies": {
-        "react": "^19.0.0",
-      },
-    },
-    "packages/core": {
-      "name": "@agentry/core",
-      "version": "0.0.1",
-      "dependencies": {
-        "@agentry/shared": "workspace:*",
-        "@anthropic-ai/sdk": "^0.71.1",
-        "eventemitter3": "^5.0.1",
-        "react-reconciler": "^0.33.0",
-        "scheduler": "^0.27.0",
-        "zod": "^4.1.13",
-        "zustand": "^5.0.3",
-      },
-      "devDependencies": {
-        "@agentry/components": "workspace:*",
-        "@agentry/shared": "workspace:*",
-        "@types/react-reconciler": "^0.32.3",
-        "@types/scheduler": "^0.26.0",
-      },
-      "peerDependencies": {
-        "react": "^19.2.1",
-      },
-    },
     "packages/examples": {
       "name": "@agentry/examples",
       "version": "0.0.1",
       "dependencies": {
-        "@agentry/shared": "workspace:*",
         "agentry": "workspace:*",
         "zod": "^4.1.13",
       },
@@ -77,19 +49,9 @@
         "react": "^19.0.0",
       },
     },
-    "packages/shared": {
-      "name": "@agentry/shared",
-      "version": "0.0.1",
-    },
   },
   "packages": {
-    "@agentry/components": ["@agentry/components@workspace:packages/components"],
-
-    "@agentry/core": ["@agentry/core@workspace:packages/core"],
-
     "@agentry/examples": ["@agentry/examples@workspace:packages/examples"],
-
-    "@agentry/shared": ["@agentry/shared@workspace:packages/shared"],
 
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.71.1", "", { "dependencies": { "json-schema-to-ts": "^3.1.1" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-ViVzuaWMxHygfB2G6/1OufWDjbJGRl3duR0N1CEx/D5O9nv1yLNtbO3Lri5sQdF+aDHP+0nL6WyOMwCJUDicRQ=="],
 

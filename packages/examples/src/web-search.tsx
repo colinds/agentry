@@ -23,7 +23,7 @@ import {
   useExecutionState,
   useMessages,
 } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 /**
  * AnalysisTools - Tools for analyzing and summarizing web search results

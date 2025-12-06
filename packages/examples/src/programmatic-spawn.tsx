@@ -1,5 +1,5 @@
 import { run, Agent, System, Tools, Tool, Message, useMessages } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 import { z } from 'zod'
 import type React from 'react'
 

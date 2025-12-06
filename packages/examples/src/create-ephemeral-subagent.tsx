@@ -10,7 +10,7 @@
 import { useState } from 'react'
 import { z } from 'zod'
 import { run, Agent, System, Message, Tools, Tool, AgentTool } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 interface Subagent {
   id: string

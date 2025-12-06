@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { run, defineTool, Agent, System, Tools, Tool, Message } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 const parametersSchema = z.object({
   operation: z

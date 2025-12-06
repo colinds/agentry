@@ -12,7 +12,7 @@ import {
   Message,
   AgentTool,
 } from 'agentry'
-import { MODEL } from '@agentry/shared'
+import { MODEL } from './constants'
 
 function CompanyResearcherAgent({
   company,
