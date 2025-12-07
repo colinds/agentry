@@ -74,6 +74,26 @@ console.log(result.content)
 - **Prompt caching** - Supports Anthropic's prompt caching
 - **Built-in tools** - `<WebSearch />`, `<CodeExecution />`, `<Memory />`, `<MCP />`
 
+## Examples
+
+Want to see code? See [examples/](/packages/examples/src)
+
+| Example                                                                                | Description                             |
+| -------------------------------------------------------------------------------------- | --------------------------------------- |
+| [`basic.tsx`](packages/examples/src/basic.tsx)                                         | Simple calculator tool                  |
+| [`interactive.tsx`](packages/examples/src/interactive.tsx)                             | Multi-turn conversations with streaming |
+| [`subagents.tsx`](packages/examples/src/subagents.tsx)                                 | Manager delegating to specialists       |
+| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                         | Hooks, composition, and dynamic tools   |
+| [`dynamic-tools.tsx`](packages/examples/src/dynamic-tools.tsx)                         | Tools unlocked via state                |
+| [`web-search.tsx`](packages/examples/src/web-search.tsx)                               | Web search workflows                    |
+| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | MCP server integration                  |
+| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                     | Terminal-based chatbot                  |
+| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                     | Dynamic subagent creation               |
+| [`create-ephemeral-subagent.tsx`](packages/examples/src/create-ephemeral-subagent.tsx) | Ephemeral subagents                     |
+| [`programmatic-spawn.tsx`](packages/examples/src/programmatic-spawn.tsx)               | Programmatic agent spawning from tools  |
+| [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                     | Prompt caching with ephemeral content   |
+| [`router.tsx`](packages/examples/src/router-demo.tsx)                                  | Conditional routing with state and NL   |
+
 ## Core Concepts
 
 ### Batch vs Interactive Mode
@@ -301,26 +321,6 @@ For long-running conversations, you can enable automatic message compaction to m
 - `contextTokenThreshold?: number` - Token threshold to trigger compaction (default: 100000)
 - `model?: Model` - Model to use for summarization (defaults to agent's model)
 - `summaryPrompt?: string` - Custom prompt for summarization (optional)
-
-## Examples
-
-See `packages/examples/src/` for comprehensive examples:
-
-| Example                                                                                | Description                             |
-| -------------------------------------------------------------------------------------- | --------------------------------------- |
-| [`basic.tsx`](packages/examples/src/basic.tsx)                                         | Simple calculator tool                  |
-| [`interactive.tsx`](packages/examples/src/interactive.tsx)                             | Multi-turn conversations with streaming |
-| [`subagents.tsx`](packages/examples/src/subagents.tsx)                                 | Manager delegating to specialists       |
-| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                         | Hooks, composition, and dynamic tools   |
-| [`dynamic-tools.tsx`](packages/examples/src/dynamic-tools.tsx)                         | Tools unlocked via state                |
-| [`web-search.tsx`](packages/examples/src/web-search.tsx)                               | Web search workflows                    |
-| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | MCP server integration                  |
-| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                     | Terminal-based chatbot                  |
-| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                     | Dynamic subagent creation               |
-| [`create-ephemeral-subagent.tsx`](packages/examples/src/create-ephemeral-subagent.tsx) | Ephemeral subagents                     |
-| [`programmatic-spawn.tsx`](packages/examples/src/programmatic-spawn.tsx)               | Programmatic agent spawning from tools  |
-| [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                     | Prompt caching with ephemeral content   |
-| [`router.tsx`](packages/examples/src/router-demo.tsx)                                  | Conditional routing with state and NL   |
 
 Run an example:
 
