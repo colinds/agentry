@@ -24,7 +24,7 @@ Agentry adapts React’s component model for AI agents. Define behavior declarat
 bun add agentry react zod
 ```
 
-### Your First Agent
+### Creating an Agent
 
 ```tsx
 import { run, Agent, System, Tools, Tool, Message } from 'agentry'
@@ -62,10 +62,10 @@ console.log(result.content)
 
 ## Features
 
-- **Type-safe tools** - Handler params inferred from Zod schemas
 - **Dynamic tools via React state** - Add/remove tools during execution with `useState`
 - **React hooks** - `useExecutionState()`, `useMessages()` for reactive state
 - **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
+- **Type-safe tools** - Handler params inferred from Zod schemas
 - **Streaming support** - Stream responses
 - **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.runAgent()`
 - **Compaction control** - Automatic message compaction for long conversations to manage context window usage
@@ -73,33 +73,6 @@ console.log(result.content)
 - **Structured outputs** - Use `strict` on tools
 - **Prompt caching** - Supports Anthropic's prompt caching
 - **Built-in tools** - `<WebSearch />`, `<CodeExecution />`, `<Memory />`, `<MCP />`
-
-## Examples
-
-See `packages/examples/src/` for comprehensive examples:
-
-| Example                         | Description                             |
-| ------------------------------- | --------------------------------------- |
-| `basic.tsx`                     | Simple calculator tool                  |
-| `interactive.tsx`               | Multi-turn conversations with streaming |
-| `subagents.tsx`                 | Manager delegating to specialists       |
-| `hooks.tsx`                     | Hooks, composition, and dynamic tools   |
-| `dynamic-tools.tsx`             | Tools unlocked via state                |
-| `web-search.tsx`                | Web search workflows                    |
-| `mcp.tsx`                       | MCP server integration                  |
-| `chatbot.tsx`                   | Terminal-based chatbot                  |
-| `create-subagent.tsx`           | Dynamic subagent creation               |
-| `create-ephemeral-subagent.tsx` | Ephemeral subagents                     |
-| `programmatic-spawn.tsx`        | Programmatic agent spawning from tools  |
-| `cache-ephemeral.tsx`           | Prompt caching with ephemeral content   |
-| `router.tsx`                    | Conditional routing with state and NL   |
-
-Run an example:
-
-```bash
-echo "ANTHROPIC_API_KEY=your-key" > .env
-bun run packages/examples/src/basic.tsx
-```
 
 ## Core Concepts
 
@@ -196,7 +169,37 @@ handler={async (input, context) => {
 }}
 ```
 
-### Conditions Rendering
+### State-Driven Tools
+
+Tools can be added/removed during execution using React state:
+
+```tsx
+function DynamicAgent() {
+  const [hasAdvanced, setHasAdvanced] = useState(false)
+  return (
+    <Agent model="claude-haiku-4-5">
+      <System>
+        You are a helpful assistant that can analyze technical and business content.
+        You can unlock advanced analysis tools by calling the unlock_advanced tool.
+      </System>
+      <Tools>
+        <Tool
+          name="unlock_advanced"
+          parameters={z.object({})}
+          handler={async () => {
+            setHasAdvanced(true) // Adds new tool on next render
+            return 'Unlocked!'
+          }}
+        />
+        {hasAdvanced && <Tool name="advanced_analysis" ... />}
+      </Tools>
+      <Message role="user">Analyze the following content: {input.content}</Message>
+    </Agent>
+  )
+}
+```
+
+### Conditions
 
 > ⚠️ **Experimental:** `<Condition />` is experimental and might change in future versions.
 
@@ -254,31 +257,6 @@ Conditions are evaluated before each API call:
 - Boolean conditions (`when={boolean}`) are checked first
 - Natural language conditions (`when="..."`) are evaluated via LLM
 
-### Dynamic Tools
-
-Tools can be added/removed during execution using React state:
-
-```tsx
-function DynamicAgent() {
-  const [hasAdvanced, setHasAdvanced] = useState(false)
-  return (
-    <Agent model="claude-haiku-4-5">
-      <Tools>
-        <Tool
-          name="unlock_advanced"
-          parameters={z.object({})}
-          handler={async () => {
-            setHasAdvanced(true) // Adds new tool on next render
-            return 'Unlocked!'
-          }}
-        />
-        {hasAdvanced && <Tool name="advanced_analysis" ... />}
-      </Tools>
-    </Agent>
-  )
-}
-```
-
 ### Prompt Caching
 
 Use `cache="ephemeral"` on `<System>` or `<Context>` components to mark dynamic content that shouldn't be cached.
@@ -323,6 +301,33 @@ For long-running conversations, you can enable automatic message compaction to m
 - `contextTokenThreshold?: number` - Token threshold to trigger compaction (default: 100000)
 - `model?: Model` - Model to use for summarization (defaults to agent's model)
 - `summaryPrompt?: string` - Custom prompt for summarization (optional)
+
+## Examples
+
+See `packages/examples/src/` for comprehensive examples:
+
+| Example                                                                                | Description                             |
+| -------------------------------------------------------------------------------------- | --------------------------------------- |
+| [`basic.tsx`](packages/examples/src/basic.tsx)                                         | Simple calculator tool                  |
+| [`interactive.tsx`](packages/examples/src/interactive.tsx)                             | Multi-turn conversations with streaming |
+| [`subagents.tsx`](packages/examples/src/subagents.tsx)                                 | Manager delegating to specialists       |
+| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                         | Hooks, composition, and dynamic tools   |
+| [`dynamic-tools.tsx`](packages/examples/src/dynamic-tools.tsx)                         | Tools unlocked via state                |
+| [`web-search.tsx`](packages/examples/src/web-search.tsx)                               | Web search workflows                    |
+| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | MCP server integration                  |
+| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                     | Terminal-based chatbot                  |
+| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                     | Dynamic subagent creation               |
+| [`create-ephemeral-subagent.tsx`](packages/examples/src/create-ephemeral-subagent.tsx) | Ephemeral subagents                     |
+| [`programmatic-spawn.tsx`](packages/examples/src/programmatic-spawn.tsx)               | Programmatic agent spawning from tools  |
+| [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                     | Prompt caching with ephemeral content   |
+| [`router.tsx`](packages/examples/src/router-demo.tsx)                                  | Conditional routing with state and NL   |
+
+Run an example:
+
+```bash
+echo "ANTHROPIC_API_KEY=your-key" > .env
+bun run example:basic
+```
 
 ## API Reference
 
@@ -525,11 +530,11 @@ bun test
 
 ### Why call it "Agentry"?
 
-Agent + Gantry.
+Agent 🤖 + Gantry 🏗️
 
 ### Why make this?
 
-I wanted to build an AI Agent and was exploring different ways to represent one. I started sketching it out in React and realized the component model made composition and structure really intuitive. As a bonus, React has concepts like hooks, lifecycles, and state which made developing the functionality I wanted straightforward. It was also the perfect excuse to dig into how the React Reconciler works under the hood.
+I wanted to build an AI Agent and was exploring different ways to represent one. I started sketching it out in React and realized the component model made composition and structure really intuitive. React's concepts like hooks, lifecycles, and state made developing the functionality straightforward. Since I wanted it to feel just like writing React, it was the perfect excuse to dig into how the React Reconciler works under the hood and how I could use it for this project.
 
 ## License
 
