@@ -39,7 +39,8 @@
   "scripts": {
     "build": "bun run build.ts && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run build"
+    "prepack": "cp ../../README.md . && cp ../../LICENSE.md .",
+    "postpack": "rm README.md LICENSE.md"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.1",
