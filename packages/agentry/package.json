@@ -3,7 +3,7 @@
   "author": "Colin D'Souza",
   "license": "MIT",
   "version": "0.0.1",
-  "description": "React reconciler-based framework for declarative AI agent orchestration",
+  "description": "Compose and reuse your AI agents like React components",
   "repository": {
     "type": "git",
     "url": "https://github.com/colinds/agentry"
@@ -39,6 +39,7 @@
   "scripts": {
     "build": "bun run build.ts && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build",
     "prepack": "cp ../../README.md . && cp ../../LICENSE.md .",
     "postpack": "rm README.md LICENSE.md"
   },

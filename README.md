@@ -1,5 +1,9 @@
 # Agentry 🤖 🏗️
 
+[![npm version][npm-version-src]][npm-version-href]
+[![GitHub Actions][github-actions-src]][github-actions-href]
+[![npm downloads][npm-downloads-src]][npm-downloads-href]
+
 <div align="center">
 
 **Compose and reuse your AI agents like React components.**
@@ -12,9 +16,11 @@
 
 Agentry adapts React’s component model for AI agents. Define behavior declaratively, compose agents like you would components, and let the framework manage the flow and execution.
 
-> 🚧 **WIP**: This library is in active development.
+> [!WARNING]
+> This library is in active development.
 
-> ⚠️ Agentry currently only supports Anthropic models.
+> [!NOTE]
+> Agentry currently only supports Anthropic models.
 
 ## Quick Start
 
@@ -551,3 +557,17 @@ MIT
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+<!-- prettier-ignore-start -->
+<!-- badges -->
+
+[npm-version-src]: https://img.shields.io/npm/v/agentry?style=flat-square
+[npm-version-href]: https://npmjs.com/package/agentry
+
+[npm-downloads-src]: https://img.shields.io/npm/dm/agentry?style=flat-square
+[npm-downloads-href]: https://npmjs.com/package/agentry
+
+[github-actions-src]: https://img.shields.io/github/actions/workflow/status/colinds/agentry/test.yml?style=flat-square&branch=main
+[github-actions-href]: https://github.com/colinds/agentry/actions/workflows/test.yml?query=workflow:Test
+
+<!-- prettier-ignore-end -->
