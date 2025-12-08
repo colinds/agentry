@@ -108,27 +108,22 @@ bun run agent.tsx
 
 Want to see code? See [examples/](/packages/examples/src)
 
-| Example                                                                                | Description                             |
-| -------------------------------------------------------------------------------------- | --------------------------------------- |
-| [`basic.tsx`](packages/examples/src/basic.tsx)                                         | Simple calculator tool                  |
-| [`interactive.tsx`](packages/examples/src/interactive.tsx)                             | Multi-turn conversations with streaming |
-| [`subagents.tsx`](packages/examples/src/subagents.tsx)                                 | Manager delegating to specialists       |
-| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                         | Hooks, composition, and dynamic tools   |
-| [`dynamic-tools.tsx`](packages/examples/src/dynamic-tools.tsx)                         | Tools unlocked via state                |
-| [`web-search.tsx`](packages/examples/src/web-search.tsx)                               | Web search workflows                    |
-| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | MCP server integration                  |
-| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                     | Terminal-based chatbot                  |
-| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                     | Dynamic subagent creation               |
-| [`create-ephemeral-subagent.tsx`](packages/examples/src/create-ephemeral-subagent.tsx) | Ephemeral subagents                     |
-| [`programmatic-spawn.tsx`](packages/examples/src/programmatic-spawn.tsx)               | Programmatic agent spawning from tools  |
-| [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                     | Prompt caching with ephemeral content   |
-| [`authentication.tsx`](packages/examples/src/authentication.tsx)                       | Multi-step authentication flow          |
-| [`conditions.tsx`](packages/examples/src/conditions.tsx)                               | State-based and NL condition rendering  |
-| [`ctf.tsx`](packages/examples/src/ctf.tsx)                                             | CTF challenge solving game              |
-| [`demo.tsx`](packages/examples/src/demo.tsx)                                           | Company research with web search        |
-| [`thinking.tsx`](packages/examples/src/thinking.tsx)                                   | Extended thinking with budget tokens    |
-| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                   | Interactive authentication workflow     |
-| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx)   | Conversation save/load                  |
+| Example                                                                              | Description                             |
+| ------------------------------------------------------------------------------------ | --------------------------------------- |
+| [`demo.tsx`](packages/examples/src/demo.tsx)                                         | Company research with web search        |
+| [`basic.tsx`](packages/examples/src/basic.tsx)                                       | Simple calculator tool                  |
+| [`interactive.tsx`](packages/examples/src/interactive.tsx)                           | Multi-turn conversations with streaming |
+| [`subagents.tsx`](packages/examples/src/subagents.tsx)                               | Manager delegating to specialists       |
+| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                       | Hooks, composition, and dynamic tools   |
+| [`web-search.tsx`](packages/examples/src/web-search.tsx)                             | Web search workflows                    |
+| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                           | MCP server integration                  |
+| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                   | Terminal-based chatbot                  |
+| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                   | Dynamic subagent creation               |
+| [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                   | Prompt caching with ephemeral content   |
+| [`conditions.tsx`](packages/examples/src/conditions.tsx)                             | State-based and NL condition rendering  |
+| [`thinking.tsx`](packages/examples/src/thinking.tsx)                                 | Extended thinking with budget tokens    |
+| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                 | Interactive authentication workflow     |
+| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx) | Conversation save/load                  |
 
 Run an example:
 
