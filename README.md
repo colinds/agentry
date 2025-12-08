@@ -32,7 +32,23 @@ bun add agentry react zod
 export ANTHROPIC_API_KEY="sk-ant-***"
 ```
 
+Next, in your `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "module": "ESNext",
+    "target": "ESNext",
+    "moduleResolution": "bundler"
+  }
+}
+```
+
 ### Creating an Agent
+
+In `agent.tsx`:
 
 ```tsx
 import { run, Agent, System, Tools, Tool, Message } from 'agentry'
@@ -66,6 +82,12 @@ const result = await run(
 )
 
 console.log(result.content)
+```
+
+Run it:
+
+```bash
+bun run agent.tsx
 ```
 
 ## Features
