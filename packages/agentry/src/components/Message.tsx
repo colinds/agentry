@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
+import type { BetaContentBlockParam } from '@anthropic-ai/sdk/resources/beta'
 
 export interface MessageProps {
   role: 'user' | 'assistant'
-  children: ReactNode
+  children?: ReactNode
+  content?: string | BetaContentBlockParam[]
 }
 
 /**
@@ -17,6 +19,10 @@ export interface MessageProps {
  * </Agent>
  * ```
  */
-export function Message({ role, children }: MessageProps): ReactNode {
-  return <message role={role}>{children}</message>
+export function Message({ role, children, content }: MessageProps): ReactNode {
+  return (
+    <message role={role} rawContent={content}>
+      {children}
+    </message>
+  )
 }

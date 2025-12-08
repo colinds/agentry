@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import type {
   BetaMessageParam,
+  BetaContentBlockParam,
   BetaRequestMCPServerURLDefinition,
 } from '@anthropic-ai/sdk/resources/beta'
 import type {
@@ -143,7 +144,8 @@ export interface ContextComponentProps {
 
 export interface MessageComponentProps {
   role: 'user' | 'assistant'
-  children: React.ReactNode
+  children?: React.ReactNode
+  rawContent?: string | BetaContentBlockParam[]
 }
 
 export interface MCPServerComponentProps {

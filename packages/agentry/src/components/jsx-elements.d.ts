@@ -3,6 +3,7 @@ import type { InternalTool, InternalAgentTool } from '../types'
 import type {
   BetaToolUnion,
   BetaRequestMCPServerToolConfiguration,
+  BetaContentBlockParam,
 } from '@anthropic-ai/sdk/resources/beta'
 import type { AgentComponentPublicProps } from './Agent.tsx'
 
@@ -24,7 +25,11 @@ export interface AgentryElements {
 
   context: { children: ReactNode; cache?: 'ephemeral' }
 
-  message: { role: 'user' | 'assistant'; children: ReactNode }
+  message: {
+    role: 'user' | 'assistant'
+    children?: ReactNode
+    rawContent?: string | BetaContentBlockParam[]
+  }
 
   tools: { children?: ReactNode }
 

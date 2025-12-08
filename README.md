@@ -93,6 +93,7 @@ Want to see code? See [examples/](/packages/examples/src)
 | [`programmatic-spawn.tsx`](packages/examples/src/programmatic-spawn.tsx)               | Programmatic agent spawning from tools  |
 | [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                     | Prompt caching with ephemeral content   |
 | [`router.tsx`](packages/examples/src/router-demo.tsx)                                  | Conditional routing with state and NL   |
+| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx)   | Conversation save/load                  |
 
 ## Core Concepts
 

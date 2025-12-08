@@ -233,11 +233,13 @@ function reactNodeToString(node: React.ReactNode): string {
 }
 
 function createMessageInstance(props: MessageComponentProps): MessageInstance {
+  const content = props.rawContent ?? reactNodeToString(props.children)
+
   return {
     type: 'message',
     message: {
       role: props.role,
-      content: reactNodeToString(props.children),
+      content: content,
     },
     parent: null,
   }
