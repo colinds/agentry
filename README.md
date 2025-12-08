@@ -1,9 +1,5 @@
 # Agentry 🤖 🏗️
 
-[![npm version][npm-version-src]][npm-version-href]
-[![GitHub Actions][github-actions-src]][github-actions-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-
 <div align="center">
 
 **Compose and reuse your AI agents like React components.**
@@ -11,6 +7,10 @@
 </div>
 
 ---
+
+[![npm version][npm-version-src]][npm-version-href]
+[![GitHub Actions][github-actions-src]][github-actions-href]
+[![npm downloads][npm-downloads-src]][npm-downloads-href]
 
 ## What is Agentry?
 
@@ -29,7 +29,7 @@ Agentry adapts React’s component model for AI agents. Define behavior declarat
 ```bash
 bun add agentry react zod
 # Set your Anthropic API key
-export ANTHROPIC_API_KEY="your-key-here"
+export ANTHROPIC_API_KEY="sk-ant-***"
 ```
 
 ### Creating an Agent
@@ -107,6 +107,13 @@ Want to see code? See [examples/](/packages/examples/src)
 | [`thinking.tsx`](packages/examples/src/thinking.tsx)                                   | Extended thinking with budget tokens    |
 | [`workflow.tsx`](packages/examples/src/workflow.tsx)                                   | Interactive authentication workflow     |
 | [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx)   | Conversation save/load                  |
+
+Run an example:
+
+```bash
+echo "ANTHROPIC_API_KEY=sk-ant-***" > .env
+bun run example:basic
+```
 
 ## Core Concepts
 
@@ -335,13 +342,6 @@ For long-running conversations, you can enable automatic message compaction to m
 - `contextTokenThreshold?: number` - Token threshold to trigger compaction (default: 100000)
 - `model?: Model` - Model to use for summarization (defaults to agent's model)
 - `summaryPrompt?: string` - Custom prompt for summarization (optional)
-
-Run an example:
-
-```bash
-echo "ANTHROPIC_API_KEY=your-key" > .env
-bun run example:basic
-```
 
 ## API Reference
 
