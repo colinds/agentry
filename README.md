@@ -12,7 +12,7 @@
 
 Agentry adapts React’s component model for AI agents. Define behavior declaratively, compose agents like you would components, and let the framework manage the flow and execution.
 
-> 🚧 **WIP:** This library is still in its early stages and should not be used in any sort of production environment at this time.
+> 🚧 **WIP**: This library is in active development.
 
 > ⚠️ Agentry currently only supports Anthropic models.
 
@@ -22,6 +22,8 @@ Agentry adapts React’s component model for AI agents. Define behavior declarat
 
 ```bash
 bun add agentry react zod
+# Set your Anthropic API key
+export ANTHROPIC_API_KEY="your-key-here"
 ```
 
 ### Creating an Agent
@@ -92,7 +94,12 @@ Want to see code? See [examples/](/packages/examples/src)
 | [`create-ephemeral-subagent.tsx`](packages/examples/src/create-ephemeral-subagent.tsx) | Ephemeral subagents                     |
 | [`programmatic-spawn.tsx`](packages/examples/src/programmatic-spawn.tsx)               | Programmatic agent spawning from tools  |
 | [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                     | Prompt caching with ephemeral content   |
-| [`router.tsx`](packages/examples/src/router-demo.tsx)                                  | Conditional routing with state and NL   |
+| [`authentication.tsx`](packages/examples/src/authentication.tsx)                       | Multi-step authentication flow          |
+| [`conditions.tsx`](packages/examples/src/conditions.tsx)                               | State-based and NL condition rendering  |
+| [`ctf.tsx`](packages/examples/src/ctf.tsx)                                             | CTF challenge solving game              |
+| [`demo.tsx`](packages/examples/src/demo.tsx)                                           | Company research with web search        |
+| [`thinking.tsx`](packages/examples/src/thinking.tsx)                                   | Extended thinking with budget tokens    |
+| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                   | Interactive authentication workflow     |
 | [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx)   | Conversation save/load                  |
 
 ## Core Concepts

@@ -58,7 +58,8 @@ function createTools() {
     }),
     handler: async ({ expression }) => {
       try {
-        // Simple eval for demo - use mathjs or similar in production
+        // WARNING: eval() is a security risk - this is for demo purposes only!
+        // Never use eval() with untrusted input in production code. Use mathjs or similar instead.
         const result = eval(expression)
         return `Result: ${result}`
       } catch (error) {
