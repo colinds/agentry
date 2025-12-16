@@ -20,6 +20,7 @@ interface CreateMessageParams {
   mcp_servers?: unknown[]
   stop_sequences?: string[]
   temperature?: number
+  thinking?: { type: string; budget_tokens: number }
   betas?: string[]
   stream?: boolean
 }

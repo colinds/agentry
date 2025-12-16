@@ -25,6 +25,7 @@ import type {
   OnStepFinishResult,
   StepToolCall,
   StepToolResult,
+  ThinkingConfig,
 } from '../types'
 import { ANTHROPIC_BETAS } from '../constants'
 import type { AgentInstance } from '../instances'
@@ -113,7 +114,7 @@ export interface ExecutionEngineConfig {
   agentName?: string
   agentInstance: AgentInstance
   store: AgentStore
-  thinking?: BetaThinkingConfigParam
+  thinking?: ThinkingConfig
   betas?: string[]
 }
 
@@ -226,7 +227,24 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       betas.add(ANTHROPIC_BETAS.STRUCTURED_OUTPUTS)
     }
 
+    if (
+      this.config.thinking?.type === 'enabled' &&
+      this.config.thinking?.interleaved !== false
+    ) {
+      betas.add(ANTHROPIC_BETAS.INTERLEAVED_THINKING)
+    }
+
     const system = buildSystemPrompt(this.agentInstance)
+
+    const apiThinking: BetaThinkingConfigParam | undefined = this.config
+      .thinking
+      ? this.config.thinking.type === 'enabled'
+        ? {
+            type: this.config.thinking.type,
+            budget_tokens: this.config.thinking.budget_tokens,
+          }
+        : { type: this.config.thinking.type }
+      : undefined
 
     const params: CreateMessageParams = {
       model: this.config.model,
@@ -238,7 +256,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       stop_sequences: this.config.stopSequences,
       temperature: this.config.temperature,
       betas: betas.size > 0 ? Array.from(betas) : undefined,
-      thinking: this.config.thinking,
+      thinking: apiThinking,
     }
 
     return params

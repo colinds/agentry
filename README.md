@@ -108,22 +108,22 @@ bun run agent.tsx
 
 Want to see code? See [examples/](/packages/examples/src)
 
-| Example                                                                              | Description                             |
-| ------------------------------------------------------------------------------------ | --------------------------------------- |
-| [`demo.tsx`](packages/examples/src/demo.tsx)                                         | Company research with web search        |
-| [`basic.tsx`](packages/examples/src/basic.tsx)                                       | Simple calculator tool                  |
-| [`interactive.tsx`](packages/examples/src/interactive.tsx)                           | Multi-turn conversations with streaming |
-| [`subagents.tsx`](packages/examples/src/subagents.tsx)                               | Manager delegating to specialists       |
-| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                       | Hooks, composition, and dynamic tools   |
-| [`web-search.tsx`](packages/examples/src/web-search.tsx)                             | Web search workflows                    |
-| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                           | MCP server integration                  |
-| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                   | Terminal-based chatbot                  |
-| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                   | Dynamic subagent creation               |
-| [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                   | Prompt caching with ephemeral content   |
-| [`conditions.tsx`](packages/examples/src/conditions.tsx)                             | State-based and NL condition rendering  |
-| [`thinking.tsx`](packages/examples/src/thinking.tsx)                                 | Extended thinking with budget tokens    |
-| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                 | Interactive authentication workflow     |
-| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx) | Conversation save/load                  |
+| Example                                                                              | Description                                |
+| ------------------------------------------------------------------------------------ | ------------------------------------------ |
+| [`demo.tsx`](packages/examples/src/demo.tsx)                                         | Company research with web search           |
+| [`basic.tsx`](packages/examples/src/basic.tsx)                                       | Simple calculator tool                     |
+| [`interactive.tsx`](packages/examples/src/interactive.tsx)                           | Multi-turn conversations with streaming    |
+| [`subagents.tsx`](packages/examples/src/subagents.tsx)                               | Manager delegating to specialists          |
+| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                       | Hooks, composition, and dynamic tools      |
+| [`web-search.tsx`](packages/examples/src/web-search.tsx)                             | Web search workflows                       |
+| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                           | MCP server integration                     |
+| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                   | Terminal-based chatbot                     |
+| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                   | Dynamic subagent creation                  |
+| [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                   | Prompt caching with ephemeral content      |
+| [`conditions.tsx`](packages/examples/src/conditions.tsx)                             | State-based and NL condition rendering     |
+| [`thinking.tsx`](packages/examples/src/thinking.tsx)                                 | Extended thinking with interleaved support |
+| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                 | Interactive authentication workflow        |
+| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx) | Conversation save/load                     |
 
 Run an example:
 
@@ -385,23 +385,23 @@ const handle: AgentHandle = await run(<Agent>...</Agent>, {
 
 #### `<Agent>`
 
-| Prop                 | Type                                         | Description                                  |
-| -------------------- | -------------------------------------------- | -------------------------------------------- |
-| `model`              | `string`                                     | Claude model (e.g. `claude-sonnet-4-5`)      |
-| `name?`              | `string`                                     | Agent identifier                             |
-| `description?`       | `string`                                     | Agent description                            |
-| `maxTokens?`         | `number`                                     | Max output tokens (default: `4096`)          |
-| `maxIterations?`     | `number`                                     | Max tool call iterations (default: `20`)     |
-| `stopSequences?`     | `string[]`                                   | Stop sequences                               |
-| `temperature?`       | `number`                                     | Sampling temperature (0-1)                   |
-| `stream?`            | `boolean`                                    | Enable streaming (default: `true`)           |
-| `betas?`             | `string[]`                                   | Additional Anthropic beta features to enable |
-| `thinking?`          | `{ type: 'enabled', budget_tokens: number }` | Extended thinking config                     |
-| `compactionControl?` | `CompactionControl`                          | Context compaction settings (see below)      |
-| `onMessage?`         | `(event: AgentStreamEvent) => void`          | Stream event callback                        |
-| `onComplete?`        | `(result: AgentResult) => void`              | Completion callback                          |
-| `onError?`           | `(error: Error) => void`                     | Error callback                               |
-| `onStepFinish?`      | `(result: OnStepFinishResult) => void`       | Step completion callback                     |
+| Prop                 | Type                                   | Description                                                                                                                                                                                              |
+| -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`              | `string`                               | Claude model (e.g. `claude-sonnet-4-5`)                                                                                                                                                                  |
+| `name?`              | `string`                               | Agent identifier                                                                                                                                                                                         |
+| `description?`       | `string`                               | Agent description                                                                                                                                                                                        |
+| `maxTokens?`         | `number`                               | Max output tokens (default: `4096`)                                                                                                                                                                      |
+| `maxIterations?`     | `number`                               | Max tool call iterations (default: `20`)                                                                                                                                                                 |
+| `stopSequences?`     | `string[]`                             | Stop sequences                                                                                                                                                                                           |
+| `temperature?`       | `number`                               | Sampling temperature (0-1)                                                                                                                                                                               |
+| `stream?`            | `boolean`                              | Enable streaming (default: `true`)                                                                                                                                                                       |
+| `betas?`             | `string[]`                             | Additional Anthropic beta features to enable                                                                                                                                                             |
+| `thinking?`          | `ThinkingConfig`                       | Extended thinking config: `{ type: 'enabled', budget_tokens: number, interleaved?: boolean }`. When enabled, `interleaved` defaults to `true`. Set `interleaved: false` to disable interleaved thinking. |
+| `compactionControl?` | `CompactionControl`                    | Context compaction settings (see below)                                                                                                                                                                  |
+| `onMessage?`         | `(event: AgentStreamEvent) => void`    | Stream event callback                                                                                                                                                                                    |
+| `onComplete?`        | `(result: AgentResult) => void`        | Completion callback                                                                                                                                                                                      |
+| `onError?`           | `(error: Error) => void`               | Error callback                                                                                                                                                                                           |
+| `onStepFinish?`      | `(result: OnStepFinishResult) => void` | Step completion callback                                                                                                                                                                                 |
 
 **CompactionControl:**
 

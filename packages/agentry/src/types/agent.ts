@@ -7,6 +7,10 @@ import type { OnStepFinishResult } from './lifecycle'
 
 export type { Model }
 
+export type ThinkingConfig = BetaThinkingConfigParam & {
+  interleaved?: false
+}
+
 export interface AgentProps {
   model: Model
 
@@ -17,7 +21,7 @@ export interface AgentProps {
   stopSequences?: string[]
   temperature?: number
   stream?: boolean
-  thinking?: BetaThinkingConfigParam
+  thinking?: ThinkingConfig
   betas?: string[]
   onMessage?: (message: AgentStreamEvent) => void
   onComplete?: (result: AgentResult) => void

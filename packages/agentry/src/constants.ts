@@ -16,6 +16,8 @@ export const ANTHROPIC_BETAS = {
   CONTEXT_MANAGEMENT: 'context-management-2025-06-27',
   /** Structured outputs for strict tool schemas */
   STRUCTURED_OUTPUTS: 'structured-outputs-2025-11-13',
+  /** Interleaved thinking for thinking blocks interleaved with tool calls */
+  INTERLEAVED_THINKING: 'interleaved-thinking-2025-05-14',
 } as const
 
 export type AnthropicBeta =

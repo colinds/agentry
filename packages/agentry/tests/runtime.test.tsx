@@ -2,15 +2,7 @@ import { test, expect } from 'bun:test'
 import { z } from 'zod'
 import { run } from '../src'
 import { defineTool } from '../src/tools'
-import {
-  Agent,
-  System,
-  Context,
-  Tools,
-  Tool,
-  Message,
-  AgentTool,
-} from '../src'
+import { Agent, System, Context, Tools, Tool, Message, AgentTool } from '../src'
 import { createStepMockClient, mockText, mockToolUse } from './utils'
 import { TEST_MODEL } from '../src/constants'
 
@@ -714,6 +706,75 @@ test('strict tool enables structured-outputs beta', async () => {
   const call = controller.peekNextCall()
 
   expect(call!.params.betas).toContain('structured-outputs-2025-11-13')
+
+  await controller.nextTurn()
+  await runPromise
+})
+
+test('thinking enables interleaved-thinking beta by default', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Analyzed')] },
+  ])
+
+  const runPromise = run(
+    <Agent
+      model={TEST_MODEL}
+      maxTokens={100}
+      stream={false}
+      thinking={{
+        type: 'enabled',
+        budget_tokens: 1024,
+      }}
+    >
+      <Message role="user">Analyze this</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.waitForNextCall()
+  const call = controller.peekNextCall()
+
+  expect(call!.params.betas).toContain('interleaved-thinking-2025-05-14')
+  expect(call!.params.thinking).toEqual({
+    type: 'enabled',
+    budget_tokens: 1024,
+  })
+
+  await controller.nextTurn()
+  await runPromise
+})
+
+test('thinking with interleaved: false disables interleaved-thinking beta', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Analyzed')] },
+  ])
+
+  const runPromise = run(
+    <Agent
+      model={TEST_MODEL}
+      maxTokens={100}
+      stream={false}
+      thinking={{
+        type: 'enabled',
+        budget_tokens: 1024,
+        interleaved: false,
+      }}
+    >
+      <Message role="user">Analyze this</Message>
+    </Agent>,
+    { client },
+  )
+
+  await controller.waitForNextCall()
+  const call = controller.peekNextCall()
+
+  expect(call!.params.betas ?? []).not.toContain(
+    'interleaved-thinking-2025-05-14',
+  )
+  expect(call!.params.thinking).toEqual({
+    type: 'enabled',
+    budget_tokens: 1024,
+  })
 
   await controller.nextTurn()
   await runPromise

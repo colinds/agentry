@@ -47,6 +47,7 @@ export {
 export {
   type Model,
   type AgentProps,
+  type ThinkingConfig,
   type CompactionControl,
   type AgentStreamEvent,
   type AgentResult,
