@@ -2,7 +2,7 @@
   "name": "agentry",
   "author": "Colin D'Souza",
   "license": "MIT",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Compose and reuse your AI agents like React components",
   "repository": {
     "type": "git",

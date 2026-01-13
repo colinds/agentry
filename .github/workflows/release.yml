@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  release:
+    permissions:
+      id-token: write # Required for OIDC
+      contents: write # for softprops/action-gh-release to create GitHub release
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tag format
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          echo "Tag: $TAG_NAME"
+          if [[ ! "$TAG_NAME" =~ ^v ]]; then
+            echo "Error: Tag must start with 'v'"
+            echo "Received: $TAG_NAME"
+            exit 1
+          fi
+          echo "Tag format is valid"
+      - name: Verify package.json version matches tag
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/}
+          # strip 'v' prefix if present
+          TAG_VERSION=${TAG_VERSION#v}
+          PACKAGE_VERSION=$(jq -r '.version' packages/agentry/package.json)
+          echo "Tag version: $TAG_VERSION"
+          echo "Package version: $PACKAGE_VERSION"
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Error: Tag version ($TAG_VERSION) does not match package.json version ($PACKAGE_VERSION)"
+            exit 1
+          fi
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build packages
+        run: bun run build
+      - name: Type check
+        run: bun run typecheck
+      - name: Lint
+        run: bun run lint
+      - name: Check formatting
+        run: bun run format
+      - name: Run tests
+        run: bun run test
+      - name: Update npm
+        run: npm install -g npm@latest
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        working-directory: packages/agentry
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          generate_release_notes: true
