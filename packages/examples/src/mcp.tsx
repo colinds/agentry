@@ -26,7 +26,7 @@ const result = await run(
     <MCP name="cloudflare-demo" url={MCP_SERVER_URL} />
 
     {/* You can connect to multiple MCP servers with different configurations */}
-    {/* 
+    {/*
     <MCP 
       name="another-server"
       url="https://another-server.example.com/sse"

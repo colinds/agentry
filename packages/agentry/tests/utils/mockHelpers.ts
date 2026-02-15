@@ -1,8 +1,4 @@
-import {
-  mockToolUse,
-  mockText,
-  type MockResponse,
-} from './mockClient'
+import { mockToolUse, mockText, type MockResponse } from './mockClient'
 
 /**
  * Create a mock response sequence for subagent execution

@@ -9,7 +9,7 @@
   ],
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
-      "eslint --fix"
+      "oxlint --fix"
     ]
   },
   "scripts": {
@@ -17,10 +17,10 @@
     "typecheck": "bun run --filter='./packages/*' typecheck",
     "build": "bun run --filter='./packages/agentry' build",
     "clean": "rm -rf node_modules packages/*/node_modules",
-    "lint": "eslint packages/agentry/src packages/examples/src --max-warnings=0",
-    "lint:fix": "eslint packages/agentry/src packages/examples/src --fix",
-    "format": "prettier --check packages/agentry/src packages/examples/src",
-    "format:fix": "prettier --write packages/agentry/src packages/examples/src",
+    "lint": "oxlint packages/agentry/src packages/examples/src --max-warnings=0",
+    "lint:fix": "oxlint packages/agentry/src packages/examples/src --fix",
+    "format": "oxfmt --check packages/agentry/src packages/examples/src",
+    "format:fix": "oxfmt --write packages/agentry/src packages/examples/src",
     "example:basic": "bun run packages/examples/src/basic.tsx",
     "example:chatbot": "bun run packages/examples/src/chatbot.tsx",
     "example:create-ephemeral-subagent": "bun run packages/examples/src/create-ephemeral-subagent.tsx",
@@ -39,16 +39,10 @@
     "example:router": "bun run packages/examples/src/router-demo.tsx"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "@types/bun": "latest",
-    "@types/react": "^19.2.7",
-    "eslint": "^9.39.1",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "globals": "^16.5.0",
-    "prettier": "^3.7.4",
-    "typescript": "^5",
-    "typescript-eslint": "^8.48.1"
+    "@types/bun": "1.3.9",
+    "@types/react": "^19.2.14",
+    "oxfmt": "^0.32.0",
+    "oxlint": "^1.47.0",
+    "typescript": "^5"
   }
 }

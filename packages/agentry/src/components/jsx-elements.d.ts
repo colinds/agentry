@@ -64,5 +64,3 @@ declare module 'react/jsx-dev-runtime' {
     interface IntrinsicElements extends AgentryElements {}
   }
 }
-
-export {}

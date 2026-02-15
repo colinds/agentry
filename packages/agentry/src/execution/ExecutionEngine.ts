@@ -213,7 +213,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       }
     }
 
-    const betas: Set<string> = new Set([...(this.config.betas ?? [])])
+    const betas: Set<string> = new Set(this.config.betas ?? [])
     if (mcpServers?.length) {
       betas.add(ANTHROPIC_BETAS.MCP_CLIENT)
     }

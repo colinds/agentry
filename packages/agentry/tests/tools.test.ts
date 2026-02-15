@@ -1,7 +1,12 @@
 import { test, expect } from 'bun:test'
 import { z } from 'zod'
 import type { BetaMessage } from '@anthropic-ai/sdk/resources/beta'
-import { defineTool, parseToolInput, executeTool, toApiTool } from '../src/tools'
+import {
+  defineTool,
+  parseToolInput,
+  executeTool,
+  toApiTool,
+} from '../src/tools'
 import {
   initialState,
   transition,

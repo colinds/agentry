@@ -28,8 +28,7 @@ const ChatbotAgent = () => {
         // WARNING: eval() is a security risk - this is for demo purposes only!
         // Never use eval() with untrusted input in production code.
         // Use a proper math parser library like mathjs instead.
-        // eslint-disable-next-line react-hooks/unsupported-syntax
-        const result = eval(expression)
+        const result = eval(expression) // oxlint-disable-line no-eval
         return `Result: ${result}`
       } catch {
         return `Error: Invalid expression`

@@ -212,8 +212,7 @@ Insights: [Premium insights would appear here]`
               try {
                 // Simple eval for demo purposes
                 // In production, use a proper math parser
-                // eslint-disable-next-line react-hooks/unsupported-syntax
-                const result = eval(expression)
+                const result = eval(expression) // oxlint-disable-line no-eval
                 return `📊 Calculation Result: ${expression} = ${result}`
               } catch (error) {
                 return `❌ Error evaluating expression: ${error}`

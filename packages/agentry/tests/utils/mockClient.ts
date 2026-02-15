@@ -428,4 +428,3 @@ export function createStepMockClient(responses: MockResponse[]): {
 
   return { client, controller }
 }
-

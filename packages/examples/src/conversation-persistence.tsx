@@ -60,7 +60,7 @@ function createTools() {
       try {
         // WARNING: eval() is a security risk - this is for demo purposes only!
         // Never use eval() with untrusted input in production code. Use mathjs or similar instead.
-        const result = eval(expression)
+        const result = eval(expression) // oxlint-disable-line no-eval
         return `Result: ${result}`
       } catch (error) {
         return `Error: Invalid expression - ${error instanceof Error ? error.message : String(error)}`

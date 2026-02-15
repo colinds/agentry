@@ -27,8 +27,7 @@ function CTFGame() {
               setFound(true)
               return 'correct! You found the secret number!'
             }
-            const diff = Math.abs(number - secretNumber)
-            return diff <= 5 ? 'hot' : diff <= 15 ? 'warm' : 'cold'
+            return number > secretNumber ? 'too high' : 'too low'
           }}
         />
         {found && (
