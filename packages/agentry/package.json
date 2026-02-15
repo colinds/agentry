@@ -37,8 +37,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "bun run build.ts && tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
+    "build": "bun run build.ts && tsgo -p tsconfig.build.json",
+    "typecheck": "tsgo --noEmit",
     "prepublishOnly": "bun run build",
     "prepack": "cp ../../README.md . && cp ../../LICENSE.md .",
     "postpack": "rm README.md LICENSE.md"
