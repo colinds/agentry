@@ -48,7 +48,7 @@ export interface OnStepFinishResult {
   /** Token usage for this step */
   usage: StepUsage
 
-  /** Full message from Claude API (advanced use) */
+  /** Full message from the provider API (advanced use) */
   message: AgentMessage
 
   /** Immutable snapshot of full conversation history */

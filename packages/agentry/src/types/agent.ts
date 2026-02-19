@@ -14,7 +14,7 @@ export type ThinkingConfig =
 
 export interface AgentProps {
   provider?: ProviderName
-  model: Model
+  model?: Model
 
   name?: string
   description?: string
@@ -45,7 +45,7 @@ export type AgentStreamEvent =
   | { type: 'tool_use_input'; toolId: string; partialInput: string }
   | { type: 'tool_result'; toolId: string; result: string; isError: boolean }
   | { type: 'thinking'; text: string }
-  | { type: 'message_complete'; stopReason: string }
+  | { type: 'message_complete'; stopReason: string | null }
 
 export interface AgentResult {
   content: string

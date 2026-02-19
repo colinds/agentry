@@ -6,6 +6,7 @@ import type {
   AgentToolFunction,
   InternalAgentTool,
 } from '../types'
+import type { JsonValue } from '../types/json'
 import type { ExecutionEngine } from '../execution'
 import type { AgentStore } from '../store'
 import type { z } from 'zod'
@@ -95,7 +96,7 @@ export interface AgentToolInstance extends BaseInstance {
   name: string
   description: string
   parameters: z.ZodType
-  jsonSchema: Record<string, object | string | number | boolean | null>
+  jsonSchema: Record<string, JsonValue>
   agent: AgentToolFunction<z.ZodType>
 }
 

@@ -14,7 +14,13 @@ export interface ProviderClientMap {
 export interface NormalizedTurnRequest {
   model: Model
   maxTokens: number
-  system?: string | Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }>
+  system?:
+    | string
+    | Array<{
+        type: 'text'
+        text: string
+        cache_control?: { type: 'ephemeral' }
+      }>
   messages: AgentMessageParam[]
   tools: InternalTool[]
   sdkTools: SdkTool[]
@@ -32,10 +38,10 @@ export interface NormalizedTurnResponse {
   message: AgentMessage
 }
 
-export interface ProviderAdapter {
-  name: ProviderName
+export interface ProviderAdapter<TName extends ProviderName = ProviderName> {
+  name: TName
   createTurn(
-    client: ProviderClientMap[ProviderName],
+    client: ProviderClientMap[TName],
     request: NormalizedTurnRequest,
   ): Promise<NormalizedTurnResponse>
 }

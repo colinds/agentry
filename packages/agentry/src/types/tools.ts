@@ -8,7 +8,7 @@ import type {
 import type { Model, AgentResult } from './agent'
 import type { ProviderName } from './provider'
 import type { ProviderClientMap } from '../providers/types'
-import type { JsonObject } from './json'
+import type { JsonObject, JsonValue } from './json'
 
 export interface MemoryHandlers {
   /** Handler for viewing directory contents or file contents */
@@ -94,14 +94,15 @@ export interface RunAgentOptions {
   signal?: AbortSignal
 }
 
-export interface ToolContext {
+type ProviderContextFields =
+  | { provider: 'anthropic'; client?: ProviderClientMap['anthropic'] }
+  | { provider: 'openai'; client?: ProviderClientMap['openai'] }
+  | { provider?: undefined; client?: undefined }
+
+type BaseToolContext = {
   agentName: string
-  provider?: ProviderName
   clients?: Partial<ProviderClientMap>
-  /** Client for current provider (backward-compatible alias) */
-  client?: ProviderClientMap[ProviderName]
   model?: Model
-  // abort signal for cancellation
   signal?: AbortSignal
   metadata?: JsonObject
   /**
@@ -132,7 +133,9 @@ export interface ToolContext {
   ) => Promise<AgentResult>
 }
 
-export interface RunnableTool<TInput = z.output<z.ZodType>> {
+export type ToolContext = BaseToolContext & ProviderContextFields
+
+export interface RunnableTool<TInput = unknown> {
   name: string
   description: string
   parameters: z.ZodType<TInput>
@@ -142,9 +145,8 @@ export interface RunnableTool<TInput = z.output<z.ZodType>> {
   ) => Promise<ToolResult> | ToolResult
 }
 
-export interface InternalTool<TInput = z.output<z.ZodType>>
-  extends RunnableTool<TInput> {
-  jsonSchema: Record<string, object | string | number | boolean | null>
+export interface InternalTool<TInput = unknown> extends RunnableTool<TInput> {
+  jsonSchema: Record<string, JsonValue>
   strict?: boolean
 }
 
@@ -165,7 +167,7 @@ export function isRunnableTool(tool: ToolUnion): tool is InternalTool {
 export interface PendingToolCall {
   id: string
   name: string
-  input: z.output<z.ZodType>
+  input: unknown
 }
 
 export interface ToolExecutionResult {

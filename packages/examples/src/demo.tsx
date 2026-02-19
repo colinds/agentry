@@ -11,10 +11,7 @@ import {
   Message,
   AgentTool,
 } from 'agentry'
-import {
-  anthropic,
-  WebSearch as AnthropicWebSearch,
-} from 'agentry/anthropic'
+import { anthropic, WebSearch as AnthropicWebSearch } from 'agentry/anthropic'
 import { openai, WebSearch as OpenAIWebSearch } from 'agentry/openai'
 import { MODEL, OPENAI_MODEL } from './constants'
 

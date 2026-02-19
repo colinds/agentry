@@ -9,7 +9,7 @@ function MathAgent() {
   console.log(`[MathAgent render] isUnlocked=${isUnlocked}`)
 
   return (
-    <Agent model={MODEL} maxTokens={2048}>
+    <Agent provider="anthropic" model={MODEL} maxTokens={2048}>
       <System>
         You are a helpful math assistant.
         {isUnlocked

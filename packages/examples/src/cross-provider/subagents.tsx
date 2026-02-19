@@ -1,5 +1,13 @@
 import { z } from 'zod'
-import { createAI, Agent, System, Message, Tools, AgentTool, Tool } from 'agentry'
+import {
+  createAI,
+  Agent,
+  System,
+  Message,
+  Tools,
+  AgentTool,
+  Tool,
+} from 'agentry'
 import { anthropic } from 'agentry/anthropic'
 import { openai } from 'agentry/openai'
 import {
@@ -55,7 +63,8 @@ const result = await ai.run(
     </Tools>
 
     <Message role="user">
-      Research recent Bun runtime performance improvements and provide a short reviewed summary.
+      Research recent Bun runtime performance improvements and provide a short
+      reviewed summary.
     </Message>
   </Agent>,
 )

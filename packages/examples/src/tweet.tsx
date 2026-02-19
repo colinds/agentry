@@ -13,18 +13,13 @@ import {
   anthropic,
   CodeExecution as AnthropicCodeExecution,
 } from 'agentry/anthropic'
-import {
-  openai,
-  CodeExecution as OpenAICodeExecution,
-} from 'agentry/openai'
+import { openai, CodeExecution as OpenAICodeExecution } from 'agentry/openai'
 import { MODEL, OPENAI_MODEL } from './constants'
 
 const EXAMPLE_PROVIDER =
   process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
 const CodeExecution =
-  EXAMPLE_PROVIDER === 'openai'
-    ? OpenAICodeExecution
-    : AnthropicCodeExecution
+  EXAMPLE_PROVIDER === 'openai' ? OpenAICodeExecution : AnthropicCodeExecution
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
 const ai =
   EXAMPLE_PROVIDER === 'openai'

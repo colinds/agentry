@@ -62,7 +62,7 @@ function AuthWorkflowAgent() {
   const [auth, setAuth] = useState<AuthState>({ step: 'awaiting_email' })
 
   return (
-    <Agent model={MODEL} maxTokens={2048} stream={true}>
+    <Agent provider="anthropic" model={MODEL} maxTokens={2048} stream={true}>
       <System>You are a secure assistant that requires authentication.</System>
 
       {auth.step === 'awaiting_email' && (

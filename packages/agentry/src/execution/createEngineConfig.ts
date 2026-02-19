@@ -3,11 +3,12 @@ import type { AgentStore } from '../store'
 import { createAgentStore } from '../store'
 import type { ExecutionEngineConfig } from './ExecutionEngine'
 import type { ProviderClientMap, ProviderAdapter } from '../providers/types'
+import type { ProviderName } from '../types/provider'
 
 export interface EngineConfigOptions {
   agent: AgentInstance
   clients: Partial<ProviderClientMap>
-  adapters: Record<string, ProviderAdapter>
+  adapters: Record<string, ProviderAdapter<ProviderName>>
   store?: AgentStore
 }
 
@@ -64,7 +65,14 @@ export function createEngineConfig(
   if (!provider) {
     throw new Error('Provider is required on agent props.')
   }
-  const client = (agent.client ?? clients[provider]) as ExecutionEngineConfig['client']
+  const model = agent.props.model
+  if (!model) {
+    throw new Error(
+      'model is required on the agent. Set it via the model prop on <Agent>.',
+    )
+  }
+  const client = (agent.client ??
+    clients[provider]) as ExecutionEngineConfig['client']
   if (!client) {
     throw new Error(`No client configured for provider "${provider}"`)
   }
@@ -74,7 +82,7 @@ export function createEngineConfig(
     clients,
     adapters,
     client,
-    model: agent.props.model,
+    model,
     maxTokens: agent.props.maxTokens ?? 4096,
     system,
     stream: agent.props.stream ?? false,

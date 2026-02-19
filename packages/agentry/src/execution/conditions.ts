@@ -1,11 +1,16 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
+import type OpenAI from 'openai'
+import type {
+  BetaContentBlockParam,
+  BetaMessageParam,
+} from '@anthropic-ai/sdk/resources/beta'
 import type { AgentMessageParam } from '../types/messages'
 import type { ConditionInstance, Instance } from '../instances/types'
 import { isConditionInstance } from '../instances/types'
 import { debug } from '../debug'
 import type { ProviderClientMap } from '../providers/types'
 import type { ProviderName } from '../types/provider'
+import { toOpenAIInput } from '../providers/openai'
 
 /**
  * Find all condition instances in the tree
@@ -67,32 +72,33 @@ export async function evaluateConditions(
   const nlConditions = conditions.filter((c) => typeof c.when === 'string')
 
   if (nlConditions.length > 0 && options?.evaluateNL !== false) {
-    if (provider !== 'anthropic') {
-      return hasChanges
-    }
-    const client = clients.anthropic as Anthropic | undefined
-    if (!client) {
-      return hasChanges
-    }
-    const nlResults = await evaluateNaturalLanguageConditions(
-      nlConditions,
-      messages,
-      client,
-      model,
-      signal,
-    )
+    try {
+      const nlResults = await evaluateNaturalLanguageConditions(
+        nlConditions,
+        messages,
+        clients,
+        provider,
+        model,
+        signal,
+      )
 
-    for (let i = 0; i < nlConditions.length; i++) {
-      const condition = nlConditions[i]!
-      const newActive = nlResults[i]!
-      if (condition.isActive !== newActive) {
-        condition.isActive = newActive
-        hasChanges = true
-        debug(
-          'reconciler:conditions',
-          `NL condition "${condition.when}" ${newActive ? 'activated' : 'deactivated'}`,
-        )
+      for (let i = 0; i < nlConditions.length; i++) {
+        const condition = nlConditions[i]!
+        const newActive = nlResults[i]!
+        if (condition.isActive !== newActive) {
+          condition.isActive = newActive
+          hasChanges = true
+          debug(
+            'reconciler:conditions',
+            `NL condition "${condition.when}" ${newActive ? 'activated' : 'deactivated'}`,
+          )
+        }
       }
+    } catch (e) {
+      console.error(
+        '[agentry] NL condition evaluation failed, conditions unchanged:',
+        e,
+      )
     }
   }
 
@@ -105,9 +111,77 @@ export async function evaluateConditions(
 }
 
 /**
- * Batch evaluate multiple natural language conditions via single LLM call
+ * Dispatch NL condition evaluation to the appropriate provider implementation.
  */
 async function evaluateNaturalLanguageConditions(
+  conditions: ConditionInstance[],
+  messages: AgentMessageParam[],
+  clients: Partial<ProviderClientMap>,
+  provider: ProviderName,
+  model: string,
+  signal?: AbortSignal,
+): Promise<boolean[]> {
+  if (provider === 'anthropic' && clients.anthropic) {
+    return evaluateNLWithAnthropic(
+      conditions,
+      messages,
+      clients.anthropic,
+      model,
+      signal,
+    )
+  }
+  if (provider === 'openai' && clients.openai) {
+    return evaluateNLWithOpenAI(
+      conditions,
+      messages,
+      clients.openai,
+      model,
+      signal,
+    )
+  }
+  console.warn(
+    `[agentry] No client available for NL condition evaluation (provider: ${provider}). Conditions will remain unchanged.`,
+  )
+  return conditions.map(() => false)
+}
+
+/**
+ * Convert a normalized AgentMessageParam to Anthropic SDK BetaMessageParam,
+ * filtering out thinking blocks (which require provider signatures to replay).
+ */
+function toAnthroBetaMessageParam(
+  message: AgentMessageParam,
+): BetaMessageParam {
+  if (typeof message.content === 'string') {
+    return { role: message.role, content: message.content }
+  }
+  const content: BetaContentBlockParam[] = []
+  for (const block of message.content) {
+    if (block.type === 'text') {
+      content.push({ type: 'text', text: block.text })
+    } else if (block.type === 'tool_use') {
+      content.push({
+        type: 'tool_use',
+        id: block.id,
+        name: block.name,
+        input: block.input,
+      })
+    } else if (block.type === 'tool_result') {
+      content.push({
+        type: 'tool_result',
+        tool_use_id: block.tool_use_id,
+        content: block.content,
+      })
+    }
+    // thinking blocks are skipped — they require provider-generated signatures
+  }
+  return { role: message.role, content }
+}
+
+/**
+ * Evaluate NL conditions using Anthropic's structured outputs beta.
+ */
+async function evaluateNLWithAnthropic(
   conditions: ConditionInstance[],
   messages: AgentMessageParam[],
   client: Anthropic,
@@ -120,7 +194,9 @@ async function evaluateNaturalLanguageConditions(
 
   const validIndices = conditions.map((_, index) => index)
 
-  const evalMessages = ensureValidMessageStart(messages)
+  const evalMessages = ensureValidMessageStart(messages).map(
+    toAnthroBetaMessageParam,
+  )
 
   const startTime = performance.now()
   const response = await client.beta.messages.create(
@@ -134,9 +210,9 @@ ${conditionDescriptions}
 
 Return ALL indices of conditions that are TRUE based on the current conversation state.`,
       messages: [
-        ...(evalMessages as BetaMessageParam[]),
+        ...evalMessages,
         {
-          role: 'user',
+          role: 'user' as const,
           content: 'Which conditions are true?',
         },
       ],
@@ -177,22 +253,111 @@ Return ALL indices of conditions that are TRUE based on the current conversation
 
     debug(
       'reconciler:conditions',
-      `NL evaluation (${durationMs}ms): ${trueIndices.size}/${conditions.length} conditions true [${Array.from(trueIndices).join(', ')}]`,
+      `NL evaluation via Anthropic (${durationMs}ms): ${trueIndices.size}/${conditions.length} conditions true [${Array.from(trueIndices).join(', ')}]`,
     )
 
     return conditions.map((_, index) => trueIndices.has(index))
   }
 
-  // fallback: all false if evaluation fails
-  debug(
-    'reconciler:conditions',
-    'NL evaluation failed, defaulting all to false',
+  console.warn(
+    '[agentry] NL condition evaluation: Anthropic model did not return evaluate_conditions tool call. All NL conditions defaulting to false.',
+  )
+  return conditions.map(() => false)
+}
+
+/**
+ * Evaluate NL conditions using OpenAI's function calling via the Responses API.
+ */
+async function evaluateNLWithOpenAI(
+  conditions: ConditionInstance[],
+  messages: AgentMessageParam[],
+  client: OpenAI,
+  model: string,
+  signal?: AbortSignal,
+): Promise<boolean[]> {
+  const conditionDescriptions = conditions
+    .map((c, index) => `${index}. ${c.when}`)
+    .join('\n')
+
+  const validIndices = conditions.map((_, index) => index)
+  const evalMessages = ensureValidMessageStart(messages)
+
+  const input = [
+    ...toOpenAIInput(evalMessages),
+    { role: 'user' as const, content: 'Which conditions are true?' },
+  ]
+
+  const startTime = performance.now()
+  const response = await client.responses.create(
+    {
+      model,
+      instructions: `You are a condition evaluation assistant. Given a conversation, determine which conditions are true. Multiple conditions can be true simultaneously.
+
+Conditions:
+${conditionDescriptions}
+
+Return ALL indices of conditions that are TRUE based on the current conversation state.`,
+      input,
+      tools: [
+        {
+          type: 'function',
+          name: 'evaluate_conditions',
+          description: 'Select all condition indices that evaluate to true',
+          parameters: {
+            type: 'object',
+            properties: {
+              trueConditionIndices: {
+                type: 'array',
+                items: { type: 'number', enum: validIndices },
+                description:
+                  'Indices of conditions that are true (empty array if none)',
+              },
+            },
+            required: ['trueConditionIndices'],
+            additionalProperties: false,
+          },
+          strict: true,
+        },
+      ],
+      tool_choice: { type: 'function', name: 'evaluate_conditions' },
+      stream: false,
+    },
+    { signal },
+  )
+  const durationMs = Math.round(performance.now() - startTime)
+
+  const functionCall = response.output.find(
+    (item) =>
+      item.type === 'function_call' && item.name === 'evaluate_conditions',
+  )
+  if (functionCall && functionCall.type === 'function_call') {
+    try {
+      const parsed = JSON.parse(functionCall.arguments) as {
+        trueConditionIndices: number[]
+      }
+      const trueIndices = new Set(parsed.trueConditionIndices ?? [])
+
+      debug(
+        'reconciler:conditions',
+        `NL evaluation via OpenAI (${durationMs}ms): ${trueIndices.size}/${conditions.length} conditions true [${Array.from(trueIndices).join(', ')}]`,
+      )
+
+      return conditions.map((_, i) => trueIndices.has(i))
+    } catch {
+      // fall through to warn below
+    }
+  }
+
+  console.warn(
+    '[agentry] NL condition evaluation: OpenAI model did not return evaluate_conditions call. All NL conditions defaulting to false.',
   )
   return conditions.map(() => false)
 }
 
 // ensure messages don't start with a tool_result (which requires a preceding tool_use)
-function ensureValidMessageStart(messages: AgentMessageParam[]): AgentMessageParam[] {
+function ensureValidMessageStart(
+  messages: AgentMessageParam[],
+): AgentMessageParam[] {
   if (messages.length === 0) return messages
 
   // find the first user message that doesn't contain tool_results
@@ -207,7 +372,7 @@ function ensureValidMessageStart(messages: AgentMessageParam[]): AgentMessagePar
 
     // check if it has tool_results (which would need a preceding tool_use)
     const hasToolResult = msg.content.some(
-      (block) => typeof block === 'object' && block !== null && block.type === 'tool_result',
+      (block) => block.type === 'tool_result',
     )
     if (!hasToolResult) {
       return messages.slice(i)

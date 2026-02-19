@@ -37,7 +37,8 @@ const result = await run(
       />
     </Tools>
     <Message role="user">
-      Research "Bun startup performance", then run the reviewer on your own draft and return the final answer.
+      Research "Bun startup performance", then run the reviewer on your own
+      draft and return the final answer.
     </Message>
   </Agent>,
   {

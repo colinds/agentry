@@ -195,7 +195,7 @@ function SummarizerAgent({
 console.log('🚀 Programmatic Agent Spawning Example\n')
 
 const result = await run(
-  <Agent model={MODEL} maxTokens={8192}>
+  <Agent provider="anthropic" model={MODEL} maxTokens={8192}>
     <System>
       You are a content analyzer that can spawn specialized agents based on the
       type of analysis requested. You have access to tools that spawn different

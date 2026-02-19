@@ -51,10 +51,7 @@ export function AgentTool<TSchema extends z.ZodType>(
 ): ReactNode {
   if ('parameters' in props && 'jsonSchema' in props) {
     return (
-      <agent_tool
-        agentTool={props as InternalAgentTool}
-        key={props.name}
-      />
+      <agent_tool agentTool={props as InternalAgentTool} key={props.name} />
     )
   }
 

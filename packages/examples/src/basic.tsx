@@ -32,7 +32,7 @@ const calculatorTool = defineTool({
 })
 
 const result = await run(
-  <Agent model={MODEL} maxTokens={1024}>
+  <Agent provider="anthropic" model={MODEL} maxTokens={1024}>
     <System>You are a helpful math assistant.</System>
     <Tools>
       <Tool {...calculatorTool} />

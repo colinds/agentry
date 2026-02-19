@@ -1,21 +1,26 @@
 import type OpenAI from 'openai'
-import type { ProviderAdapter, NormalizedTurnRequest, NormalizedTurnResponse } from './types'
+import type {
+  ProviderAdapter,
+  NormalizedTurnRequest,
+  NormalizedTurnResponse,
+} from './types'
 import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
 import type { JsonObject } from '../types/json'
 import { isCodeExecutionTool, isWebSearchTool } from '../types/tools'
 
-type OpenAIResponseCreateParams = OpenAI.Responses.ResponseCreateParamsNonStreaming
+type OpenAIResponseCreateParams =
+  OpenAI.Responses.ResponseCreateParamsNonStreaming
+type OpenAIResponseCreateParamsStreaming =
+  OpenAI.Responses.ResponseCreateParamsStreaming
 type OpenAIResponseResult = OpenAI.Responses.Response
-type OpenAIInputItem =
+type OpenAIResponseStreamEvent = OpenAI.Responses.ResponseStreamEvent
+export type OpenAIInputItem =
   | { role: 'user' | 'assistant'; content: string }
   | { type: 'function_call'; call_id: string; name: string; arguments: string }
   | { type: 'function_call_output'; call_id: string; output: string }
 
 function stringifyContent(
-  content:
-    | string
-    | Array<{ type: string; text?: string }>
-    | undefined,
+  content: string | Array<{ type: string; text?: string }> | undefined,
 ): string {
   if (!content) return ''
   if (typeof content === 'string') return content
@@ -25,7 +30,9 @@ function stringifyContent(
     .join('\n')
 }
 
-function toOpenAIInput(messages: AgentMessageParam[]): OpenAIInputItem[] {
+export function toOpenAIInput(
+  messages: AgentMessageParam[],
+): OpenAIInputItem[] {
   const input: OpenAIInputItem[] = []
   for (const message of messages) {
     if (typeof message.content === 'string') {
@@ -48,13 +55,7 @@ function toOpenAIInput(messages: AgentMessageParam[]): OpenAIInputItem[] {
     }
 
     for (const block of message.content) {
-      if (
-        block.type === 'tool_use' &&
-        'id' in block &&
-        typeof block.id === 'string' &&
-        'name' in block &&
-        typeof block.name === 'string'
-      ) {
+      if (block.type === 'tool_use') {
         input.push({
           type: 'function_call',
           call_id: block.id,
@@ -63,15 +64,11 @@ function toOpenAIInput(messages: AgentMessageParam[]): OpenAIInputItem[] {
         })
         continue
       }
-      if (
-        block.type === 'tool_result' &&
-        'tool_use_id' in block &&
-        typeof block.tool_use_id === 'string'
-      ) {
+      if (block.type === 'tool_result') {
         input.push({
           type: 'function_call_output',
           call_id: block.tool_use_id,
-          output: stringifyContent('content' in block ? block.content : undefined),
+          output: stringifyContent(block.content),
         })
       }
     }
@@ -79,7 +76,9 @@ function toOpenAIInput(messages: AgentMessageParam[]): OpenAIInputItem[] {
   return input
 }
 
-function parseOpenAIResponse(response: OpenAIResponseResult): NormalizedTurnResponse {
+function parseOpenAIResponse(
+  response: OpenAIResponseResult,
+): NormalizedTurnResponse {
   const content: AgentContentBlock[] = []
   const output = Array.isArray(response.output) ? response.output : []
   for (const item of output) {
@@ -90,31 +89,66 @@ function parseOpenAIResponse(response: OpenAIResponseResult): NormalizedTurnResp
         }
       }
     } else if (item.type === 'function_call') {
+      const callId = item.call_id ?? item.id
+      if (!callId) {
+        throw new Error(
+          `[agentry] OpenAI returned a function_call with no call_id or id: ${JSON.stringify(item)}`,
+        )
+      }
+      if (!item.name) {
+        throw new Error(
+          `[agentry] OpenAI returned a function_call with no name: ${JSON.stringify(item)}`,
+        )
+      }
       let input: JsonObject = {}
       if (typeof item.arguments === 'string') {
         try {
           const parsed = JSON.parse(item.arguments)
-          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          if (
+            typeof parsed === 'object' &&
+            parsed !== null &&
+            !Array.isArray(parsed)
+          ) {
             input = parsed as JsonObject
+          } else {
+            console.error(
+              `[agentry] OpenAI tool call "${item.name}": expected object arguments, got ${typeof parsed}`,
+            )
           }
-        } catch {
-          input = {}
+        } catch (e) {
+          console.error(
+            `[agentry] OpenAI tool call "${item.name}": failed to parse arguments "${item.arguments}":`,
+            e,
+          )
         }
       }
       content.push({
         type: 'tool_use',
-        id: item.call_id ?? item.id ?? `call_${Date.now()}`,
-        name: item.name ?? 'tool',
+        id: callId,
+        name: item.name,
         input,
       })
-    } else if (item.type === 'reasoning' && typeof item.summary === 'string') {
-      content.push({ type: 'thinking', thinking: item.summary })
+    } else if (item.type === 'reasoning' && Array.isArray(item.summary)) {
+      const text = (item.summary as Array<{ type: string; text?: string }>)
+        .filter((s) => s.type === 'summary_text')
+        .map((s) => s.text ?? '')
+        .join('\n')
+      if (text) content.push({ type: 'thinking', thinking: text })
     }
   }
 
-  const stopReason = content.some((block) => block.type === 'tool_use')
-    ? 'tool_use'
-    : 'end_turn'
+  const stopReason =
+    response.status === 'incomplete'
+      ? (response.incomplete_details?.reason ?? 'length')
+      : content.some((block) => block.type === 'tool_use')
+        ? 'tool_use'
+        : 'end_turn'
+
+  if (!response.usage) {
+    console.warn(
+      '[agentry] OpenAI response missing usage field; token counts will be reported as 0',
+    )
+  }
 
   return {
     message: {
@@ -128,7 +162,9 @@ function parseOpenAIResponse(response: OpenAIResponseResult): NormalizedTurnResp
   }
 }
 
-function toOpenAITools(request: NormalizedTurnRequest): OpenAI.Responses.Tool[] {
+function toOpenAITools(
+  request: NormalizedTurnRequest,
+): OpenAI.Responses.Tool[] {
   const tools: OpenAI.Responses.Tool[] = request.tools.map((tool) => ({
     type: 'function',
     name: tool.name,
@@ -180,7 +216,7 @@ function toOpenAITools(request: NormalizedTurnRequest): OpenAI.Responses.Tool[] 
   return tools
 }
 
-export const openaiAdapter: ProviderAdapter = {
+export const openaiAdapter: ProviderAdapter<'openai'> = {
   name: 'openai',
   async createTurn(
     client: OpenAI,
@@ -194,23 +230,28 @@ export const openaiAdapter: ProviderAdapter = {
         : request.system?.map((s) => s.text).join('\n')
 
     const input = toOpenAIInput(request.messages)
-    const payload: OpenAIResponseCreateParams = {
+    const basePayload = {
       model: request.model,
       input,
       tools: tools.length ? tools : undefined,
       max_output_tokens: request.maxTokens,
       temperature: request.temperature,
+      ...(systemText ? { instructions: systemText } : {}),
+    }
+
+    if (request.stream) {
+      return streamOpenAITurn(client, basePayload, request)
+    }
+
+    const payload: OpenAIResponseCreateParams = {
+      ...basePayload,
       stream: false,
     }
-
-    if (systemText) {
-      payload.instructions = systemText
-    }
-
     const response = await client.responses.create(payload, {
       signal: request.signal,
     })
     const normalized = parseOpenAIResponse(response)
+    // fire synthetic stream events so the engine's onStream handler is always called
     const text = normalized.message.content
       .filter((block) => block.type === 'text')
       .map((block) => (block.type === 'text' ? block.text : ''))
@@ -233,4 +274,69 @@ export const openaiAdapter: ProviderAdapter = {
     })
     return normalized
   },
+}
+
+async function streamOpenAITurn(
+  client: OpenAI,
+  basePayload: Omit<OpenAIResponseCreateParamsStreaming, 'stream'>,
+  request: NormalizedTurnRequest,
+): Promise<NormalizedTurnResponse> {
+  const payload: OpenAIResponseCreateParamsStreaming = {
+    ...basePayload,
+    stream: true as const,
+  }
+  const stream = await client.responses.create(payload, {
+    signal: request.signal,
+  })
+
+  let accumulatedText = ''
+  let finalResponse: OpenAIResponseResult | null = null
+
+  for await (const event of stream as AsyncIterable<OpenAIResponseStreamEvent>) {
+    if (event.type === 'response.output_text.delta') {
+      accumulatedText += event.delta
+      request.onStream({
+        type: 'text',
+        text: event.delta,
+        accumulated: accumulatedText,
+      })
+    } else if (event.type === 'response.reasoning_summary_text.delta') {
+      request.onStream({ type: 'thinking', text: event.delta })
+    } else if (event.type === 'response.output_item.added') {
+      const item = event.item
+      if (item.type === 'function_call') {
+        const callId = 'call_id' in item ? (item.call_id as string) : undefined
+        const name = 'name' in item ? (item.name as string) : undefined
+        if (callId && name) {
+          request.onStream({
+            type: 'tool_use_start',
+            toolName: name,
+            toolId: callId,
+          })
+        }
+      }
+    } else if (event.type === 'response.completed') {
+      finalResponse = event.response
+    } else if (event.type === 'response.incomplete') {
+      finalResponse = event.response
+    } else if (event.type === 'response.failed') {
+      const err = event.response.error
+      throw new Error(
+        `[agentry] OpenAI response failed: ${err?.message ?? JSON.stringify(err)}`,
+      )
+    }
+  }
+
+  if (!finalResponse) {
+    throw new Error(
+      '[agentry] OpenAI stream ended without a response.completed event',
+    )
+  }
+
+  const normalized = parseOpenAIResponse(finalResponse)
+  request.onStream({
+    type: 'message_complete',
+    stopReason: normalized.message.stop_reason ?? 'unknown',
+  })
+  return normalized
 }

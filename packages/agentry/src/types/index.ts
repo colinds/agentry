@@ -4,7 +4,6 @@ export {
   type AgentContentBlock,
   type BetaMessage,
   type BetaMessageParam,
-  type BetaContentBlock,
   type BetaToolUseBlock,
   type BetaTextBlock,
   type ToolUseContentBlock,
@@ -52,9 +51,7 @@ export {
   isProcessing,
 } from './state'
 
-export {
-  type ProviderName,
-} from './provider'
+export { type ProviderName } from './provider'
 
 export {
   type Model,

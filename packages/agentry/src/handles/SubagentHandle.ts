@@ -11,7 +11,10 @@ import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
 import type { ProviderClientMap } from '../providers/types'
 import type { ProviderName } from '../types/provider'
 import { createDefaultAdapters } from '../providers'
-import { ensureProviderClient, setProviderClient } from '../providers/clientResolver'
+import {
+  ensureProviderClient,
+  setProviderClient,
+} from '../providers/clientResolver'
 
 export class SubagentHandle extends AbstractAgentHandle {
   private subagent: SubagentInstance
@@ -109,6 +112,11 @@ export class SubagentHandle extends AbstractAgentHandle {
     // Copy props from subagent to the rendered instance
     if (!agentInstance.props.model && this.subagent.props.model) {
       agentInstance.props.model = this.subagent.props.model
+    }
+
+    // Inherit provider from the subagent instance if the <Agent> element omits it
+    if (!agentInstance.props.provider && this.subagent.props.provider) {
+      agentInstance.props.provider = this.subagent.props.provider
     }
 
     const { temperature, maxIterations, stopSequences, stream } =

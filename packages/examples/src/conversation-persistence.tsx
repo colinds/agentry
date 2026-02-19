@@ -45,7 +45,9 @@ async function saveConversation(
 /**
  * Load conversation from JSON file
  */
-async function loadConversation(filename: string): Promise<AgentMessageParam[]> {
+async function loadConversation(
+  filename: string,
+): Promise<AgentMessageParam[]> {
   const filepath = join(CONVERSATIONS_DIR, filename)
   const content = await readFile(filepath, 'utf-8')
   const data = JSON.parse(content) as ConversationData
@@ -100,7 +102,7 @@ const DemoAgent = ({ initialMessages = [] }: DemoAgentProps) => {
   const tools = createTools()
 
   return (
-    <Agent model={MODEL} maxTokens={2048} stream={false}>
+    <Agent provider="anthropic" model={MODEL} maxTokens={2048} stream={false}>
       <System>
         You are a helpful assistant with calculator and time tools. You can
         remember previous conversations if they are loaded.

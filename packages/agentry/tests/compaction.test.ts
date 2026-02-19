@@ -3,7 +3,7 @@ import { ExecutionEngine } from '../src/execution'
 import { createAgentStore } from '../src/store'
 import { createStepMockClient, mockText } from './utils'
 import { TEST_MODEL } from '../src/constants'
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
+import type { AgentMessageParam } from '../src/types'
 import type { AgentInstance } from '../src/instances'
 
 test('compactionControl compacts messages when threshold is exceeded', async () => {
@@ -12,14 +12,14 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
   ])
 
   const store = createAgentStore()
-  const originalMessages: BetaMessageParam[] = [
+  const originalMessages: AgentMessageParam[] = [
     {
       role: 'user',
-      content: [{ type: 'text', text: 'First message', citations: null }],
+      content: [{ type: 'text', text: 'First message' }],
     },
     {
       role: 'assistant',
-      content: [{ type: 'text', text: 'Second message', citations: null }],
+      content: [{ type: 'text', text: 'Second message' }],
     },
   ]
 
@@ -118,14 +118,14 @@ test('compactionControl does nothing when under threshold', async () => {
   ])
 
   const store = createAgentStore()
-  const originalMessages: BetaMessageParam[] = [
+  const originalMessages: AgentMessageParam[] = [
     {
       role: 'user',
-      content: [{ type: 'text', text: 'Short exchange', citations: null }],
+      content: [{ type: 'text', text: 'Short exchange' }],
     },
     {
       role: 'assistant',
-      content: [{ type: 'text', text: 'Still short', citations: null }],
+      content: [{ type: 'text', text: 'Still short' }],
     },
   ]
 

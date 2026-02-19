@@ -162,6 +162,7 @@ function Factory() {
 
   return (
     <Agent
+      provider="anthropic"
       model={MODEL}
       maxTokens={2048}
       temperature={0.7}

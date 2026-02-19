@@ -10,7 +10,12 @@ export interface ContainerInfo {
 export function createContainer(agentInstance: AgentInstance): ContainerInfo {
   const createContainerFn = reconciler.createContainer as (
     ...args: Array<
-      AgentInstance | number | string | boolean | null | ((error: Error) => void)
+      | AgentInstance
+      | number
+      | string
+      | boolean
+      | null
+      | ((error: Error) => void)
     >
   ) => ReturnType<typeof reconciler.createContainer>
 

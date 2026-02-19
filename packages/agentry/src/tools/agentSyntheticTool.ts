@@ -31,12 +31,17 @@ export const createAgentSyntheticTool = (
 
       const agentElement = agentTool.agent(validatedInput)
 
+      // Extract stream from the JSX element's props, defaulting to false for subagents
+      const agentElementStream =
+        (agentElement.props as { stream?: boolean }).stream ?? false
+
       const subagent: SubagentInstance = createSubagentInstance(
         {
           name: agentTool.name,
           description: agentTool.description,
           provider: toolContext.provider,
           agentNode: agentElement,
+          stream: agentElementStream,
         },
         {
           provider: toolContext.provider,
@@ -50,7 +55,11 @@ export const createAgentSyntheticTool = (
         signal: toolContext.signal,
       })
 
-      return result.content
+      const content = result.content
+      if (!content) {
+        return `Subagent "${agentTool.name}" completed but produced no text output. Stop reason: ${result.stopReason ?? 'unknown'}.`
+      }
+      return content
     },
   }
 }

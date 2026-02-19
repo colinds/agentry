@@ -34,7 +34,13 @@ function CoderAgent({
 }
 
 const result = await run(
-  <Agent model={MODEL} name="manager" maxTokens={4096} temperature={0.7}>
+  <Agent
+    provider="anthropic"
+    model={MODEL}
+    name="manager"
+    maxTokens={4096}
+    temperature={0.7}
+  >
     <System>
       You are a project manager who delegates tasks to specialists. You have
       access to a researcher and a coder.

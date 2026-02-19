@@ -20,6 +20,7 @@ import { isProcessing, type AgentState } from '../types/state'
 import { yieldToScheduler } from '../scheduler'
 import { AgentProvider } from '../context'
 import type { ProviderAdapter, ProviderClientMap } from '../providers/types'
+import type { ProviderName } from '../types/provider'
 
 export interface AgentHandleEvents {
   stateChange: (state: AgentState) => void
@@ -37,14 +38,14 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   protected containerInfo: ContainerInfo
   protected engine: ExecutionEngine | null = null
   protected clients: Partial<ProviderClientMap>
-  protected adapters: Record<string, ProviderAdapter>
+  protected adapters: Record<string, ProviderAdapter<ProviderName>>
   protected running = false
   protected store: AgentStore
   protected instance: AgentInstance | null = null
 
   constructor(
     clients: Partial<ProviderClientMap>,
-    adapters: Record<string, ProviderAdapter>,
+    adapters: Record<string, ProviderAdapter<ProviderName>>,
     containerInfo: ContainerInfo,
     store: AgentStore,
   ) {
@@ -281,9 +282,13 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     this.on('complete', onComplete)
     this.on('error', onError)
 
-    const runPromise = this.run(message).catch((e) => {
-      error = e
+    const runPromise = this.run(message).catch((e: unknown) => {
+      error = e instanceof Error ? e : new Error(String(e))
       done = true
+      if (resolveNext) {
+        resolveNext(null)
+        resolveNext = null
+      }
     })
 
     try {

@@ -28,10 +28,16 @@ export interface AI {
     element: ReactNode,
     options: AIBoundRunOptions & { mode: 'interactive' },
   ): Promise<AgentHandle>
-  createAgent(element: ReactNode, options?: AIBoundCreateAgentOptions): AgentHandle
+  createAgent(
+    element: ReactNode,
+    options?: AIBoundCreateAgentOptions,
+  ): AgentHandle
 }
 
-function mergeRunOptions(defaults: AIDefaults, options?: AIBoundRunOptions): RunOptions {
+function mergeRunOptions(
+  defaults: AIDefaults,
+  options?: AIBoundRunOptions,
+): RunOptions {
   return {
     clients: {
       ...defaults.clients,
@@ -53,6 +59,55 @@ function mergeCreateAgentOptions(
   }
 }
 
+/**
+ * Create a pre-configured AI instance with bound default clients and mode.
+ * All calls to `ai.run()` and `ai.createAgent()` inherit the defaults, with
+ * per-call options merged on top.
+ *
+ * @example basic usage — shared clients across multiple runs
+ * ```ts
+ * const ai = createAI({
+ *   clients: { anthropic: new Anthropic() },
+ * })
+ *
+ * const result = await ai.run(
+ *   <Agent provider="anthropic" model="claude-haiku-4-5">
+ *     <Message role="user">Hello!</Message>
+ *   </Agent>
+ * )
+ * console.log(result.content)
+ * ```
+ *
+ * @example multi-provider setup — override clients per call
+ * ```ts
+ * const ai = createAI({
+ *   clients: { anthropic: new Anthropic(), openai: new OpenAI() },
+ * })
+ *
+ * // per-call override — uses only the openai client for this run
+ * const result = await ai.run(
+ *   <Agent provider="openai" model="gpt-5-mini">
+ *     <Message role="user">Hello!</Message>
+ *   </Agent>,
+ *   { clients: { openai: customOpenAIClient } }
+ * )
+ * ```
+ *
+ * @example interactive mode default
+ * ```ts
+ * const ai = createAI({
+ *   clients: { anthropic: new Anthropic() },
+ *   mode: 'interactive',
+ * })
+ *
+ * const handle = await ai.run(
+ *   <Agent provider="anthropic" model="claude-haiku-4-5">
+ *     <System>You are a helpful assistant</System>
+ *   </Agent>
+ * )
+ * const result = await handle.sendMessage('Hello!')
+ * ```
+ */
 export function createAI(defaults: AIDefaults): AI {
   async function run(
     element: ReactNode,
@@ -75,7 +130,10 @@ export function createAI(defaults: AIDefaults): AI {
     return runBase(element, { ...merged, mode: merged.mode ?? 'batch' })
   }
 
-  function createAgent(element: ReactNode, options?: AIBoundCreateAgentOptions): AgentHandle {
+  function createAgent(
+    element: ReactNode,
+    options?: AIBoundCreateAgentOptions,
+  ): AgentHandle {
     return createAgentBase(element, mergeCreateAgentOptions(defaults, options))
   }
 

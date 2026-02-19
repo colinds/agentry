@@ -8,7 +8,7 @@ function CTFGame() {
   const [found, setFound] = useState(false)
 
   return (
-    <Agent model={MODEL}>
+    <Agent provider="anthropic" model={MODEL}>
       <System>
         You are playing a CTF game. Find the secret number between 1 and 100.
       </System>

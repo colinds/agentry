@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { z } from 'zod'
-import type { BetaMessage } from '@anthropic-ai/sdk/resources/beta'
+import type { AgentMessage } from '../src/types'
 import {
   defineTool,
   parseToolInput,
@@ -21,8 +21,9 @@ import { createRunAgent } from '../src/run/runAgentFunction'
 const { client } = createStepMockClient([])
 const mockContext: ToolContext = {
   agentName: 'test-agent',
+  provider: 'anthropic',
   client,
-  runAgent: createRunAgent({ client, model: 'claude-sonnet-4-5' }),
+  runAgent: createRunAgent({ client, model: 'claude-sonnet-4-5', provider: 'anthropic' }),
 }
 
 test('defineTool creates a type-safe tool', () => {
@@ -193,7 +194,7 @@ test('state machine transitions to completed state', () => {
     abortController: new AbortController(),
   })
 
-  const finalMessage = { id: 'msg_1', type: 'message' } as BetaMessage
+  const finalMessage = { content: [], stop_reason: null, usage: { input_tokens: 0, output_tokens: 0 } } as AgentMessage
   state = transition(state, { type: 'completed', finalMessage })
 
   expect(state.status).toBe('completed')
@@ -205,7 +206,7 @@ test('state machine transitions to completed state', () => {
 test('canAcceptMessages returns true for idle and completed', () => {
   expect(canAcceptMessages({ status: 'idle' })).toBe(true)
   expect(
-    canAcceptMessages({ status: 'completed', finalMessage: {} as BetaMessage }),
+    canAcceptMessages({ status: 'completed', finalMessage: {} as AgentMessage }),
   ).toBe(true)
   expect(
     canAcceptMessages({
@@ -221,7 +222,7 @@ test('canAcceptMessages returns true for idle and completed', () => {
 test('isProcessing returns true for active states', () => {
   expect(isProcessing({ status: 'idle' })).toBe(false)
   expect(
-    isProcessing({ status: 'completed', finalMessage: {} as BetaMessage }),
+    isProcessing({ status: 'completed', finalMessage: {} as AgentMessage }),
   ).toBe(false)
   expect(
     isProcessing({

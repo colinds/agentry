@@ -1,5 +1,6 @@
 import type { z } from 'zod'
 import type React from 'react'
+import type { JsonValue } from './json'
 
 /**
  * Function type that receives typed input and returns a React element
@@ -24,10 +25,10 @@ export interface DefineAgentToolOptions<TSchema extends z.ZodType> {
  * Internal representation of an agent tool with JSON schema
  * This is what gets stored in the reconciler instance
  */
-export interface InternalAgentTool<TInput = z.output<z.ZodType>> {
+export interface InternalAgentTool<TInput = unknown> {
   name: string
   description: string
   parameters: z.ZodType<TInput>
-  jsonSchema: Record<string, object | string | number | boolean | null>
+  jsonSchema: Record<string, JsonValue>
   agent: AgentToolFunction<z.ZodType<TInput>>
 }

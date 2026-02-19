@@ -7,15 +7,6 @@ type ProviderClient = ProviderClientMap[ProviderName]
 
 const sharedDefaultClients: Partial<ProviderClientMap> = {}
 
-export function inferProviderFromClient(
-  client?: ProviderClient,
-): ProviderName | undefined {
-  if (!client) return undefined
-  if (client instanceof Anthropic) return 'anthropic'
-  if (client instanceof OpenAI) return 'openai'
-  return undefined
-}
-
 export function setProviderClient(
   clients: Partial<ProviderClientMap>,
   provider: ProviderName,

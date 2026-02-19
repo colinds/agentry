@@ -5,7 +5,7 @@ import { createContainer, updateContainer } from '../reconciler/renderer'
 import { createAgentStore } from '../store'
 import { isAgentInstance } from '../instances/types'
 import { AgentProvider } from '../context'
-import { ANTHROPIC_MODEL, OPENAI_MODEL } from '../constants'
+import { ANTHROPIC_MODEL } from '../constants'
 import { AbstractAgentHandle } from './AbstractAgentHandle'
 import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
 import type { ProviderName } from '../types/provider'
@@ -14,7 +14,6 @@ import { createDefaultAdapters } from '../providers'
 import {
   ensureProviderClient,
   getProviderClient,
-  inferProviderFromClient,
   setProviderClient,
 } from '../providers/clientResolver'
 
@@ -26,7 +25,7 @@ import {
 export class AgentHandle extends AbstractAgentHandle {
   private element: ReactNode
   private mode: 'batch' | 'interactive'
-  private unresolvedClient?: ProviderClientMap[ProviderName]
+  private singleClient?: ProviderClientMap[ProviderName]
 
   constructor(
     element: ReactNode,
@@ -36,29 +35,18 @@ export class AgentHandle extends AbstractAgentHandle {
     } = {},
     mode: 'batch' | 'interactive' = 'batch',
   ) {
-    let providerHint: ProviderName | undefined
-    let unresolvedClient: ProviderClientMap[ProviderName] | undefined
     const clients: Partial<ProviderClientMap> = { ...options.clients }
-    if (options.client) {
-      providerHint = inferProviderFromClient(options.client)
-      if (providerHint) {
-        setProviderClient(clients, providerHint, options.client)
-      } else {
-        unresolvedClient = options.client
-      }
-    }
     const store = createAgentStore()
 
     const rootAgent: AgentInstance = {
       type: 'agent',
       props: {
         provider: undefined,
-        model: providerHint === 'openai' ? OPENAI_MODEL : ANTHROPIC_MODEL,
+        model: ANTHROPIC_MODEL,
         maxTokens: 4096,
         stream: true,
       },
-      client:
-        providerHint ? getProviderClient(clients, providerHint) : undefined,
+      client: undefined,
       engine: null,
       systemParts: [],
       tools: [],
@@ -74,7 +62,7 @@ export class AgentHandle extends AbstractAgentHandle {
     super(clients, createDefaultAdapters(), containerInfo, store)
     this.element = element
     this.mode = mode
-    this.unresolvedClient = unresolvedClient
+    this.singleClient = options.client
   }
 
   update(element: ReactNode): void {
@@ -127,9 +115,8 @@ export class AgentHandle extends AbstractAgentHandle {
     if (!agent.props.model) {
       throw new Error('Model is required on the rendered agent.')
     }
-    if (!getProviderClient(this.clients, provider) && this.unresolvedClient) {
-      setProviderClient(this.clients, provider, this.unresolvedClient)
-      this.unresolvedClient = undefined
+    if (!getProviderClient(this.clients, provider) && this.singleClient) {
+      setProviderClient(this.clients, provider, this.singleClient)
     }
     agent.client = ensureProviderClient(this.clients, provider)
 

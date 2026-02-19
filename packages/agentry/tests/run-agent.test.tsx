@@ -1,9 +1,14 @@
 import { test, expect } from 'bun:test'
 import { run, type AgentResult } from '../src'
 import { Agent, System, Tools, Tool, Message } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from './utils'
+import {
+  createStepMockClient,
+  mockText,
+  mockToolUse,
+  createOpenAIMockClient,
+} from './utils'
 import { z } from 'zod'
-import { TEST_MODEL } from '../src/constants'
+import { TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
 
 test('runAgent executes subagent and returns result', async () => {
   const { client, controller } = createStepMockClient([
@@ -457,4 +462,65 @@ test('runAgent with conditional agent selection', async () => {
 
   const result = await runPromise
   expect(result.content).toBe('Analysis complete')
+})
+
+test('context.runAgent with provider and clients override', async () => {
+  const { client: anthropicClient, controller } = createStepMockClient([
+    {
+      content: [mockToolUse('cross_provider_task', { query: 'test' })],
+      stop_reason: 'tool_use',
+    },
+    {
+      content: [mockText('Combined result')],
+      stop_reason: 'end_turn',
+    },
+  ])
+
+  const { client: openaiClient } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'OpenAI sub-result' }],
+        },
+      ],
+    },
+  ])
+
+  let capturedSubResult = ''
+
+  const runPromise = run(
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+      <Tools>
+        <Tool
+          name="cross_provider_task"
+          description="Run a task using OpenAI"
+          parameters={z.object({ query: z.string() })}
+          handler={async (input, context) => {
+            const subResult = await context.runAgent(
+              <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+                <Message role="user">Process: {input.query}</Message>
+              </Agent>,
+              {
+                provider: 'openai',
+                clients: { openai: openaiClient },
+              },
+            )
+            capturedSubResult = subResult.content ?? ''
+            return `OpenAI processed: ${subResult.content}`
+          }}
+        />
+      </Tools>
+      <Message role="user">Run cross-provider task</Message>
+    </Agent>,
+    { clients: { anthropic: anthropicClient } },
+  )
+
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  await controller.nextTurn()
+
+  const result = await runPromise
+  expect(result.content).toBe('Combined result')
+  expect(capturedSubResult).toBe('OpenAI sub-result')
 })

@@ -1,8 +1,4 @@
 import type { JsonObject } from './json'
-import type {
-  BetaContentBlock as AnthropicBetaContentBlock,
-  BetaContentBlockParam as AnthropicBetaContentBlockParam,
-} from '@anthropic-ai/sdk/resources/beta'
 
 export interface TextContentBlock {
   type: 'text'
@@ -33,8 +29,6 @@ export type AgentContentBlock =
   | ThinkingContentBlock
   | ToolUseContentBlock
   | ToolResultContentBlock
-  | AnthropicBetaContentBlock
-  | AnthropicBetaContentBlockParam
 
 export interface AgentMessageParam {
   role: 'user' | 'assistant'
@@ -55,32 +49,26 @@ export interface AgentMessage {
 // Backward-compatible aliases retained for test and migration stability.
 export type BetaMessageParam = AgentMessageParam
 export type BetaMessage = AgentMessage
-export type BetaContentBlock = AgentContentBlock
 export type BetaToolUseBlock = ToolUseContentBlock
 export type BetaTextBlock = TextContentBlock
 
-export function isToolUseBlock(block: AgentContentBlock): block is ToolUseContentBlock {
-  return (
-    typeof block === 'object' &&
-    block !== null &&
-    'type' in block &&
-    block.type === 'tool_use'
-  )
+export function isToolUseBlock(
+  block: AgentContentBlock,
+): block is ToolUseContentBlock {
+  return block.type === 'tool_use'
 }
 
 export function isTextBlock(
   block: AgentContentBlock,
 ): block is TextContentBlock {
-  return (
-    typeof block === 'object' &&
-    block !== null &&
-    'type' in block &&
-    block.type === 'text'
-  )
+  return block.type === 'text'
 }
 
 export function extractText(message: AgentMessage): string {
-  return message.content.filter(isTextBlock).map((block) => block.text).join('')
+  return message.content
+    .filter(isTextBlock)
+    .map((block) => block.text)
+    .join('')
 }
 
 export function extractToolUses(message: AgentMessage): ToolUseContentBlock[] {

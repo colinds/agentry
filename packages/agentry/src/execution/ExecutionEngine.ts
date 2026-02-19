@@ -38,8 +38,14 @@ import type { ProviderName } from '../types/provider'
 import type { ProviderAdapter, ProviderClientMap } from '../providers/types'
 import { createDefaultAdapters } from '../providers'
 import type Anthropic from '@anthropic-ai/sdk'
-import type { BetaMessageParam, BetaTextBlock } from '@anthropic-ai/sdk/resources/beta'
+import type OpenAI from 'openai'
+import type {
+  BetaMessage,
+  BetaMessageParam,
+  BetaTextBlock,
+} from '@anthropic-ai/sdk/resources/beta'
 import type { Model as AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
+import { toOpenAIInput } from '../providers/openai'
 import type { z } from 'zod'
 
 export interface ExecutionEngineEvents {
@@ -74,7 +80,7 @@ export interface ExecutionEngineConfig {
   provider: ProviderName
   client: ProviderClientMap[ProviderName]
   clients?: Partial<ProviderClientMap>
-  adapters?: Record<string, ProviderAdapter>
+  adapters?: Record<string, ProviderAdapter<ProviderName>>
   model: Model
   maxTokens: number
   system?: SystemPrompt
@@ -99,7 +105,9 @@ function hasName(t: object | null): t is { name: string } {
   return typeof t === 'object' && t !== null && 'name' in t
 }
 
-function isMemoryToolInput(input: z.output<z.ZodType>): input is MemoryToolInput {
+function isMemoryToolInput(
+  input: z.output<z.ZodType>,
+): input is MemoryToolInput {
   return (
     typeof input === 'object' &&
     input !== null &&
@@ -109,13 +117,12 @@ function isMemoryToolInput(input: z.output<z.ZodType>): input is MemoryToolInput
 }
 
 /**
- * execution engine handles the conversation loop with Claude
- *
- * inspired by BetaToolRunner but with our own interface and React integration
+ * Handles the conversation loop with the configured AI provider via a ProviderAdapter.
+ * Manages state transitions, tool execution, condition evaluation, and compaction.
  */
 export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private client: ProviderClientMap[ProviderName]
-  private adapter: ProviderAdapter
+  private adapter: ProviderAdapter<ProviderName>
   private config: ExecutionEngineConfig
   private store: AgentStore
   private iterationCount = 0
@@ -136,7 +143,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       throw new Error(`No provider adapter configured for "${provider}"`)
     }
     this.adapter = adapters[provider]!
-    this.config = { ...config, provider, adapters, clients: config.clients ?? {} }
+    this.config = {
+      ...config,
+      provider,
+      adapters,
+      clients: config.clients ?? {},
+    }
     this.store = config.store
     this.agentInstance = config.agentInstance
   }
@@ -252,7 +264,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           // force React to commit any pending state updates from tool handlers
           flushSync(() => {})
           await yieldToSchedulerImmediate()
-          await this.checkAndCompact()
+          await this.checkAndCompact(abortController.signal)
 
           const stepResult = this.buildStepFinishResult(
             message,
@@ -283,7 +295,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     }
   }
 
-  private async makeApiCall(abortController: AbortController): Promise<AgentMessage> {
+  private async makeApiCall(
+    abortController: AbortController,
+  ): Promise<AgentMessage> {
     const system = buildSystemPrompt(this.agentInstance)
     const startTime = performance.now()
     const response = await this.adapter.createTurn(this.client, {
@@ -318,25 +332,32 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.transition({ type: 'tools_executing', pendingTools })
 
     const currentState = this.executionState
+    const signal =
+      currentState.status === 'streaming'
+        ? currentState.abortController.signal
+        : undefined
+    const providerFields =
+      this.config.provider === 'anthropic'
+        ? {
+            provider: 'anthropic' as const,
+            client: this.client as ProviderClientMap['anthropic'],
+          }
+        : {
+            provider: 'openai' as const,
+            client: this.client as ProviderClientMap['openai'],
+          }
     const context: ToolContext = {
       agentName: this.config.agentName ?? 'agent',
-      provider: this.config.provider,
       clients: this.config.clients,
-      client: this.client,
       model: this.config.model,
-      signal:
-        currentState.status === 'streaming'
-          ? currentState.abortController.signal
-          : undefined,
+      signal,
       runAgent: createRunAgent({
         provider: this.config.provider,
         clients: this.config.clients,
         model: this.config.model,
-        signal:
-          currentState.status === 'streaming'
-            ? currentState.abortController.signal
-            : undefined,
+        signal,
       }),
+      ...providerFields,
     }
 
     const { tools: internalTools = [], sdkTools = [] } = this.agentInstance
@@ -423,7 +444,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             } as ToolResultContentBlock
           }
 
-          // Other SDK tools are handled by Anthropic server-side
+          // Non-memory SDK tools (web_search, code_interpreter) are dispatched to the provider and handled server-side
           const errorMessage = `Tool '${toolCall.name}' is a server-side tool and cannot be executed locally`
           const executionTime = performance.now() - startTime
           this.toolExecutionTimes.set(toolCall.id, executionTime)
@@ -557,7 +578,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.emit('error', error)
   }
 
-  private async checkAndCompact(): Promise<boolean> {
+  private async checkAndCompact(signal?: AbortSignal): Promise<boolean> {
     const compactionControl = this.config.compactionControl
     if (!compactionControl?.enabled) {
       return false
@@ -565,6 +586,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     if (!this.lastMessage) {
       return false
     }
+    // Compaction is currently Anthropic-only; it is a no-op for other providers.
     if (this.config.provider !== 'anthropic') {
       return false
     }
@@ -582,37 +604,100 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       return false
     }
 
-    const model = (compactionControl.model ?? this.config.model) as AnthropicModel
     const summaryPrompt =
       compactionControl.summaryPrompt ?? DEFAULT_SUMMARY_PROMPT
-
-    const client = this.client as Anthropic
     const currentMessages = [...this.messages]
-    const response = await client.beta.messages.create({
-      model,
-      messages: [
-        ...(currentMessages as BetaMessageParam[]),
+
+    if (this.config.provider === 'anthropic') {
+      const model = (compactionControl.model ??
+        this.config.model) as AnthropicModel
+      const client = this.client as Anthropic
+      let response: BetaMessage
+      try {
+        response = await client.beta.messages.create(
+          {
+            model,
+            messages: [
+              ...(currentMessages as BetaMessageParam[]),
+              {
+                role: 'user',
+                content: [{ type: 'text', text: summaryPrompt }],
+              },
+            ],
+            max_tokens: this.config.maxTokens,
+          },
+          { signal },
+        )
+      } catch (e) {
+        console.error(
+          '[agentry] Compaction API call failed, continuing without compaction:',
+          e,
+        )
+        return false
+      }
+
+      const summaryBlock = response.content.find(
+        (block): block is BetaTextBlock => block.type === 'text',
+      )
+      if (!summaryBlock) {
+        return false
+      }
+
+      this.store.getState().actions.setMessages([
         {
           role: 'user',
-          content: [{ type: 'text', text: summaryPrompt }],
+          content: [{ type: 'text', text: summaryBlock.text }],
         },
-      ],
-      max_tokens: this.config.maxTokens,
-    })
+      ])
+      return true
+    } else if (this.config.provider === 'openai') {
+      const model = compactionControl.model ?? this.config.model
+      const client = this.client as OpenAI
+      const input = [
+        ...toOpenAIInput(currentMessages),
+        { role: 'user' as const, content: summaryPrompt },
+      ]
+      let oaiResponse: OpenAI.Responses.Response
+      try {
+        oaiResponse = await client.responses.create(
+          {
+            model,
+            input,
+            max_output_tokens: this.config.maxTokens,
+            stream: false,
+          },
+          { signal },
+        )
+      } catch (e) {
+        console.error(
+          '[agentry] Compaction API call failed, continuing without compaction:',
+          e,
+        )
+        return false
+      }
 
-    const summaryBlock = response.content.find(
-      (block): block is BetaTextBlock => block.type === 'text',
-    )
-    if (!summaryBlock) {
+      const summaryText = oaiResponse.output
+        .flatMap((item) =>
+          item.type === 'message' && Array.isArray(item.content)
+            ? item.content
+            : [],
+        )
+        .filter(
+          (part): part is OpenAI.Responses.ResponseOutputText =>
+            part.type === 'output_text',
+        )[0]?.text
+      if (!summaryText) {
+        return false
+      }
+
+      this.store
+        .getState()
+        .actions.setMessages([
+          { role: 'user', content: [{ type: 'text', text: summaryText }] },
+        ])
+      return true
+    } else {
       return false
     }
-
-    this.store.getState().actions.setMessages([
-      {
-        role: 'user',
-        content: [{ type: 'text', text: summaryBlock.text }],
-      },
-    ])
-    return true
   }
 }
