@@ -10,6 +10,7 @@ import type {
 } from '@anthropic-ai/sdk/resources/beta'
 import type { Model as AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
 import { ANTHROPIC_BETAS } from '../constants'
+import { debug } from '../debug'
 import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
 import type {
   ProviderAdapter,
@@ -21,7 +22,9 @@ import { toApiTool } from '../tools'
 import type { SdkTool } from '../types/tools'
 import type { JsonObject } from '../types/json'
 
-function toAnthropicMessage(message: AgentMessageParam): BetaMessageParam {
+export function toAnthropicMessage(
+  message: AgentMessageParam,
+): BetaMessageParam {
   if (typeof message.content === 'string') {
     return { role: message.role, content: message.content }
   }
@@ -79,6 +82,8 @@ function toAgentBlocks(content: BetaContentBlock[]): AgentContentBlock[] {
         name: block.name,
         input,
       })
+    } else {
+      debug('api', `Anthropic: unrecognized content block type: ${block.type}`)
     }
   }
   return blocks

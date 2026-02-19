@@ -29,10 +29,11 @@ import { buildSystemPrompt } from './createEngineConfig'
 import { flushSync } from '../reconciler/renderer'
 import type { AgentStore } from '../store'
 import { collectChild } from '../reconciler/collectors'
-import type {
-  AgentMessage,
-  AgentMessageParam,
-  ToolResultContentBlock,
+import {
+  isThinkingBlock,
+  type AgentMessage,
+  type AgentMessageParam,
+  type ToolResultContentBlock,
 } from '../types/messages'
 import type { ProviderName } from '../types/provider'
 import type {
@@ -189,6 +190,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       )
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
+      if (err.name === 'AbortError') throw err
       console.error(
         '[agentry] NL condition evaluation failed, conditions unchanged:',
         err,
@@ -261,7 +263,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
           this.transition({ type: 'tools_requested', pendingTools })
 
-          const toolResults = await this.executeTools(pendingTools)
+          const toolResults = await this.executeTools(
+            pendingTools,
+            abortController,
+          )
 
           const toolResultMessage: AgentMessageParam = {
             role: 'user',
@@ -338,14 +343,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
   private async executeTools(
     pendingTools: PendingToolCall[],
+    abortController: AbortController,
   ): Promise<ToolResultContentBlock[]> {
     this.transition({ type: 'tools_executing', pendingTools })
 
-    const currentState = this.executionState
-    const signal =
-      currentState.status === 'streaming'
-        ? currentState.abortController.signal
-        : undefined
+    const signal = abortController.signal
     const providerFields =
       this.config.provider === 'anthropic'
         ? {
@@ -395,23 +397,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
               typeof result === 'string' ? result.substring(0, 100) : result,
           })
 
-          const executionTime = performance.now() - startTime
-          this.toolExecutionTimes.set(toolCall.id, executionTime)
-
-          this.emit('stream', {
-            type: 'tool_result',
-            toolId: toolCall.id,
-            result:
-              typeof result === 'string' ? result : JSON.stringify(result),
+          return this.buildToolResult({
+            toolCall,
+            startTime,
+            result,
             isError,
           })
-
-          return {
-            type: 'tool_result',
-            tool_use_id: toolCall.id,
-            content: result,
-            is_error: isError ? true : undefined,
-          } as ToolResultContentBlock
         }
 
         // check if it's an SDK tool
@@ -435,66 +426,58 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
               toolCall.input,
             )
 
-            const executionTime = performance.now() - startTime
-            this.toolExecutionTimes.set(toolCall.id, executionTime)
-
-            this.emit('stream', {
-              type: 'tool_result',
-              toolId: toolCall.id,
-              result:
-                typeof result === 'string' ? result : JSON.stringify(result),
+            return this.buildToolResult({
+              toolCall,
+              startTime,
+              result,
               isError,
             })
-
-            return {
-              type: 'tool_result',
-              tool_use_id: toolCall.id,
-              content: result,
-              is_error: isError ? true : undefined,
-            } as ToolResultContentBlock
           }
 
           // Non-memory SDK tools (web_search, code_interpreter) are dispatched to the provider and handled server-side
-          const errorMessage = `Tool '${toolCall.name}' is a server-side tool and cannot be executed locally`
-          const executionTime = performance.now() - startTime
-          this.toolExecutionTimes.set(toolCall.id, executionTime)
-
-          this.emit('stream', {
-            type: 'tool_result',
-            toolId: toolCall.id,
-            result: errorMessage,
+          return this.buildToolResult({
+            toolCall,
+            startTime,
+            result: `Tool '${toolCall.name}' is a server-side tool and cannot be executed locally`,
             isError: true,
           })
-
-          return {
-            type: 'tool_result',
-            tool_use_id: toolCall.id,
-            content: errorMessage,
-            is_error: true,
-          } as ToolResultContentBlock
         }
 
-        const errorMessage = `Error: Tool '${toolCall.name}' not found`
-        const executionTime = performance.now() - startTime
-        this.toolExecutionTimes.set(toolCall.id, executionTime)
-
-        this.emit('stream', {
-          type: 'tool_result',
-          toolId: toolCall.id,
-          result: errorMessage,
+        return this.buildToolResult({
+          toolCall,
+          startTime,
+          result: `Error: Tool '${toolCall.name}' not found`,
           isError: true,
         })
-
-        return {
-          type: 'tool_result',
-          tool_use_id: toolCall.id,
-          content: errorMessage,
-          is_error: true,
-        } as ToolResultContentBlock
       }),
     )
 
     return results
+  }
+
+  private buildToolResult(opts: {
+    toolCall: PendingToolCall
+    startTime: number
+    result: ToolResultContentBlock['content']
+    isError: boolean
+  }): ToolResultContentBlock {
+    const { toolCall, startTime, result, isError } = opts
+    const executionTime = performance.now() - startTime
+    this.toolExecutionTimes.set(toolCall.id, executionTime)
+
+    this.emit('stream', {
+      type: 'tool_result',
+      toolId: toolCall.id,
+      result: typeof result === 'string' ? result : JSON.stringify(result),
+      isError,
+    })
+
+    return {
+      type: 'tool_result',
+      tool_use_id: toolCall.id,
+      content: result,
+      is_error: isError ? true : undefined,
+    } as ToolResultContentBlock
   }
 
   private buildStepFinishResult(
@@ -503,12 +486,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     toolResults: ToolResultContentBlock[],
   ): OnStepFinishResult {
     const text = extractText(message)
-
-    const thinkingBlock = message.content.find((b) => b.type === 'thinking')
-    const thinking =
-      thinkingBlock?.type === 'thinking'
-        ? (thinkingBlock.thinking as string | undefined)
-        : undefined
+    const thinking = message.content.find(isThinkingBlock)?.thinking
 
     const toolCalls: StepToolCall[] = toolUses.map((tu) => ({
       id: tu.id,
@@ -553,13 +531,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       throw new Error('No message received')
     }
 
-    const thinkingBlock = this.lastMessage.content.find(
-      (b) => b.type === 'thinking',
-    )
-    const thinking =
-      thinkingBlock?.type === 'thinking'
-        ? (thinkingBlock.thinking as string | undefined)
-        : undefined
+    const thinking = this.lastMessage.content.find(isThinkingBlock)?.thinking
 
     return {
       content: extractText(this.lastMessage),
@@ -632,6 +604,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
               },
             ],
             max_tokens: this.config.maxTokens,
+            betas: this.config.betas?.length ? this.config.betas : undefined,
           },
           { signal },
         )
@@ -649,6 +622,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         (block): block is BetaTextBlock => block.type === 'text',
       )
       if (!summaryBlock) {
+        console.warn('[agentry] Compaction: model returned no text summary')
         return false
       }
 
@@ -698,6 +672,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             part.type === 'output_text',
         )[0]?.text
       if (!summaryText) {
+        console.warn('[agentry] Compaction: model returned no text summary')
         return false
       }
 
@@ -708,6 +683,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         ])
       return true
     } else {
+      console.warn(
+        `[agentry] Compaction not implemented for provider: ${provider}`,
+      )
       return false
     }
   }

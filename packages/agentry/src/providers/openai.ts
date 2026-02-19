@@ -7,6 +7,7 @@ import type {
 import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
 import type { JsonObject } from '../types/json'
 import { isCodeExecutionTool, isWebSearchTool } from '../types/tools'
+import { debug } from '../debug'
 
 type OpenAIResponseCreateParams =
   OpenAI.Responses.ResponseCreateParamsNonStreaming
@@ -117,6 +118,8 @@ function parseOpenAIResponse(
         .map((s) => s.text ?? '')
         .join('\n')
       if (text) content.push({ type: 'thinking', thinking: text })
+    } else {
+      debug('api', `OpenAI: unrecognized output item type: ${item.type}`)
     }
   }
 

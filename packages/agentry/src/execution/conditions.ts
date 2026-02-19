@@ -1,9 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import type OpenAI from 'openai'
-import type {
-  BetaContentBlockParam,
-  BetaMessageParam,
-} from '@anthropic-ai/sdk/resources/beta'
 import type { AgentMessageParam } from '../types/messages'
 import type { ConditionInstance, Instance } from '../instances/types'
 import { isConditionInstance } from '../instances/types'
@@ -11,6 +7,16 @@ import { debug } from '../debug'
 import type { ProviderClientMap } from '../providers/types'
 import type { ProviderName } from '../types/provider'
 import { toOpenAIInput } from '../providers/openai'
+import { toAnthropicMessage } from '../providers/anthropic'
+
+function buildNLConditionSystemPrompt(conditionDescriptions: string): string {
+  return `You are a condition evaluation assistant. Given a conversation, determine which conditions are true. Multiple conditions can be true simultaneously.
+
+Conditions:
+${conditionDescriptions}
+
+Return ALL indices of conditions that are TRUE based on the current conversation state.`
+}
 
 /**
  * Find all condition instances in the tree
@@ -133,42 +139,9 @@ async function evaluateNaturalLanguageConditions(
     )
   }
   console.warn(
-    `[agentry] No client available for NL condition evaluation (provider: ${provider}). Conditions will remain unchanged.`,
+    `[agentry] No client available for NL condition evaluation (provider: ${provider}). All NL conditions defaulting to false.`,
   )
   return conditions.map(() => false)
-}
-
-/**
- * Convert a normalized AgentMessageParam to Anthropic SDK BetaMessageParam,
- * filtering out thinking blocks (which require provider signatures to replay).
- */
-function toAnthroBetaMessageParam(
-  message: AgentMessageParam,
-): BetaMessageParam {
-  if (typeof message.content === 'string') {
-    return { role: message.role, content: message.content }
-  }
-  const content: BetaContentBlockParam[] = []
-  for (const block of message.content) {
-    if (block.type === 'text') {
-      content.push({ type: 'text', text: block.text })
-    } else if (block.type === 'tool_use') {
-      content.push({
-        type: 'tool_use',
-        id: block.id,
-        name: block.name,
-        input: block.input,
-      })
-    } else if (block.type === 'tool_result') {
-      content.push({
-        type: 'tool_result',
-        tool_use_id: block.tool_use_id,
-        content: block.content,
-      })
-    }
-    // thinking blocks are skipped — they require provider-generated signatures
-  }
-  return { role: message.role, content }
 }
 
 /**
@@ -187,21 +160,14 @@ async function evaluateNLWithAnthropic(
 
   const validIndices = conditions.map((_, index) => index)
 
-  const evalMessages = ensureValidMessageStart(messages).map(
-    toAnthroBetaMessageParam,
-  )
+  const evalMessages = ensureValidMessageStart(messages).map(toAnthropicMessage)
 
   const startTime = performance.now()
   const response = await client.beta.messages.create(
     {
-      model: 'claude-haiku-4-5',
+      model,
       max_tokens: 512,
-      system: `You are a condition evaluation assistant. Given a conversation, determine which conditions are true. Multiple conditions can be true simultaneously.
-
-Conditions:
-${conditionDescriptions}
-
-Return ALL indices of conditions that are TRUE based on the current conversation state.`,
+      system: buildNLConditionSystemPrompt(conditionDescriptions),
       messages: [
         ...evalMessages,
         {
@@ -284,12 +250,7 @@ async function evaluateNLWithOpenAI(
   const response = await client.responses.create(
     {
       model,
-      instructions: `You are a condition evaluation assistant. Given a conversation, determine which conditions are true. Multiple conditions can be true simultaneously.
-
-Conditions:
-${conditionDescriptions}
-
-Return ALL indices of conditions that are TRUE based on the current conversation state.`,
+      instructions: buildNLConditionSystemPrompt(conditionDescriptions),
       input,
       tools: [
         {
@@ -341,6 +302,7 @@ Return ALL indices of conditions that are TRUE based on the current conversation
         `[agentry] NL condition evaluation: failed to parse OpenAI function call arguments: "${functionCall.arguments}"`,
         e,
       )
+      return conditions.map(() => false)
     }
   }
 
