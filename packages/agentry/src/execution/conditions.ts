@@ -72,33 +72,26 @@ export async function evaluateConditions(
   const nlConditions = conditions.filter((c) => typeof c.when === 'string')
 
   if (nlConditions.length > 0 && options?.evaluateNL !== false) {
-    try {
-      const nlResults = await evaluateNaturalLanguageConditions(
-        nlConditions,
-        messages,
-        clients,
-        provider,
-        model,
-        signal,
-      )
+    const nlResults = await evaluateNaturalLanguageConditions(
+      nlConditions,
+      messages,
+      clients,
+      provider,
+      model,
+      signal,
+    )
 
-      for (let i = 0; i < nlConditions.length; i++) {
-        const condition = nlConditions[i]!
-        const newActive = nlResults[i]!
-        if (condition.isActive !== newActive) {
-          condition.isActive = newActive
-          hasChanges = true
-          debug(
-            'reconciler:conditions',
-            `NL condition "${condition.when}" ${newActive ? 'activated' : 'deactivated'}`,
-          )
-        }
+    for (let i = 0; i < nlConditions.length; i++) {
+      const condition = nlConditions[i]!
+      const newActive = nlResults[i]!
+      if (condition.isActive !== newActive) {
+        condition.isActive = newActive
+        hasChanges = true
+        debug(
+          'reconciler:conditions',
+          `NL condition "${condition.when}" ${newActive ? 'activated' : 'deactivated'}`,
+        )
       }
-    } catch (e) {
-      console.error(
-        '[agentry] NL condition evaluation failed, conditions unchanged:',
-        e,
-      )
     }
   }
 
@@ -343,8 +336,11 @@ Return ALL indices of conditions that are TRUE based on the current conversation
       )
 
       return conditions.map((_, i) => trueIndices.has(i))
-    } catch {
-      // fall through to warn below
+    } catch (e) {
+      console.error(
+        `[agentry] NL condition evaluation: failed to parse OpenAI function call arguments: "${functionCall.arguments}"`,
+        e,
+      )
     }
   }
 

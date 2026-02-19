@@ -1,8 +1,23 @@
 import type OpenAI from 'openai'
 
-export interface OpenAIMockResponse {
+export interface OpenAIMockFailedResponse {
+  type: 'failed'
+  message: string
+}
+
+interface OpenAIMockSuccessResponse {
   output: Array<Record<string, unknown>>
   usage?: { input_tokens?: number; output_tokens?: number }
+}
+
+export type OpenAIMockResponse =
+  | OpenAIMockSuccessResponse
+  | OpenAIMockFailedResponse
+
+function isFailedResponse(
+  resp: OpenAIMockResponse,
+): resp is OpenAIMockFailedResponse {
+  return 'type' in resp && (resp as OpenAIMockFailedResponse).type === 'failed'
 }
 
 export function createOpenAIMockClient(responses: OpenAIMockResponse[]): {
@@ -16,6 +31,19 @@ export function createOpenAIMockClient(responses: OpenAIMockResponse[]): {
     resp: OpenAIMockResponse,
     callIndex: number,
   ): AsyncIterable<Record<string, unknown>> {
+    if (isFailedResponse(resp)) {
+      yield {
+        type: 'response.failed',
+        response: {
+          id: `resp_${callIndex}`,
+          status: 'failed',
+          error: { message: resp.message },
+          output: [],
+        },
+      }
+      return
+    }
+
     // Emit output_item.added + text delta events for each output item
     for (let i = 0; i < resp.output.length; i++) {
       const item = resp.output[i]!
@@ -72,6 +100,10 @@ export function createOpenAIMockClient(responses: OpenAIMockResponse[]): {
             next,
             callIndex,
           ) as unknown as AsyncIterable<unknown>
+        }
+
+        if (isFailedResponse(next)) {
+          throw new Error(`OpenAI response failed: ${next.message}`)
         }
 
         return {

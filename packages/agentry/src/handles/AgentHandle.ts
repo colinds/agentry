@@ -5,7 +5,6 @@ import { createContainer, updateContainer } from '../reconciler/renderer'
 import { createAgentStore } from '../store'
 import { isAgentInstance } from '../instances/types'
 import { AgentProvider } from '../context'
-import { ANTHROPIC_MODEL } from '../constants'
 import { AbstractAgentHandle } from './AbstractAgentHandle'
 import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
 import type { ProviderName } from '../types/provider'
@@ -42,7 +41,7 @@ export class AgentHandle extends AbstractAgentHandle {
       type: 'agent',
       props: {
         provider: undefined,
-        model: ANTHROPIC_MODEL,
+        model: undefined,
         maxTokens: 4096,
         stream: true,
       },

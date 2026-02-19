@@ -35,7 +35,11 @@ import type {
   ToolResultContentBlock,
 } from '../types/messages'
 import type { ProviderName } from '../types/provider'
-import type { ProviderAdapter, ProviderClientMap } from '../providers/types'
+import type {
+  ProviderAdapter,
+  ProviderClientMap,
+  SystemBlock,
+} from '../providers/types'
 import { createDefaultAdapters } from '../providers'
 import type Anthropic from '@anthropic-ai/sdk'
 import type OpenAI from 'openai'
@@ -57,13 +61,7 @@ export interface ExecutionEngineEvents {
   stepFinish: (result: OnStepFinishResult) => void
 }
 
-export type SystemPrompt =
-  | string
-  | Array<{
-      type: 'text'
-      text: string
-      cache_control?: { type: 'ephemeral' }
-    }>
+export type SystemPrompt = string | SystemBlock[]
 
 const DEFAULT_TOKEN_THRESHOLD = 100_000
 
@@ -175,18 +173,29 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.emit('stateChange', newState)
   }
 
-  private async evaluateAllConditions(options?: {
-    evaluateNL?: boolean
-  }): Promise<boolean> {
-    return evaluateConditions(
-      this.agentInstance,
-      this.messages as AgentMessageParam[],
-      this.config.clients ?? {},
-      this.config.provider,
-      this.config.model,
-      undefined, // signal
-      options,
-    )
+  private async evaluateAllConditions(
+    signal?: AbortSignal,
+    options?: { evaluateNL?: boolean },
+  ): Promise<boolean> {
+    try {
+      return await evaluateConditions(
+        this.agentInstance,
+        this.messages as AgentMessageParam[],
+        this.config.clients ?? {},
+        this.config.provider,
+        this.config.model,
+        signal,
+        options,
+      )
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e))
+      console.error(
+        '[agentry] NL condition evaluation failed, conditions unchanged:',
+        err,
+      )
+      this.emit('error', err)
+      return false
+    }
   }
 
   // todo(colin): not a huge fan on recollecting everything
@@ -224,9 +233,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         this.transition({ type: 'start_streaming', abortController })
 
         const isFirstIteration = this.iterationCount === 1
-        const conditionsChanged = await this.evaluateAllConditions({
-          evaluateNL: isFirstIteration, // only evaluate NL conditions from the user's history
-        })
+        const conditionsChanged = await this.evaluateAllConditions(
+          abortController.signal,
+          { evaluateNL: isFirstIteration }, // only evaluate NL conditions from the user's history
+        )
         if (conditionsChanged) {
           this.recollectAll()
         }
@@ -586,10 +596,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     if (!this.lastMessage) {
       return false
     }
-    // Compaction is currently Anthropic-only; it is a no-op for other providers.
-    if (this.config.provider !== 'anthropic') {
-      return false
-    }
 
     const totalTokens =
       this.lastMessage.usage.input_tokens +
@@ -607,8 +613,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const summaryPrompt =
       compactionControl.summaryPrompt ?? DEFAULT_SUMMARY_PROMPT
     const currentMessages = [...this.messages]
+    const provider = this.config.provider
 
-    if (this.config.provider === 'anthropic') {
+    if (provider === 'anthropic') {
       const model = (compactionControl.model ??
         this.config.model) as AnthropicModel
       const client = this.client as Anthropic
@@ -629,10 +636,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           { signal },
         )
       } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e))
         console.error(
           '[agentry] Compaction API call failed, continuing without compaction:',
-          e,
+          err,
         )
+        this.emit('error', err)
         return false
       }
 
@@ -650,7 +659,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         },
       ])
       return true
-    } else if (this.config.provider === 'openai') {
+    } else if (provider === 'openai') {
       const model = compactionControl.model ?? this.config.model
       const client = this.client as OpenAI
       const input = [
@@ -669,10 +678,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           { signal },
         )
       } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e))
         console.error(
           '[agentry] Compaction API call failed, continuing without compaction:',
-          e,
+          err,
         )
+        this.emit('error', err)
         return false
       }
 

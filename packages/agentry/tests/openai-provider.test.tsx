@@ -1,4 +1,4 @@
-import { test, expect } from 'bun:test'
+import { test, expect, beforeEach } from 'bun:test'
 import { z } from 'zod'
 import { run, Agent, Message, Tools, AgentTool, Tool } from '../src'
 import {
@@ -8,6 +8,11 @@ import {
   mockToolUse,
 } from './utils'
 import { TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
+import { resetSharedDefaultClients } from '../src/providers/clientResolver'
+
+beforeEach(() => {
+  resetSharedDefaultClients()
+})
 
 test('openai provider streams text correctly', async () => {
   const streamedChunks: string[] = []
@@ -171,8 +176,8 @@ test('client: backward-compat detects OpenAI client without clients:', async () 
 test('missing OpenAI client throws descriptive error when no env var set', async () => {
   const originalKey = process.env.OPENAI_API_KEY
   delete process.env.OPENAI_API_KEY
+  resetSharedDefaultClients()
 
-  // clear the shared client cache between tests
   try {
     await expect(
       run(
@@ -185,7 +190,23 @@ test('missing OpenAI client throws descriptive error when no env var set', async
     if (originalKey !== undefined) {
       process.env.OPENAI_API_KEY = originalKey
     }
+    resetSharedDefaultClients()
   }
+})
+
+test('surfaces stream failure from response.failed event', async () => {
+  const { client } = createOpenAIMockClient([
+    { type: 'failed', message: 'rate limit exceeded' },
+  ])
+
+  await expect(
+    run(
+      <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={true}>
+        <Message role="user">Hello</Message>
+      </Agent>,
+      { clients: { openai: client } },
+    ),
+  ).rejects.toThrow('rate limit exceeded')
 })
 
 test('anthropic parent can run openai AgentTool subagent', async () => {

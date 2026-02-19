@@ -6,4 +6,8 @@ export {
   type StepMockController,
   type PendingCall,
 } from './mockClient'
-export { createOpenAIMockClient, type OpenAIMockResponse } from './openaiMock'
+export {
+  createOpenAIMockClient,
+  type OpenAIMockResponse,
+  type OpenAIMockFailedResponse,
+} from './openaiMock'

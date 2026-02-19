@@ -64,6 +64,18 @@ export function isTextBlock(
   return block.type === 'text'
 }
 
+export function isThinkingBlock(
+  block: AgentContentBlock,
+): block is ThinkingContentBlock {
+  return block.type === 'thinking'
+}
+
+export function isToolResultBlock(
+  block: AgentContentBlock,
+): block is ToolResultContentBlock {
+  return block.type === 'tool_result'
+}
+
 export function extractText(message: AgentMessage): string {
   return message.content
     .filter(isTextBlock)

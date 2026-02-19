@@ -2,7 +2,11 @@ import type { AgentInstance } from '../instances/types'
 import type { AgentStore } from '../store'
 import { createAgentStore } from '../store'
 import type { ExecutionEngineConfig } from './ExecutionEngine'
-import type { ProviderClientMap, ProviderAdapter } from '../providers/types'
+import type {
+  ProviderClientMap,
+  ProviderAdapter,
+  SystemBlock,
+} from '../providers/types'
 import type { ProviderName } from '../types/provider'
 
 export interface EngineConfigOptions {
@@ -15,12 +19,6 @@ export interface EngineConfigOptions {
 export interface EngineConfigResult {
   config: ExecutionEngineConfig
   store: AgentStore
-}
-
-export interface SystemBlock {
-  type: 'text'
-  text: string
-  cache_control?: { type: 'ephemeral' }
 }
 
 export function buildSystemPrompt(

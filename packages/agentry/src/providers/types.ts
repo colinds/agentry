@@ -11,16 +11,16 @@ export interface ProviderClientMap {
   openai: OpenAI
 }
 
+export interface SystemBlock {
+  type: 'text'
+  text: string
+  cache_control?: { type: 'ephemeral' }
+}
+
 export interface NormalizedTurnRequest {
   model: Model
   maxTokens: number
-  system?:
-    | string
-    | Array<{
-        type: 'text'
-        text: string
-        cache_control?: { type: 'ephemeral' }
-      }>
+  system?: string | SystemBlock[]
   messages: AgentMessageParam[]
   tools: InternalTool[]
   sdkTools: SdkTool[]

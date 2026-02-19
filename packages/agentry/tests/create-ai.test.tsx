@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { createAI, Agent, Message } from '../src'
+import { createAI, Agent, Message, AgentHandle } from '../src'
 import { createStepMockClient, mockText, createOpenAIMockClient } from './utils'
 import { TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
 
@@ -110,6 +110,22 @@ test('createAI createAgent uses merged clients', async () => {
   const result = await runPromise
   expect(result.content).toBe('From createAgent')
   agentHandle.close()
+})
+
+test('createAI default mode=interactive returns handle without explicit mode override', async () => {
+  const { client } = createStepMockClient([])
+
+  const ai = createAI({ clients: { anthropic: client }, mode: 'interactive' })
+
+  // TypeScript types the return as AgentResult (no per-call mode override),
+  // but at runtime the merged defaults make it interactive → AgentHandle
+  const result = (await ai.run(
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false}></Agent>,
+  )) as unknown as AgentHandle
+
+  expect(result).toBeInstanceOf(AgentHandle)
+  expect(typeof result.sendMessage).toBe('function')
+  result.close()
 })
 
 test('createAI multi-provider: per-call client overrides default for that provider', async () => {

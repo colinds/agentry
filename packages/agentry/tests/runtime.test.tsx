@@ -1,10 +1,15 @@
-import { test, expect } from 'bun:test'
+import { test, expect, beforeEach } from 'bun:test'
 import { z } from 'zod'
 import { run } from '../src'
 import { defineTool } from '../src/tools'
 import { Agent, System, Context, Tools, Tool, Message, AgentTool } from '../src'
 import { createStepMockClient, mockText, mockToolUse } from './utils'
 import { TEST_MODEL } from '../src/constants'
+import { resetSharedDefaultClients } from '../src/providers/clientResolver'
+
+beforeEach(() => {
+  resetSharedDefaultClients()
+})
 
 test('root agent sees pre-loaded JSX messages', async () => {
   const { client, controller } = createStepMockClient([
@@ -885,4 +890,24 @@ test('provider prop omission throws correct error', async () => {
       { client },
     ),
   ).rejects.toThrow('Provider is required on the rendered agent.')
+})
+
+test('missing Anthropic client throws descriptive error when no env var set', async () => {
+  const prev = process.env.ANTHROPIC_API_KEY
+  delete process.env.ANTHROPIC_API_KEY
+  resetSharedDefaultClients()
+
+  try {
+    await expect(
+      run(
+        <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+          <Message role="user">Hello</Message>
+        </Agent>,
+        { clients: {} },
+      ),
+    ).rejects.toThrow('No Anthropic client configured')
+  } finally {
+    if (prev !== undefined) process.env.ANTHROPIC_API_KEY = prev
+    resetSharedDefaultClients()
+  }
 })

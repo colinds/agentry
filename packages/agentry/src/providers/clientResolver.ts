@@ -51,6 +51,14 @@ function getSharedDefaultClient(provider: ProviderName): ProviderClient {
   return sharedDefaultClients.openai
 }
 
+export function inferProviderFromClient(
+  client: ProviderClient,
+): ProviderName | undefined {
+  if (client instanceof Anthropic) return 'anthropic'
+  if (client instanceof OpenAI) return 'openai'
+  return undefined
+}
+
 export function ensureProviderClient(
   clients: Partial<ProviderClientMap>,
   provider: ProviderName,
@@ -59,8 +67,11 @@ export function ensureProviderClient(
   if (configured) {
     return configured
   }
+  return getSharedDefaultClient(provider)
+}
 
-  const sharedDefault = getSharedDefaultClient(provider)
-  setProviderClient(clients, provider, sharedDefault)
-  return sharedDefault
+/** For testing only — clears the module-level default client cache. */
+export function resetSharedDefaultClients(): void {
+  sharedDefaultClients.anthropic = undefined
+  sharedDefaultClients.openai = undefined
 }

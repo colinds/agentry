@@ -14,10 +14,7 @@ type OpenAIResponseCreateParamsStreaming =
   OpenAI.Responses.ResponseCreateParamsStreaming
 type OpenAIResponseResult = OpenAI.Responses.Response
 type OpenAIResponseStreamEvent = OpenAI.Responses.ResponseStreamEvent
-export type OpenAIInputItem =
-  | { role: 'user' | 'assistant'; content: string }
-  | { type: 'function_call'; call_id: string; name: string; arguments: string }
-  | { type: 'function_call_output'; call_id: string; output: string }
+export type OpenAIInputItem = OpenAI.Responses.ResponseInputItem
 
 function stringifyContent(
   content: string | Array<{ type: string; text?: string }> | undefined,
@@ -36,41 +33,27 @@ export function toOpenAIInput(
   const input: OpenAIInputItem[] = []
   for (const message of messages) {
     if (typeof message.content === 'string') {
-      input.push({
-        role: message.role,
-        content: message.content,
-      })
+      input.push({ role: message.role, content: message.content })
       continue
     }
-
-    const text = message.content
-      .filter((block) => block.type === 'text')
-      .map((block) => (block.type === 'text' ? block.text : ''))
-      .join('')
-    if (text) {
-      input.push({
-        role: message.role,
-        content: text,
-      })
-    }
-
     for (const block of message.content) {
-      if (block.type === 'tool_use') {
+      if (block.type === 'text' && block.text) {
+        input.push({ role: message.role, content: block.text })
+      } else if (block.type === 'tool_use') {
         input.push({
           type: 'function_call',
           call_id: block.id,
           name: block.name,
           arguments: JSON.stringify(block.input ?? {}),
-        })
-        continue
-      }
-      if (block.type === 'tool_result') {
+        } as OpenAIInputItem)
+      } else if (block.type === 'tool_result') {
         input.push({
           type: 'function_call_output',
           call_id: block.tool_use_id,
           output: stringifyContent(block.content),
-        })
+        } as OpenAIInputItem)
       }
+      // thinking blocks intentionally ignored — no OpenAI equivalent
     }
   }
   return input
@@ -313,6 +296,11 @@ async function streamOpenAITurn(
             toolName: name,
             toolId: callId,
           })
+        } else {
+          console.error(
+            '[agentry] OpenAI stream: function_call item missing call_id or name, skipping tool_use_start event',
+            item,
+          )
         }
       }
     } else if (event.type === 'response.completed') {
