@@ -822,6 +822,7 @@ test('thinking enables interleaved-thinking beta by default', async () => {
       thinking={{
         type: 'enabled',
         budget_tokens: 1024,
+        interleaved: true,
       }}
     >
       <Message role="user">Analyze this</Message>

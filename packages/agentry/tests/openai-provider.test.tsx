@@ -269,6 +269,111 @@ test('anthropic parent can run openai AgentTool subagent', async () => {
   expect(openaiCallCount).toBe(1)
 })
 
+test('thinking sends reasoning params to OpenAI API (non-streaming)', async () => {
+  const { client, calls } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'Reasoned response' }],
+        },
+      ],
+    },
+  ])
+
+  await run(
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={false}
+      thinking={{ type: 'enabled', effort: 'medium', summary: 'auto' }}
+    >
+      <Message role="user">Think about this</Message>
+    </Agent>,
+    { clients: { openai: client } },
+  )
+
+  expect(calls.length).toBe(1)
+  const reasoning = calls[0]!.reasoning as Record<string, unknown>
+  expect(reasoning).toBeDefined()
+  expect(reasoning.effort).toBe('medium')
+  expect(reasoning.summary).toBe('auto')
+})
+
+test('reasoning summary returned in result.thinking (non-streaming)', async () => {
+  const thinkingEvents: string[] = []
+
+  const { client } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'reasoning',
+          summary: [{ type: 'summary_text', text: 'I reasoned...' }],
+        },
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'Final answer' }],
+        },
+      ],
+    },
+  ])
+
+  const result = await run(
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={false}
+      thinking={{ type: 'enabled', effort: 'medium', summary: 'auto' }}
+      onMessage={(event) => {
+        if (event.type === 'thinking') thinkingEvents.push(event.text)
+      }}
+    >
+      <Message role="user">Think about this</Message>
+    </Agent>,
+    { clients: { openai: client } },
+  )
+
+  expect(result.thinking).toBe('I reasoned...')
+  expect(thinkingEvents).toContain('I reasoned...')
+})
+
+test('streaming: reasoning delta fires thinking event', async () => {
+  const thinkingEvents: string[] = []
+
+  const { client } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'reasoning',
+          summary: [{ type: 'summary_text', text: 'Streaming thought' }],
+        },
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'Streamed answer' }],
+        },
+      ],
+    },
+  ])
+
+  const result = await run(
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={true}
+      thinking={{ type: 'enabled', effort: 'low', summary: 'concise' }}
+      onMessage={(event) => {
+        if (event.type === 'thinking') thinkingEvents.push(event.text)
+      }}
+    >
+      <Message role="user">Stream thoughts</Message>
+    </Agent>,
+    { clients: { openai: client } },
+  )
+
+  expect(result.content).toBe('Streamed answer')
+  expect(thinkingEvents).toContain('Streaming thought')
+})
+
 test('openai multi-turn tool round-trip (function_call → result → response)', async () => {
   let capturedSecondInput: Array<Record<string, unknown>> | null = null
 

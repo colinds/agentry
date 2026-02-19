@@ -66,6 +66,17 @@ export function createOpenAIMockClient(responses: OpenAIMockResponse[]): {
         }
       }
 
+      if (item.type === 'reasoning' && Array.isArray(item.summary)) {
+        for (const part of item.summary as Array<Record<string, unknown>>) {
+          if (part.type === 'summary_text' && typeof part.text === 'string') {
+            yield {
+              type: 'response.reasoning_summary_text.delta',
+              delta: part.text,
+            }
+          }
+        }
+      }
+
       yield { type: 'response.output_item.done', output_index: i, item }
     }
 

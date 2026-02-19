@@ -8,9 +8,22 @@ export type Model =
   | AnthropicModel
   | NonNullable<OpenAI.Responses.ResponseCreateParamsNonStreaming['model']>
 
+export interface AnthropicThinkingEnabled {
+  type: 'enabled'
+  budget_tokens: number
+  interleaved: boolean
+}
+
+export interface OpenAIThinkingEnabled {
+  type: 'enabled'
+  effort: 'low' | 'medium' | 'high'
+  summary: 'auto' | 'concise' | 'detailed'
+}
+
 export type ThinkingConfig =
-  | { type: 'enabled'; budget_tokens: number; interleaved?: false }
   | { type: 'disabled' }
+  | AnthropicThinkingEnabled
+  | OpenAIThinkingEnabled
 
 export interface AgentProps {
   provider?: ProviderName

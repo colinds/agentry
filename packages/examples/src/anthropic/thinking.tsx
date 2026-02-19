@@ -31,7 +31,7 @@ const result = await run(
     thinking={{
       type: 'enabled',
       budget_tokens: 4000,
-      // interleaved: true by default - allows thinking during tool execution
+      interleaved: true, // allows thinking during tool execution
     }}
     onStepFinish={(step) => {
       apiCallCount++

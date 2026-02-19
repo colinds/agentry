@@ -213,6 +213,10 @@ export const openaiAdapter: ProviderAdapter<'openai'> = {
         : request.system?.map((s) => s.text).join('\n')
 
     const input = toOpenAIInput(request.messages)
+    const oaiThinking =
+      request.thinking?.type === 'enabled' && 'effort' in request.thinking
+        ? request.thinking
+        : undefined
     const basePayload = {
       model: request.model,
       input,
@@ -220,6 +224,14 @@ export const openaiAdapter: ProviderAdapter<'openai'> = {
       max_output_tokens: request.maxTokens,
       temperature: request.temperature,
       ...(systemText ? { instructions: systemText } : {}),
+      ...(oaiThinking
+        ? {
+            reasoning: {
+              effort: oaiThinking.effort,
+              summary: oaiThinking.summary,
+            },
+          }
+        : {}),
     }
 
     if (request.stream) {
@@ -235,6 +247,11 @@ export const openaiAdapter: ProviderAdapter<'openai'> = {
     })
     const normalized = parseOpenAIResponse(response)
     // fire synthetic stream events so the engine's onStream handler is always called
+    for (const block of normalized.message.content) {
+      if (block.type === 'thinking') {
+        request.onStream({ type: 'thinking', text: block.thinking })
+      }
+    }
     const text = normalized.message.content
       .filter((block) => block.type === 'text')
       .map((block) => (block.type === 'text' ? block.text : ''))

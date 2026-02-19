@@ -1,9 +1,16 @@
 import type { ReactNode } from 'react'
 import type { AgentComponentProps } from '../instances/types'
-import type { ProviderName } from '../types/provider'
-import type { Model } from '../types/agent'
+import type {
+  Model,
+  ThinkingConfig,
+  AnthropicThinkingEnabled,
+  OpenAIThinkingEnabled,
+} from '../types/agent'
 
-type BaseAgentProps = Omit<AgentComponentProps, 'client' | 'model' | 'provider'>
+type BaseAgentProps = Omit<
+  AgentComponentProps,
+  'client' | 'model' | 'provider' | 'thinking'
+>
 
 /**
  * When `provider` is given, `model` must also be given (they go together).
@@ -12,8 +19,17 @@ type BaseAgentProps = Omit<AgentComponentProps, 'client' | 'model' | 'provider'>
  *   to override the model while inheriting the provider.
  */
 type ProviderModelProps =
-  | { provider: ProviderName; model: Model }
-  | { provider?: undefined; model?: Model }
+  | {
+      provider: 'anthropic'
+      model: Model
+      thinking?: AnthropicThinkingEnabled | { type: 'disabled' }
+    }
+  | {
+      provider: 'openai'
+      model: Model
+      thinking?: OpenAIThinkingEnabled | { type: 'disabled' }
+    }
+  | { provider?: undefined; model?: Model; thinking?: ThinkingConfig }
 
 export type AgentComponentPublicProps = BaseAgentProps & ProviderModelProps
 

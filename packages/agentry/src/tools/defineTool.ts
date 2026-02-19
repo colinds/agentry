@@ -128,10 +128,6 @@ export async function executeTool<TInput>(
     const result = await tool.handler(parseResult.data, context)
     return { result, isError: false }
   } catch (error) {
-    console.error(
-      `[agentry] Tool "${tool.name}" threw an unhandled error:`,
-      error,
-    )
     const message = error instanceof Error ? error.message : String(error)
     return {
       result: `Error: ${message}`,

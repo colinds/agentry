@@ -57,6 +57,8 @@ export {
   type Model,
   type AgentProps,
   type ThinkingConfig,
+  type AnthropicThinkingEnabled,
+  type OpenAIThinkingEnabled,
   type CompactionControl,
   type AgentStreamEvent,
   type AgentResult,

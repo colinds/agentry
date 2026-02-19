@@ -122,7 +122,8 @@ export const anthropicAdapter: ProviderAdapter<'anthropic'> = {
     }
     if (
       request.thinking?.type === 'enabled' &&
-      request.thinking?.interleaved !== false
+      'budget_tokens' in request.thinking &&
+      request.thinking.interleaved
     ) {
       betas.add(ANTHROPIC_BETAS.INTERLEAVED_THINKING)
     }
@@ -138,14 +139,16 @@ export const anthropicAdapter: ProviderAdapter<'anthropic'> = {
       stop_sequences: request.stopSequences,
       temperature: request.temperature,
       betas: betas.size > 0 ? Array.from(betas) : undefined,
-      thinking: request.thinking
-        ? request.thinking.type === 'enabled'
+      thinking:
+        request.thinking?.type === 'enabled' &&
+        'budget_tokens' in request.thinking
           ? {
-              type: request.thinking.type,
+              type: 'enabled' as const,
               budget_tokens: request.thinking.budget_tokens,
             }
-          : { type: request.thinking.type }
-        : undefined,
+          : request.thinking?.type === 'disabled'
+            ? { type: 'disabled' as const }
+            : undefined,
     }
 
     let response: BetaMessage
