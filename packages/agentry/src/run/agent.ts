@@ -1,12 +1,23 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { ReactNode } from 'react'
 import { AgentHandle } from '../handles'
+import type { AgentResult } from '../types'
+import type { ProviderName } from '../types/provider'
+import type { ProviderClientMap } from '../providers/types'
 
 export interface RunOptions {
-  /** anthropic client instance */
-  client?: Anthropic
+  /** single provider client (backward-compatible) */
+  client?: ProviderClientMap[ProviderName]
+  /** provider clients */
+  clients?: Partial<ProviderClientMap>
   /** execution mode */
   mode?: 'batch' | 'interactive'
+}
+
+export interface CreateAgentOptions {
+  /** single provider client (backward-compatible) */
+  client?: ProviderClientMap[ProviderName]
+  /** provider clients */
+  clients?: Partial<ProviderClientMap>
 }
 
 /**
@@ -15,7 +26,7 @@ export interface RunOptions {
  * @example batch mode (default) - runs to completion
  * ```ts
  * const result = await run(
- *   <Agent model="claude-sonnet-4-5">
+ *   <Agent provider="anthropic" model="claude-sonnet-4-5">
  *     <System>You are a helpful assistant</System>
  *     <Message role="user">Hello!</Message>
  *   </Agent>
@@ -26,7 +37,7 @@ export interface RunOptions {
  * @example interactive mode - returns handle for ongoing interaction
  * ```ts
  * const agent = await run(
- *   <Agent model="claude-sonnet-4-5">
+ *   <Agent provider="anthropic" model="claude-sonnet-4-5">
  *     <System>You are a helpful assistant</System>
  *     <Tools><WebSearch /></Tools>
  *   </Agent>,
@@ -49,7 +60,7 @@ export interface RunOptions {
 export async function run(
   element: ReactNode,
   options?: RunOptions & { mode?: 'batch' },
-): Promise<import('../types').AgentResult>
+): Promise<AgentResult>
 export async function run(
   element: ReactNode,
   options: RunOptions & { mode: 'interactive' },
@@ -57,10 +68,14 @@ export async function run(
 export async function run(
   element: ReactNode,
   options: RunOptions = {},
-): Promise<import('../types').AgentResult | AgentHandle> {
-  const { mode = 'batch', client } = options
+): Promise<AgentResult | AgentHandle> {
+  const { mode = 'batch' } = options
 
-  const handle = new AgentHandle(element, client, mode)
+  const handle = new AgentHandle(
+    element,
+    { client: options.client, clients: options.clients },
+    mode,
+  )
 
   if (mode === 'interactive') {
     return handle
@@ -80,7 +95,7 @@ export async function run(
  */
 export function createAgent(
   element: ReactNode,
-  options?: { client?: Anthropic },
+  options?: CreateAgentOptions,
 ): AgentHandle {
-  return new AgentHandle(element, options?.client)
+  return new AgentHandle(element, options)
 }

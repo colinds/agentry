@@ -29,7 +29,7 @@ test('useExecutionState tracks status transitions', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false} maxIterations={5}>
       <StateTracker />
       <Message role="user">Test</Message>
     </Agent>,
@@ -54,7 +54,7 @@ test('useExecutionState with createStateWatcher helper', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false} maxIterations={5}>
       <watcher.Component />
       <Message role="user">Test</Message>
     </Agent>,
@@ -84,7 +84,7 @@ test('useMessages accumulates conversation history', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
       <MessageTracker />
       <Message role="user">Hello</Message>
     </Agent>,
@@ -108,7 +108,7 @@ test('useMessages with createMessageCollector helper', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
       <collector.Component />
       <Message role="user">Test message</Message>
     </Agent>,
@@ -144,7 +144,7 @@ test('useAgentState provides full state access', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
       <FullStateTracker />
       <Message role="user">Test</Message>
     </Agent>,
@@ -189,7 +189,7 @@ test('multiple components can subscribe to same state', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
       <watcher1.Component />
       <watcher2.Component />
       <Message role="user">Test</Message>
@@ -235,7 +235,7 @@ test('state updates during tool execution', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false} maxIterations={5}>
       <StateTracker />
       <Tools>
         <Tool {...testTool} />

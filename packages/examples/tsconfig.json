@@ -2,7 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "composite": false,
-    "declaration": false
+    "declaration": false,
+    "paths": {
+      "agentry": ["../agentry/src/index.ts"],
+      "agentry/openai": ["../agentry/src/openai.ts"],
+      "agentry/anthropic": ["../agentry/src/anthropic.ts"]
+    }
   },
   "include": ["src/**/*"]
 }

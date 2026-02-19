@@ -1,13 +1,18 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type React from 'react'
 import { SubagentHandle } from '../handles'
 import type { AgentResult, Model } from '../types'
 import { createSubagentInstance } from '../instances/createInstance'
+import type { ProviderName } from '../types/provider'
+import type { ProviderClientMap } from '../providers/types'
 
 /**
  * Options for spawning an agent programmatically
  */
 export interface RunAgentOptions {
+  /** Override provider */
+  provider?: ProviderName
+  /** Override client set */
+  clients?: Partial<ProviderClientMap>
   /** Override parent's model */
   model?: Model
   /** Override maxTokens (defaults to half parent's) */
@@ -22,7 +27,9 @@ export interface RunAgentOptions {
  * Context for creating a spawn agent function
  */
 export interface RunAgentContext {
-  client: Anthropic
+  clients?: Partial<ProviderClientMap>
+  client?: ProviderClientMap[ProviderName]
+  provider?: ProviderName
   model?: Model
   signal?: AbortSignal
 }
@@ -57,6 +64,19 @@ export function createRunAgent(context: RunAgentContext) {
     agentElement: React.ReactElement,
     options: RunAgentOptions = {},
   ): Promise<AgentResult> {
+    const provider = options.provider ?? context.provider
+    if (!provider) {
+      throw new Error('Provider is required for runAgent.')
+    }
+    const clients =
+      options.clients ??
+      context.clients ??
+      (context.client
+        ? ({
+            [provider]: context.client,
+          } as Partial<ProviderClientMap>)
+        : {})
+
     const elementProps = agentElement.props as {
       name?: string
       maxTokens?: number
@@ -66,17 +86,20 @@ export function createRunAgent(context: RunAgentContext) {
       {
         name: elementProps.name || `spawned_${Date.now()}`,
         agentNode: agentElement,
+        provider,
         maxTokens: options.maxTokens ?? elementProps.maxTokens,
         temperature: options.temperature ?? elementProps.temperature,
         stream: false,
       },
       {
+        provider,
         model: options.model || context.model,
       },
     )
 
     const handle = new SubagentHandle(subagent, {
-      client: context.client,
+      provider,
+      clients,
       signal: options.signal || context.signal,
     })
 

@@ -19,7 +19,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isActive] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isActive}>
               <System>Active mode</System>
@@ -48,7 +48,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isActive] = useState(false)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isActive}>
               <System>Active mode</System>
@@ -78,7 +78,7 @@ describe('Condition', () => {
         const [condition1] = useState(true)
         const [condition2] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Test</Message>
             <Condition when={condition1}>
               <Context>Route 1 active</Context>
@@ -109,7 +109,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isAuthenticated] = useState(false)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Help me</Message>
             <Condition when={!isAuthenticated}>
               <Tools>
@@ -157,7 +157,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isAuthenticated, setIsAuthenticated] = useState(false)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Authenticate me</Message>
             <Condition when={!isAuthenticated}>
               <Tools>
@@ -214,7 +214,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [condition] = useState(false)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <System>Base system prompt</System>
             <Message role="user">Hello</Message>
             <Condition when={condition}>
@@ -243,7 +243,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isActive] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Test</Message>
             <Condition when={isActive}>
               <Context>Context 1</Context>
@@ -285,7 +285,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isActive] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isActive}>
               <System>Route 1</System>
@@ -326,7 +326,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isAuthenticated] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Can you calculate 5 times 8 for me?</Message>
             <Condition when={isAuthenticated}>
               <Context>User is authenticated</Context>
@@ -389,7 +389,7 @@ describe('Condition', () => {
     it('should activate multiple natural language routes simultaneously', async () => {
       const TestAgent = () => {
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Calculate 2+2 and tell me about math</Message>
             <Condition when="user wants to do math or calculations">
               <Context>Math mode</Context>
@@ -463,7 +463,7 @@ describe('Condition', () => {
         const [isAuthenticated] = useState(true)
         const [isPremium] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isAuthenticated}>
               <Context>User is authenticated</Context>
@@ -506,7 +506,7 @@ describe('Condition', () => {
         const [isAuthenticated] = useState(true)
         const [isPremium] = useState(false)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isAuthenticated}>
               <Context>User is authenticated</Context>
@@ -556,7 +556,7 @@ describe('Condition', () => {
         const [isAuthenticated] = useState(false)
         const [isPremium] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isAuthenticated}>
               <Condition when={isPremium}>
@@ -589,7 +589,7 @@ describe('Condition', () => {
         const [isPremium] = useState(true)
         const [isAdmin] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isAuthenticated}>
               <Context>Authenticated</Context>
@@ -634,7 +634,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isAuthenticated] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">I want to calculate 10 + 5</Message>
             <Condition when={isAuthenticated}>
               <Context>User is authenticated</Context>
@@ -696,7 +696,7 @@ describe('Condition', () => {
         const [isAuthenticated, setIsAuthenticated] = useState(false)
         const [hasPermission] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Authenticate and perform action</Message>
             <Condition when={!isAuthenticated}>
               <Tools>

@@ -30,7 +30,7 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
 
   const agentInstance: AgentInstance = {
     type: 'agent',
-    props: { model: TEST_MODEL, maxTokens: 100 },
+    props: { provider: 'anthropic', model: TEST_MODEL, maxTokens: 100 },
     client,
     engine: null,
     systemParts: [],
@@ -43,6 +43,7 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
   }
 
   const engine = new ExecutionEngine({
+    provider: 'anthropic',
     client,
     model: TEST_MODEL,
     maxTokens: 100,
@@ -135,7 +136,7 @@ test('compactionControl does nothing when under threshold', async () => {
 
   const agentInstance: AgentInstance = {
     type: 'agent',
-    props: { model: TEST_MODEL, maxTokens: 100 },
+    props: { provider: 'anthropic', model: TEST_MODEL, maxTokens: 100 },
     client,
     engine: null,
     systemParts: [],
@@ -148,6 +149,7 @@ test('compactionControl does nothing when under threshold', async () => {
   }
 
   const engine = new ExecutionEngine({
+    provider: 'anthropic',
     client,
     model: TEST_MODEL,
     maxTokens: 100,

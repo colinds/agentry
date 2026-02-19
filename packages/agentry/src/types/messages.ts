@@ -1,36 +1,88 @@
+import type { JsonObject } from './json'
 import type {
-  BetaMessage,
-  BetaMessageParam,
-  BetaContentBlock,
-  BetaToolUseBlock,
-  BetaTextBlock,
+  BetaContentBlock as AnthropicBetaContentBlock,
+  BetaContentBlockParam as AnthropicBetaContentBlockParam,
 } from '@anthropic-ai/sdk/resources/beta'
 
-export type {
-  BetaMessage,
-  BetaMessageParam,
-  BetaContentBlock,
-  BetaToolUseBlock,
-  BetaTextBlock,
+export interface TextContentBlock {
+  type: 'text'
+  text: string
 }
 
-export function isToolUseBlock(
-  block: BetaContentBlock,
-): block is BetaToolUseBlock {
-  return block.type === 'tool_use'
+export interface ThinkingContentBlock {
+  type: 'thinking'
+  thinking: string
 }
 
-export function isTextBlock(block: BetaContentBlock): block is BetaTextBlock {
-  return block.type === 'text'
+export interface ToolUseContentBlock {
+  type: 'tool_use'
+  id: string
+  name: string
+  input: JsonObject
 }
 
-export function extractText(message: BetaMessage): string {
-  return message.content
-    .filter(isTextBlock)
-    .map((block) => block.text)
-    .join('')
+export interface ToolResultContentBlock {
+  type: 'tool_result'
+  tool_use_id: string
+  content: string | Array<{ type: 'text'; text: string }>
+  is_error?: boolean
 }
 
-export function extractToolUses(message: BetaMessage): BetaToolUseBlock[] {
+export type AgentContentBlock =
+  | TextContentBlock
+  | ThinkingContentBlock
+  | ToolUseContentBlock
+  | ToolResultContentBlock
+  | AnthropicBetaContentBlock
+  | AnthropicBetaContentBlockParam
+
+export interface AgentMessageParam {
+  role: 'user' | 'assistant'
+  content: string | AgentContentBlock[]
+}
+
+export interface AgentMessage {
+  content: AgentContentBlock[]
+  stop_reason: string | null
+  usage: {
+    input_tokens: number
+    output_tokens: number
+    cache_creation_input_tokens?: number | null
+    cache_read_input_tokens?: number | null
+  }
+}
+
+// Backward-compatible aliases retained for test and migration stability.
+export type BetaMessageParam = AgentMessageParam
+export type BetaMessage = AgentMessage
+export type BetaContentBlock = AgentContentBlock
+export type BetaToolUseBlock = ToolUseContentBlock
+export type BetaTextBlock = TextContentBlock
+
+export function isToolUseBlock(block: AgentContentBlock): block is ToolUseContentBlock {
+  return (
+    typeof block === 'object' &&
+    block !== null &&
+    'type' in block &&
+    block.type === 'tool_use'
+  )
+}
+
+export function isTextBlock(
+  block: AgentContentBlock,
+): block is TextContentBlock {
+  return (
+    typeof block === 'object' &&
+    block !== null &&
+    'type' in block &&
+    block.type === 'text'
+  )
+}
+
+export function extractText(message: AgentMessage): string {
+  return message.content.filter(isTextBlock).map((block) => block.text).join('')
+}
+
+export function extractToolUses(message: AgentMessage): ToolUseContentBlock[] {
   return message.content.filter(isToolUseBlock)
 }

@@ -12,7 +12,7 @@ test('root agent sees pre-loaded JSX messages', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <System>You continue conversations</System>
       {/* pre-loaded conversation history */}
       <Message role="user">What is 2+2?</Message>
@@ -47,7 +47,13 @@ test('run creates an agent and executes in batch mode', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} maxIterations={1} stream={false}>
+    <Agent
+      provider="anthropic"
+      model={TEST_MODEL}
+      maxTokens={100}
+      maxIterations={1}
+      stream={false}
+    >
       <System>You are a test assistant. Be very brief.</System>
       <Message role="user">Say hello in 3 words</Message>
     </Agent>,
@@ -88,7 +94,7 @@ test('run handles tools correctly', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={500} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={500} stream={false}>
       <System>You are a test assistant. Use the get_info tool.</System>
       <Tools>
         <Tool {...testTool} />
@@ -115,7 +121,7 @@ test('interactive mode allows multiple turns', async () => {
   ])
 
   const agentPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
     { mode: 'interactive', client },
@@ -150,7 +156,7 @@ test('stream() accepts message parameter for first turn', async () => {
   ])
 
   const agentPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
     { mode: 'interactive', client },
@@ -181,7 +187,7 @@ test('stream() works with message for subsequent turns', async () => {
   ])
 
   const agentPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={200} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={200} stream={false}>
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
     { mode: 'interactive', client },
@@ -242,7 +248,7 @@ test('handles multiple tool calls in sequence', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={500} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={500} stream={false}>
       <Tools>
         <Tool {...counterTool} />
       </Tools>
@@ -277,7 +283,13 @@ test('respects maxIterations limit', async () => {
   })
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} maxIterations={3} stream={false}>
+    <Agent
+      provider="anthropic"
+      model={TEST_MODEL}
+      maxTokens={100}
+      maxIterations={3}
+      stream={false}
+    >
       <Tools>
         <Tool {...tool} />
       </Tools>
@@ -345,7 +357,7 @@ test('tool schemas in API requests are complete', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <System>You are a test assistant.</System>
       <Tools>
         <Tool {...complexTool} />
@@ -392,7 +404,7 @@ test('batch mode errors when agent has no messages', async () => {
 
   await expect(
     run(
-      <Agent model={TEST_MODEL} maxTokens={100}>
+      <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100}>
         <System>You are helpful</System>
         {/* No <Message> components */}
       </Agent>,
@@ -405,7 +417,7 @@ test('interactive mode does NOT error when agent has no messages', async () => {
   const { client } = createStepMockClient([])
 
   const agent = await run(
-    <Agent model={TEST_MODEL} maxTokens={100}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100}>
       <System>You are helpful</System>
     </Agent>,
     { client, mode: 'interactive' },
@@ -418,7 +430,7 @@ test('interactive mode does NOT error when agent has no messages', async () => {
 
 test('subagent errors when it has no messages', async () => {
   const SubAgent = () => (
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <System>I am a subagent</System>
       {/* No <Message> components - should trigger validation error */}
     </Agent>
@@ -434,7 +446,7 @@ test('subagent errors when it has no messages', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <System>You are helpful</System>
       <Tools>
         <AgentTool
@@ -475,7 +487,7 @@ test('System with cache="ephemeral" creates block with cache_control', async () 
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <System cache="ephemeral">Ephemeral instructions</System>
       <Message role="user">Test</Message>
     </Agent>,
@@ -510,7 +522,7 @@ test('Context with cache="ephemeral" creates block with cache_control', async ()
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <Context cache="ephemeral">Ephemeral context</Context>
       <Message role="user">Test</Message>
     </Agent>,
@@ -544,7 +556,7 @@ test('System without cache creates simple string', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <System>Regular instructions</System>
       <Message role="user">Test</Message>
     </Agent>,
@@ -568,7 +580,7 @@ test('Mixed System and Context parts maintain order and cache flags', async () =
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <System>First cached part</System>
       <Context cache="ephemeral">Ephemeral context</Context>
       <System cache="ephemeral">Ephemeral instructions</System>
@@ -619,7 +631,7 @@ test('Multiple ephemeral parts are all marked correctly', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <System cache="ephemeral">First ephemeral</System>
       <Context cache="ephemeral">Second ephemeral</Context>
       <System cache="ephemeral">Third ephemeral</System>
@@ -653,7 +665,7 @@ test('Multiple System and Context parts use array format', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <System>First part</System>
       <Context>Second part</Context>
       <System>Third part</System>
@@ -687,7 +699,7 @@ test('strict tool enables structured-outputs beta', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={100} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100} stream={false}>
       <Tools>
         <Tool
           name="extract"
@@ -718,6 +730,7 @@ test('thinking enables interleaved-thinking beta by default', async () => {
 
   const runPromise = run(
     <Agent
+      provider="anthropic"
       model={TEST_MODEL}
       maxTokens={100}
       stream={false}
@@ -751,6 +764,7 @@ test('thinking with interleaved: false disables interleaved-thinking beta', asyn
 
   const runPromise = run(
     <Agent
+      provider="anthropic"
       model={TEST_MODEL}
       maxTokens={100}
       stream={false}

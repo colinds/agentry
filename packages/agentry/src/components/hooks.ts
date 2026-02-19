@@ -6,7 +6,8 @@ import {
   type AgentStoreState,
 } from '../store'
 import { AgentContext, AgentProvider } from '../context'
-import type { AgentState, BetaMessageParam } from '../types'
+import type { AgentState } from '../types'
+import type { AgentMessageParam } from '../types/messages'
 
 export {
   createAgentStore,
@@ -60,7 +61,7 @@ export function useExecutionState(): AgentState {
  * }
  * ```
  */
-export function useMessages(): BetaMessageParam[] {
+export function useMessages(): AgentMessageParam[] {
   const store = useAgentStore()
   return useStore(store, ({ messages }) => messages)
 }

@@ -1,9 +1,4 @@
-import type Anthropic from '@anthropic-ai/sdk'
-import type {
-  BetaMessageParam,
-  BetaContentBlockParam,
-  BetaRequestMCPServerURLDefinition,
-} from '@anthropic-ai/sdk/resources/beta'
+import type { AgentMessageParam, AgentContentBlock } from '../types/messages'
 import type {
   AgentProps,
   InternalTool,
@@ -14,6 +9,7 @@ import type {
 import type { ExecutionEngine } from '../execution'
 import type { AgentStore } from '../store'
 import type { z } from 'zod'
+import type { ProviderClientMap } from '../providers/types'
 
 export interface BaseInstance {
   type: string
@@ -23,12 +19,12 @@ export interface BaseInstance {
 export interface AgentInstance extends BaseInstance {
   type: 'agent'
   props: AgentProps
-  client: Anthropic
+  client: ProviderClientMap[keyof ProviderClientMap] | undefined
   engine: ExecutionEngine | null
   systemParts: Array<{ content: string; cache?: 'ephemeral' }>
   tools: InternalTool[]
   sdkTools: SdkTool[]
-  mcpServers: BetaRequestMCPServerURLDefinition[]
+  mcpServers: MCPServerConfig[]
   children: Instance[]
   store: AgentStore
 }
@@ -57,12 +53,23 @@ export interface ContextInstance extends BaseInstance {
 
 export interface MessageInstance extends BaseInstance {
   type: 'message'
-  message: BetaMessageParam
+  message: AgentMessageParam
+}
+
+export interface MCPServerConfig {
+  type: 'url'
+  name: string
+  url: string
+  authorization_token?: string
+  tool_configuration?: {
+    enabled?: boolean
+    allowed_tools?: string[]
+  }
 }
 
 export interface MCPServerInstance extends BaseInstance {
   type: 'mcp_server'
-  config: BetaRequestMCPServerURLDefinition
+  config: MCPServerConfig
 }
 
 export interface ToolsContainerInstance extends BaseInstance {
@@ -79,7 +86,7 @@ export interface SubagentInstance extends BaseInstance {
   systemParts: Array<{ content: string; cache?: 'ephemeral' }>
   tools: InternalTool[]
   sdkTools: SdkTool[]
-  mcpServers: BetaRequestMCPServerURLDefinition[]
+  mcpServers: MCPServerConfig[]
   agentNode: React.ReactNode | null
 }
 
@@ -88,7 +95,7 @@ export interface AgentToolInstance extends BaseInstance {
   name: string
   description: string
   parameters: z.ZodType
-  jsonSchema: Record<string, unknown>
+  jsonSchema: Record<string, object | string | number | boolean | null>
   agent: AgentToolFunction<z.ZodType>
 }
 
@@ -116,7 +123,7 @@ export type Instance =
   | ConditionInstance
 
 export interface AgentComponentProps extends AgentProps {
-  client?: Anthropic
+  client?: ProviderClientMap[keyof ProviderClientMap]
   children?: React.ReactNode
 }
 
@@ -145,14 +152,14 @@ export interface ContextComponentProps {
 export interface MessageComponentProps {
   role: 'user' | 'assistant'
   children?: React.ReactNode
-  rawContent?: string | BetaContentBlockParam[]
+  rawContent?: string | AgentContentBlock[]
 }
 
 export interface MCPServerComponentProps {
   name: string
   url: string
   authorization_token?: string
-  tool_configuration?: BetaRequestMCPServerURLDefinition['tool_configuration']
+  tool_configuration?: MCPServerConfig['tool_configuration']
 }
 
 export interface ToolsContainerProps {
@@ -230,7 +237,7 @@ export function isConditionInstance(
   return instance.type === 'condition'
 }
 
-export function isInstance(value: unknown): value is Instance {
+export function isInstance(value: object | null): value is Instance {
   return (
     typeof value === 'object' &&
     value !== null &&

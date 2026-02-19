@@ -35,15 +35,18 @@ export const createAgentSyntheticTool = (
         {
           name: agentTool.name,
           description: agentTool.description,
+          provider: toolContext.provider,
           agentNode: agentElement,
         },
         {
+          provider: toolContext.provider,
           model: toolContext.model,
         },
       )
 
       const result = await runSubagent(subagent, {
-        client: toolContext.client,
+        provider: subagent.props.provider,
+        clients: toolContext.clients,
         signal: toolContext.signal,
       })
 

@@ -1,12 +1,13 @@
-import type Anthropic from '@anthropic-ai/sdk'
 import type { AgentInstance } from '../instances/types'
 import type { AgentStore } from '../store'
 import { createAgentStore } from '../store'
 import type { ExecutionEngineConfig } from './ExecutionEngine'
+import type { ProviderClientMap, ProviderAdapter } from '../providers/types'
 
 export interface EngineConfigOptions {
   agent: AgentInstance
-  client: Anthropic
+  clients: Partial<ProviderClientMap>
+  adapters: Record<string, ProviderAdapter>
   store?: AgentStore
 }
 
@@ -54,13 +55,24 @@ export function buildSystemPrompt(
 export function createEngineConfig(
   options: EngineConfigOptions,
 ): EngineConfigResult {
-  const { agent, client } = options
+  const { agent, clients, adapters } = options
 
   const store = options.store ?? createAgentStore()
 
   const system = buildSystemPrompt(agent)
+  const provider = agent.props.provider
+  if (!provider) {
+    throw new Error('Provider is required on agent props.')
+  }
+  const client = (agent.client ?? clients[provider]) as ExecutionEngineConfig['client']
+  if (!client) {
+    throw new Error(`No client configured for provider "${provider}"`)
+  }
 
   const config = {
+    provider,
+    clients,
+    adapters,
     client,
     model: agent.props.model,
     maxTokens: agent.props.maxTokens ?? 4096,

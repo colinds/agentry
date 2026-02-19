@@ -1,9 +1,16 @@
 export {
+  type AgentMessage,
+  type AgentMessageParam,
+  type AgentContentBlock,
   type BetaMessage,
   type BetaMessageParam,
   type BetaContentBlock,
   type BetaToolUseBlock,
   type BetaTextBlock,
+  type ToolUseContentBlock,
+  type TextContentBlock,
+  type ToolResultContentBlock,
+  type ThinkingContentBlock,
   isToolUseBlock,
   isTextBlock,
   extractText,
@@ -26,6 +33,7 @@ export {
   type MemoryHandlers,
   type RunAgentOptions,
   isCodeExecutionTool,
+  isWebSearchTool,
   isMemoryTool,
 } from './tools'
 
@@ -43,6 +51,10 @@ export {
   canAcceptMessages,
   isProcessing,
 } from './state'
+
+export {
+  type ProviderName,
+} from './provider'
 
 export {
   type Model,

@@ -19,17 +19,15 @@ Agentry adapts React’s component model for AI agents. Define behavior declarat
 > [!WARNING]
 > This library is in active development.
 
-> [!NOTE]
-> Agentry currently only supports Anthropic models.
-
 ## Quick Start
 
 ### Installation
 
 ```bash
 bun add agentry react zod
-# Set your Anthropic API key
+# Set one or both provider keys
 export ANTHROPIC_API_KEY="sk-ant-***"
+export OPENAI_API_KEY="sk-***"
 ```
 
 Next, in your `tsconfig.json`:
@@ -52,10 +50,11 @@ In `agent.tsx`:
 
 ```tsx
 import { run, Agent, System, Tools, Tool, Message } from 'agentry'
+import { anthropic } from 'agentry/anthropic'
 import { z } from 'zod'
 
 const result = await run(
-  <Agent model="claude-haiku-4-5" maxTokens={1024}>
+  <Agent provider="anthropic" model="claude-haiku-4-5" maxTokens={1024}>
     <System>You are a helpful math assistant</System>
     <Tools>
       <Tool
@@ -79,6 +78,9 @@ const result = await run(
     </Tools>
     <Message role="user">What is 42 + 17?</Message>
   </Agent>,
+  {
+    clients: { anthropic: anthropic() },
+  },
 )
 
 console.log(result.content)
@@ -98,11 +100,90 @@ bun run agent.tsx
 - **Type-safe tools** - Handler params inferred from Zod schemas
 - **Streaming support** - Stream responses
 - **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.runAgent()`
+- **Cross-provider subagents** - Mix providers across parent/subagent boundaries
 - **Compaction control** - Automatic message compaction for long conversations to manage context window usage
 - **Conditional rendering** - Use `<Condition>` to conditionally render agent components based on state or natural language intent
 - **Structured outputs** - Use `strict` on tools
 - **Prompt caching** - Supports Anthropic's prompt caching
-- **Built-in tools** - `<WebSearch />`, `<CodeExecution />`, `<Memory />`, `<MCP />`
+- **Provider-specific built-ins** - Import built-ins from `agentry/anthropic` or `agentry/openai`
+- **SDK-native tool shapes** - Built-ins reuse provider SDK types where available
+
+## Providers
+
+Agentry supports multiple providers with a single declarative API.
+
+- Root `agentry` exports the provider-agnostic core (`run`, `Agent`, hooks, custom tools).
+- Provider modules export provider clients and built-ins:
+  - `agentry/anthropic`
+  - `agentry/openai`
+- Built-ins are treated as regular tools in execution (no per-provider capability matrix to maintain).
+
+### Root + explicit provider
+
+```tsx
+import { run, Agent, Message } from 'agentry'
+import { openai } from 'agentry/openai'
+
+const result = await run(
+  <Agent provider="openai" model="gpt-4.1-mini">
+    <Message role="user">Hello</Message>
+  </Agent>,
+  {
+    clients: { openai: openai() },
+  },
+)
+```
+
+### `createAI` defaults
+
+```tsx
+import { createAI, Agent, Message, Tools } from 'agentry'
+import { anthropic, WebSearch } from 'agentry/anthropic'
+
+const ai = createAI({
+  clients: { anthropic: anthropic() },
+})
+
+const result = await ai.run(
+  <Agent provider="anthropic" model="claude-sonnet-4-5" maxTokens={1024}>
+    <Tools>
+      <WebSearch maxUses={3} />
+    </Tools>
+    <Message role="user">Find the latest React release notes</Message>
+  </Agent>,
+)
+```
+
+### Cross-provider subagents
+
+`<AgentTool>` and `context.runAgent(...)` can run subagents on a different provider than the parent:
+
+```tsx
+import { createAI, Agent, AgentTool, Message, Tools } from 'agentry'
+import { openai } from 'agentry/openai'
+
+const ai = createAI({
+  clients: { openai: openai() },
+})
+
+await ai.run(
+  <Agent provider="openai" model="gpt-4.1-mini">
+    <Tools>
+      <AgentTool
+        name="claude_researcher"
+        description="Research with Anthropic"
+        parameters={z.object({ topic: z.string() })}
+        agent={({ topic }) => (
+          <Agent provider="anthropic" model="claude-sonnet-4-5">
+            <Message role="user">Research: {topic}</Message>
+          </Agent>
+        )}
+      />
+    </Tools>
+    <Message role="user">Use claude_researcher for React 19 updates.</Message>
+  </Agent>,
+)
+```
 
 ## Examples
 
@@ -119,17 +200,26 @@ Want to see code? See [examples/](/packages/examples/src)
 | [`mcp.tsx`](packages/examples/src/mcp.tsx)                                           | MCP server integration                     |
 | [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                   | Terminal-based chatbot                     |
 | [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                   | Dynamic subagent creation                  |
-| [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                   | Prompt caching with ephemeral content      |
+| [`anthropic/cache-ephemeral.tsx`](packages/examples/src/anthropic/cache-ephemeral.tsx) | Prompt caching with ephemeral content    |
 | [`conditions.tsx`](packages/examples/src/conditions.tsx)                             | State-based and NL condition rendering     |
-| [`thinking.tsx`](packages/examples/src/thinking.tsx)                                 | Extended thinking with interleaved support |
+| [`anthropic/thinking.tsx`](packages/examples/src/anthropic/thinking.tsx)             | Extended thinking with interleaved support |
 | [`workflow.tsx`](packages/examples/src/workflow.tsx)                                 | Interactive authentication workflow        |
 | [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx) | Conversation save/load                     |
+| [`openai/basic.tsx`](packages/examples/src/openai/basic.tsx)                         | OpenAI Responses API basic usage           |
+| [`cross-provider/subagents.tsx`](packages/examples/src/cross-provider/subagents.tsx) | OpenAI parent + Anthropic subagents        |
 
 Run an example:
 
 ```bash
 echo "ANTHROPIC_API_KEY=sk-ant-***" > .env
+echo "OPENAI_API_KEY=sk-***" >> .env
 bun run example:basic
+# OpenAI examples:
+bun run example:openai:basic
+# provider-agnostic examples (set EXAMPLE_PROVIDER=openai if needed):
+bun run example:chatbot
+# Anthropic-specific examples:
+bun run example:anthropic:thinking
 ```
 
 ## Core Concepts
@@ -139,13 +229,18 @@ bun run example:basic
 **Batch mode** (default) - Runs to completion:
 
 ```tsx
-const result = await run(<Agent>...</Agent>)
+const result = await run(<Agent provider="anthropic">...</Agent>, {
+  clients: { anthropic: anthropic() },
+})
 ```
 
 **Interactive mode** - Returns a handle for ongoing interaction:
 
 ```tsx
-const agent = await run(<Agent>...</Agent>, { mode: 'interactive' })
+const agent = await run(<Agent provider="anthropic">...</Agent>, {
+  mode: 'interactive',
+  clients: { anthropic: anthropic() },
+})
 await agent.sendMessage('Hello')
 for await (const event of agent.stream('Tell me more')) {
   if (event.type === 'text') process.stdout.write(event.text)
@@ -368,26 +463,57 @@ Runs an agent and returns a result or handle.
 
 ```tsx
 // Batch mode
-const result: AgentResult = await run(<Agent>...</Agent>)
+const result: AgentResult = await run(<Agent provider="anthropic">...</Agent>, {
+  clients: { anthropic: anthropic() },
+})
 
 // Interactive mode
-const handle: AgentHandle = await run(<Agent>...</Agent>, {
+const handle: AgentHandle = await run(<Agent provider="anthropic">...</Agent>, {
   mode: 'interactive',
+  clients: { anthropic: anthropic() },
 })
 ```
 
 **Options:**
 
 - `mode?: 'batch' | 'interactive'` - Execution mode (default: `'batch'`)
-- `client?: Anthropic` - Custom Anthropic client
+- `client?: Anthropic | OpenAI` - Single provider client (backward-compatible shortcut)
+- `clients?: { anthropic?: Anthropic; openai?: OpenAI }` - Provider client map
+  - provider is chosen from `<Agent provider=\"...\">`
+  - if omitted, provider clients are created from environment variables by default
+
+### `createAI(defaults)`
+
+Create a defaults-bound runner so you can use `ai.run(...)` and `ai.createAgent(...)`.
+
+```tsx
+import { createAI, Agent, Message } from 'agentry'
+import { openai } from 'agentry/openai'
+
+const ai = createAI({
+  clients: { openai: openai() },
+})
+
+const result = await ai.run(
+  <Agent provider="openai" model="gpt-5-mini">
+    <Message role="user">Hello</Message>
+  </Agent>,
+)
+```
 
 ### Components
+
+Built-ins are provider-owned exports:
+
+- `WebSearch` from `agentry/anthropic` or `agentry/openai`
+- `CodeExecution` and `MCP` from `agentry/anthropic` or `agentry/openai`
+- `Memory` from `agentry/anthropic`
 
 #### `<Agent>`
 
 | Prop                 | Type                                   | Description                                                                                                                                                                                              |
 | -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `model`              | `string`                               | Claude model (e.g. `claude-sonnet-4-5`)                                                                                                                                                                  |
+| `model`              | `string`                               | Provider model id (e.g. `claude-sonnet-4-5`, `gpt-4.1-mini`)                                                                                                                                              |
 | `name?`              | `string`                               | Agent identifier                                                                                                                                                                                         |
 | `description?`       | `string`                               | Agent description                                                                                                                                                                                        |
 | `maxTokens?`         | `number`                               | Max output tokens (default: `4096`)                                                                                                                                                                      |
@@ -527,16 +653,20 @@ Tool handlers receive a `context` object:
 | Property    | Type                                                                       | Description                   |
 | ----------- | -------------------------------------------------------------------------- | ----------------------------- |
 | `agentName` | `string`                                                                   | Name of the current agent     |
-| `client`    | `Anthropic`                                                                | Anthropic client instance     |
+| `provider`  | `'anthropic' \| 'openai'`                                                  | Current provider              |
+| `client?`   | `Anthropic \| OpenAI`                                                      | Current provider client       |
+| `clients?`  | `{ anthropic?: Anthropic; openai?: OpenAI }`                               | Provider client map           |
 | `model?`    | `string`                                                                   | Current agent's model         |
 | `signal?`   | `AbortSignal`                                                              | Abort signal for cancellation |
-| `metadata?` | `Record<string, unknown>`                                                  | Custom metadata               |
+| `metadata?` | `JsonObject`                                                               | Custom JSON-like metadata     |
 | `runAgent`  | `(agent: ReactElement, options?: RunAgentOptions) => Promise<AgentResult>` | Run an agent programmatically |
 
 **RunAgentOptions:**
 
 | Field          | Type          | Description             |
 | -------------- | ------------- | ----------------------- |
+| `provider?`    | `'anthropic' \| 'openai'` | Override provider |
+| `clients?`     | `{ anthropic?: Anthropic; openai?: OpenAI }` | Override client map |
 | `model?`       | `string`      | Override parent's model |
 | `maxTokens?`   | `number`      | Override max tokens     |
 | `temperature?` | `number`      | Override temperature    |
@@ -547,7 +677,7 @@ Tool handlers receive a `context` object:
 - Node.js 18+ or Bun
 - React 19+
 - TypeScript 5+
-- Anthropic API Key
+- Provider API key(s): Anthropic and/or OpenAI
 
 ## Development
 

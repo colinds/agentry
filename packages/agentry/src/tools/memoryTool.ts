@@ -44,7 +44,7 @@ export async function executeMemoryTool(
     switch (input.command) {
       case 'view': {
         if (!handlers.onView) {
-          throw new Error('onView handler not provided')
+          throw new Error('Missing onView handler.')
         }
         result = await Promise.resolve(
           handlers.onView({
@@ -56,7 +56,7 @@ export async function executeMemoryTool(
       }
       case 'create': {
         if (!handlers.onCreate) {
-          throw new Error('onCreate handler not provided')
+          throw new Error('Missing onCreate handler.')
         }
         result = await Promise.resolve(
           handlers.onCreate({
@@ -68,7 +68,7 @@ export async function executeMemoryTool(
       }
       case 'str_replace': {
         if (!handlers.onStrReplace) {
-          throw new Error('onStrReplace handler not provided')
+          throw new Error('Missing onStrReplace handler.')
         }
         result = await Promise.resolve(
           handlers.onStrReplace({
@@ -81,7 +81,7 @@ export async function executeMemoryTool(
       }
       case 'insert': {
         if (!handlers.onInsert) {
-          throw new Error('onInsert handler not provided')
+          throw new Error('Missing onInsert handler.')
         }
         result = await Promise.resolve(
           handlers.onInsert({
@@ -94,7 +94,7 @@ export async function executeMemoryTool(
       }
       case 'delete': {
         if (!handlers.onDelete) {
-          throw new Error('onDelete handler not provided')
+          throw new Error('Missing onDelete handler.')
         }
         result = await Promise.resolve(
           handlers.onDelete({
@@ -105,7 +105,7 @@ export async function executeMemoryTool(
       }
       case 'rename': {
         if (!handlers.onRename) {
-          throw new Error('onRename handler not provided')
+          throw new Error('Missing onRename handler.')
         }
         result = await Promise.resolve(
           handlers.onRename({

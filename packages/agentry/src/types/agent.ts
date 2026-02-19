@@ -1,17 +1,19 @@
-import type { Model } from '@anthropic-ai/sdk/resources/messages'
-import type {
-  BetaMessageParam,
-  BetaThinkingConfigParam,
-} from '@anthropic-ai/sdk/resources/beta'
 import type { OnStepFinishResult } from './lifecycle'
+import type { AgentMessageParam } from './messages'
+import type { ProviderName } from './provider'
+import type { Model as AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
+import type OpenAI from 'openai'
 
-export type { Model }
+export type Model =
+  | AnthropicModel
+  | NonNullable<OpenAI.Responses.ResponseCreateParamsNonStreaming['model']>
 
-export type ThinkingConfig = BetaThinkingConfigParam & {
-  interleaved?: false
-}
+export type ThinkingConfig =
+  | { type: 'enabled'; budget_tokens: number; interleaved?: false }
+  | { type: 'disabled' }
 
 export interface AgentProps {
+  provider?: ProviderName
   model: Model
 
   name?: string
@@ -47,7 +49,7 @@ export type AgentStreamEvent =
 
 export interface AgentResult {
   content: string
-  messages: BetaMessageParam[]
+  messages: AgentMessageParam[]
   usage: {
     inputTokens: number
     outputTokens: number

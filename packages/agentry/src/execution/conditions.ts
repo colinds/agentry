@@ -1,8 +1,11 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import type { BetaMessageParam } from '../types/messages'
+import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
+import type { AgentMessageParam } from '../types/messages'
 import type { ConditionInstance, Instance } from '../instances/types'
 import { isConditionInstance } from '../instances/types'
 import { debug } from '../debug'
+import type { ProviderClientMap } from '../providers/types'
+import type { ProviderName } from '../types/provider'
 
 /**
  * Find all condition instances in the tree
@@ -29,8 +32,9 @@ export function findAllConditions(root: Instance): ConditionInstance[] {
  */
 export async function evaluateConditions(
   root: Instance,
-  messages: BetaMessageParam[],
-  client: Anthropic,
+  messages: AgentMessageParam[],
+  clients: Partial<ProviderClientMap>,
+  provider: ProviderName,
   model: string,
   signal?: AbortSignal,
   options?: { evaluateNL?: boolean },
@@ -63,6 +67,13 @@ export async function evaluateConditions(
   const nlConditions = conditions.filter((c) => typeof c.when === 'string')
 
   if (nlConditions.length > 0 && options?.evaluateNL !== false) {
+    if (provider !== 'anthropic') {
+      return hasChanges
+    }
+    const client = clients.anthropic as Anthropic | undefined
+    if (!client) {
+      return hasChanges
+    }
     const nlResults = await evaluateNaturalLanguageConditions(
       nlConditions,
       messages,
@@ -98,7 +109,7 @@ export async function evaluateConditions(
  */
 async function evaluateNaturalLanguageConditions(
   conditions: ConditionInstance[],
-  messages: BetaMessageParam[],
+  messages: AgentMessageParam[],
   client: Anthropic,
   model: string,
   signal?: AbortSignal,
@@ -123,7 +134,7 @@ ${conditionDescriptions}
 
 Return ALL indices of conditions that are TRUE based on the current conversation state.`,
       messages: [
-        ...evalMessages,
+        ...(evalMessages as BetaMessageParam[]),
         {
           role: 'user',
           content: 'Which conditions are true?',
@@ -181,9 +192,7 @@ Return ALL indices of conditions that are TRUE based on the current conversation
 }
 
 // ensure messages don't start with a tool_result (which requires a preceding tool_use)
-function ensureValidMessageStart(
-  messages: BetaMessageParam[],
-): BetaMessageParam[] {
+function ensureValidMessageStart(messages: AgentMessageParam[]): AgentMessageParam[] {
   if (messages.length === 0) return messages
 
   // find the first user message that doesn't contain tool_results
@@ -198,7 +207,7 @@ function ensureValidMessageStart(
 
     // check if it has tool_results (which would need a preceding tool_use)
     const hasToolResult = msg.content.some(
-      (block) => block.type === 'tool_result',
+      (block) => typeof block === 'object' && block !== null && block.type === 'tool_result',
     )
     if (!hasToolResult) {
       return messages.slice(i)

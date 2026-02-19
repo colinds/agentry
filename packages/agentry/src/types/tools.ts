@@ -1,12 +1,14 @@
 import type { ReactElement } from 'react'
 import type { z } from 'zod'
-import type Anthropic from '@anthropic-ai/sdk'
 import type {
-  BetaToolResultBlockParam,
-  BetaWebSearchTool20250305,
+  BetaCodeExecutionTool20250825,
   BetaMemoryTool20250818,
+  BetaWebSearchTool20250305,
 } from '@anthropic-ai/sdk/resources/beta'
 import type { Model, AgentResult } from './agent'
+import type { ProviderName } from './provider'
+import type { ProviderClientMap } from '../providers/types'
+import type { JsonObject } from './json'
 
 export interface MemoryHandlers {
   /** Handler for viewing directory contents or file contents */
@@ -40,24 +42,10 @@ export interface MemoryHandlers {
   }) => Promise<string> | string
 }
 
-export type ToolResult = string | BetaToolResultBlockParam['content']
+export type ToolResult = string | Array<{ type: 'text'; text: string }>
 
-/**
- * Code execution tool - enables code execution capability
- */
-export interface CodeExecutionTool {
-  type: 'code_execution_20250825'
-  name: 'code_execution'
-}
-
-/**
- * Web search tool - enables web search capability
- */
+export type CodeExecutionTool = BetaCodeExecutionTool20250825
 export type WebSearchTool = BetaWebSearchTool20250305
-
-/**
- * Memory tool - enables memory capability with client-side handlers
- */
 export type MemoryTool = BetaMemoryTool20250818 & {
   memoryHandlers?: MemoryHandlers
 }
@@ -92,6 +80,10 @@ export function isMemoryTool(tool: SdkTool): tool is MemoryTool {
  * Options for running an agent programmatically from a tool handler
  */
 export interface RunAgentOptions {
+  /** Override provider */
+  provider?: ProviderName
+  /** Override provider clients */
+  clients?: Partial<ProviderClientMap>
   /** Override parent's model */
   model?: Model
   /** Override maxTokens (defaults to half parent's) */
@@ -104,11 +96,14 @@ export interface RunAgentOptions {
 
 export interface ToolContext {
   agentName: string
-  client: Anthropic
+  provider?: ProviderName
+  clients?: Partial<ProviderClientMap>
+  /** Client for current provider (backward-compatible alias) */
+  client?: ProviderClientMap[ProviderName]
   model?: Model
   // abort signal for cancellation
   signal?: AbortSignal
-  metadata?: Record<string, unknown>
+  metadata?: JsonObject
   /**
    * Programmatically run an agent from within a tool handler.
    * The spawned agent runs to completion and returns its result.
@@ -137,7 +132,7 @@ export interface ToolContext {
   ) => Promise<AgentResult>
 }
 
-export interface RunnableTool<TInput = unknown> {
+export interface RunnableTool<TInput = z.output<z.ZodType>> {
   name: string
   description: string
   parameters: z.ZodType<TInput>
@@ -147,8 +142,9 @@ export interface RunnableTool<TInput = unknown> {
   ) => Promise<ToolResult> | ToolResult
 }
 
-export interface InternalTool<TInput = unknown> extends RunnableTool<TInput> {
-  jsonSchema: Record<string, unknown>
+export interface InternalTool<TInput = z.output<z.ZodType>>
+  extends RunnableTool<TInput> {
+  jsonSchema: Record<string, object | string | number | boolean | null>
   strict?: boolean
 }
 
@@ -169,7 +165,7 @@ export function isRunnableTool(tool: ToolUnion): tool is InternalTool {
 export interface PendingToolCall {
   id: string
   name: string
-  input: unknown
+  input: z.output<z.ZodType>
 }
 
 export interface ToolExecutionResult {

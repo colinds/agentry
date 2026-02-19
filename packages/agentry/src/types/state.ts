@@ -1,4 +1,4 @@
-import type { BetaMessage } from '@anthropic-ai/sdk/resources/beta'
+import type { AgentMessage } from './messages'
 import type { PendingToolCall, ToolExecutionResult } from './tools'
 
 export type AgentState =
@@ -6,7 +6,7 @@ export type AgentState =
   | { status: 'streaming'; abortController: AbortController }
   | { status: 'waiting_for_tools'; pendingTools: PendingToolCall[] }
   | { status: 'executing_tools'; pendingTools: PendingToolCall[] }
-  | { status: 'completed'; finalMessage: BetaMessage }
+  | { status: 'completed'; finalMessage: AgentMessage }
   | { status: 'error'; error: Error }
 
 export type StateTransition =
@@ -14,7 +14,7 @@ export type StateTransition =
   | { type: 'tools_requested'; pendingTools: PendingToolCall[] }
   | { type: 'tools_executing'; pendingTools: PendingToolCall[] }
   | { type: 'tools_completed'; results: ToolExecutionResult[] }
-  | { type: 'completed'; finalMessage: BetaMessage }
+  | { type: 'completed'; finalMessage: AgentMessage }
   | { type: 'error'; error: Error }
 
 export function initialState(): AgentState {

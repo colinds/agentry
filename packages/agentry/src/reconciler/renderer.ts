@@ -4,23 +4,25 @@ import type { AgentInstance } from '../instances'
 
 export interface ContainerInfo {
   container: AgentInstance
-  fiber: unknown
+  fiber: ReturnType<typeof reconciler.createContainer> | null
 }
 
 export function createContainer(agentInstance: AgentInstance): ContainerInfo {
-  const createContainerFn = reconciler.createContainer as unknown as (
-    ...args: unknown[]
-  ) => unknown
+  const createContainerFn = reconciler.createContainer as (
+    ...args: Array<
+      AgentInstance | number | string | boolean | null | ((error: Error) => void)
+    >
+  ) => ReturnType<typeof reconciler.createContainer>
 
   const fiber = createContainerFn(
     agentInstance,
-    ConcurrentRoot, // Use ConcurrentRoot for better scheduling and transitions
-    null, // hydrationCallbacks
-    false, // isStrictMode
-    null, // concurrentUpdatesByDefaultOverride
-    '', // identifierPrefix
-    (error: Error) => console.error('Recoverable error:', error), // onRecoverableError
-    null, // transitionCallbacks
+    ConcurrentRoot,
+    null,
+    false,
+    null,
+    '',
+    (error: Error) => console.error('Recoverable error:', error),
+    null,
   )
 
   return {

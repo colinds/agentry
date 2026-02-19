@@ -45,7 +45,7 @@ test('subagent has isolated message context', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
       <System>Parent system prompt</System>
       <Tools>
         <AgentTool
@@ -94,6 +94,7 @@ test('onStepFinish callback fires for subagent calls', async () => {
 
   const runPromise = run(
     <Agent
+      provider="anthropic"
       model={TEST_MODEL}
       stream={false}
       onStepFinish={(result) => {
@@ -158,7 +159,7 @@ test('onComplete callback fires when agent finishes', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
       <Tools>
         <AgentTool
           name="completable"
@@ -197,7 +198,7 @@ test('conditionally hidden subagents are not available as tools', async () => {
   function OptionalSubagentTest() {
     const showHidden = false
     return (
-      <Agent model={TEST_MODEL} stream={false}>
+      <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
         <Tools>
           {showHidden && (
             <AgentTool
@@ -261,7 +262,7 @@ test('tools can be mounted during execution via state change', async () => {
     })
 
     return (
-      <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+      <Agent provider="anthropic" model={TEST_MODEL} stream={false} maxIterations={5}>
         <System>You manage tools</System>
         <Tools>
           <Tool {...enabler} />
@@ -368,7 +369,7 @@ test('subagents can be mounted during execution via state change', async () => {
     })
 
     return (
-      <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+      <Agent provider="anthropic" model={TEST_MODEL} stream={false} maxIterations={5}>
         <System>You coordinate work</System>
         <Tools>
           <Tool {...coordinator} />
@@ -466,7 +467,7 @@ test('subagent sees pre-loaded JSX messages', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
       <System>You delegate tasks</System>
       <Tools>
         <AgentTool
@@ -549,7 +550,7 @@ test('useMessages works inside subagent children', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
       <System>Parent</System>
       <Tools>
         <AgentTool
@@ -623,7 +624,7 @@ test('tools can be unmounted during execution via state change', async () => {
     })
 
     return (
-      <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+      <Agent provider="anthropic" model={TEST_MODEL} stream={false} maxIterations={5}>
         <System>Manage tool lifecycle</System>
         <Tools>
           <Tool {...disabler} />

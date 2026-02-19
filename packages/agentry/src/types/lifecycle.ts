@@ -1,19 +1,16 @@
-import type {
-  BetaMessage,
-  BetaMessageParam,
-  BetaToolResultBlockParam,
-} from '@anthropic-ai/sdk/resources/beta'
+import type { AgentMessage, AgentMessageParam } from './messages'
+import type { z } from 'zod'
 
 export interface StepToolCall {
   id: string
   name: string
-  input: unknown
+  input: z.output<z.ZodType>
 }
 
 export interface StepToolResult {
   toolCallId: string
   toolName: string
-  result: BetaToolResultBlockParam['content']
+  result: string | Array<{ type: 'text'; text: string }>
   isError: boolean
   executionTime?: number // milliseconds
 }
@@ -52,10 +49,10 @@ export interface OnStepFinishResult {
   usage: StepUsage
 
   /** Full message from Claude API (advanced use) */
-  message: BetaMessage
+  message: AgentMessage
 
   /** Immutable snapshot of full conversation history */
-  messages: readonly BetaMessageParam[]
+  messages: readonly AgentMessageParam[]
 
   /** Timestamp when step finished */
   timestamp: Date

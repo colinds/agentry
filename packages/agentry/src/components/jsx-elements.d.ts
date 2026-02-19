@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react'
 import type { InternalTool, InternalAgentTool } from '../types'
-import type {
-  BetaToolUnion,
-  BetaRequestMCPServerToolConfiguration,
-  BetaContentBlockParam,
-} from '@anthropic-ai/sdk/resources/beta'
+import type { SdkTool } from '../types/tools'
 import type { AgentComponentPublicProps } from './Agent.tsx'
+import type { MCPServerConfig } from '../instances/types'
+import type { AgentContentBlock } from '../types/messages'
 
 export interface AgentryElements {
   agent: Omit<AgentComponentPublicProps, 'model'> & {
@@ -15,11 +13,11 @@ export interface AgentryElements {
     agentNode?: ReactNode
   }
 
-  tool: { tool: InternalTool<unknown>; key?: string }
+  tool: { tool: InternalTool; key?: string }
 
-  agent_tool: { agentTool: InternalAgentTool<unknown>; key?: string }
+  agent_tool: { agentTool: InternalAgentTool; key?: string }
 
-  sdk_tool: { tool: BetaToolUnion; key?: string }
+  sdk_tool: { tool: SdkTool; key?: string }
 
   system: { children: ReactNode; cache?: 'ephemeral' }
 
@@ -28,7 +26,7 @@ export interface AgentryElements {
   message: {
     role: 'user' | 'assistant'
     children?: ReactNode
-    rawContent?: string | BetaContentBlockParam[]
+    rawContent?: string | AgentContentBlock[]
   }
 
   tools: { children?: ReactNode }
@@ -37,7 +35,7 @@ export interface AgentryElements {
     name: string
     url: string
     authorization_token?: string
-    tool_configuration?: BetaRequestMCPServerToolConfiguration
+    tool_configuration?: MCPServerConfig['tool_configuration']
     key?: string
   }
 

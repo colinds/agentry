@@ -64,13 +64,19 @@ function createReconciler<
   PublicInstance
 > {
   // Type assertion needed due to complex generic types in react-reconciler
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const reconciler = ReactReconciler(config as any)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return reconciler as any
+  const reconciler = ReactReconciler(config as never)
+  return reconciler as ReactReconciler.Reconciler<
+    Container,
+    Instance,
+    TextInstance,
+    SuspenseInstance,
+    FormInstance,
+    PublicInstance
+  >
 }
 
 interface PropagatedSettings {
+  provider?: AgentProps['provider']
   stream?: boolean
   temperature?: number
   stopSequences?: string[]
@@ -127,7 +133,7 @@ export const reconciler = createReconciler<
   // so we have to cast from the public React.Context type
   HostTransitionContext: createContext<HostConfig['TransitionStatus']>(
     null,
-  ) as unknown as ReactReconciler.ReactContext<HostConfig['TransitionStatus']>,
+  ) as never as ReactReconciler.ReactContext<HostConfig['TransitionStatus']>,
   setCurrentUpdatePriority() {},
   // todo(investigate): why not 32 / DefaultEventPriority?
   getCurrentUpdatePriority: () => 1,
@@ -157,6 +163,7 @@ export const reconciler = createReconciler<
   shouldSetTextContent: () => false,
   getRootHostContext(rootContainer) {
     return {
+      provider: rootContainer.props.provider,
       stream: rootContainer.props.stream,
       temperature: rootContainer.props.temperature,
       stopSequences: rootContainer.props.stopSequences,

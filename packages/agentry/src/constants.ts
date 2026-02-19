@@ -1,5 +1,12 @@
-export const MODEL = 'claude-haiku-4-5'
-export const TEST_MODEL = 'claude-3-5-haiku-20241022'
+export const ANTHROPIC_MODEL = 'claude-haiku-4-5'
+export const OPENAI_MODEL = 'gpt-5-mini'
+
+export const ANTHROPIC_TEST_MODEL = 'claude-3-5-haiku-20241022'
+export const OPENAI_TEST_MODEL = 'gpt-5-mini'
+
+// Backward-compatible aliases
+export const MODEL = ANTHROPIC_MODEL
+export const TEST_MODEL = ANTHROPIC_TEST_MODEL
 
 /**
  * Anthropic API beta feature flags

@@ -33,7 +33,10 @@ export function defineTool<TSchema extends z.ZodType>(options: {
 }): InternalTool<z.infer<TSchema>> {
   const { name, description, parameters, strict, handler } = options
 
-  const jsonSchema = z.toJSONSchema(parameters) as Record<string, unknown>
+  const jsonSchema = z.toJSONSchema(parameters) as Record<
+    string,
+    object | string | number | boolean | null
+  >
 
   if (strict && jsonSchema.type === 'object') {
     jsonSchema.additionalProperties = false
@@ -67,7 +70,7 @@ export function toApiTool(tool: InternalTool): BetaTool {
  */
 export function parseToolInput<TInput>(
   tool: InternalTool<TInput>,
-  input: unknown,
+  input: z.output<z.ZodType>,
 ):
   | { success: true; data: TInput }
   | {
@@ -77,7 +80,7 @@ export function parseToolInput<TInput>(
       }
     } {
   const schema = tool.parameters as {
-    safeParse: (input: unknown) => {
+    safeParse: (input: z.output<z.ZodType>) => {
       success: boolean
       data?: TInput
       error?: {
@@ -109,7 +112,7 @@ export function formatValidationError(error: {
  */
 export async function executeTool<TInput>(
   tool: InternalTool<TInput>,
-  input: unknown,
+  input: z.output<z.ZodType>,
   context: ToolContext,
 ): Promise<{ result: ToolResult; isError: boolean }> {
   const parseResult = parseToolInput(tool, input)

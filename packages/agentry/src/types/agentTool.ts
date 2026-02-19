@@ -24,10 +24,10 @@ export interface DefineAgentToolOptions<TSchema extends z.ZodType> {
  * Internal representation of an agent tool with JSON schema
  * This is what gets stored in the reconciler instance
  */
-export interface InternalAgentTool<TInput = unknown> {
+export interface InternalAgentTool<TInput = z.output<z.ZodType>> {
   name: string
   description: string
   parameters: z.ZodType<TInput>
-  jsonSchema: Record<string, unknown>
+  jsonSchema: Record<string, object | string | number | boolean | null>
   agent: AgentToolFunction<z.ZodType<TInput>>
 }

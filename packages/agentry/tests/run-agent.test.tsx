@@ -22,7 +22,7 @@ test('runAgent executes subagent and returns result', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL}>
+    <Agent provider="anthropic" model={TEST_MODEL}>
       <System>Test agent with spawn capability</System>
       <Tools>
         <Tool
@@ -76,7 +76,7 @@ test('runAgent supports parallel spawning', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL}>
+    <Agent provider="anthropic" model={TEST_MODEL}>
       <System>Parallel analysis coordinator</System>
       <Tools>
         <Tool
@@ -165,7 +165,7 @@ test('runAgent respects custom model option', async () => {
   }) as typeof client.beta.messages.stream
 
   const runPromise = run(
-    <Agent model={TEST_MODEL}>
+    <Agent provider="anthropic" model={TEST_MODEL}>
       <System>Test</System>
       <Tools>
         <Tool
@@ -238,7 +238,7 @@ test('runAgent respects custom maxTokens option', async () => {
   }) as typeof client.beta.messages.create
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} maxTokens={4096}>
+    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={4096}>
       <System>Test</System>
       <Tools>
         <Tool
@@ -301,7 +301,7 @@ test('runAgent handles errors gracefully', async () => {
   }) as typeof client.beta.messages.create
 
   const runPromise = run(
-    <Agent model={TEST_MODEL}>
+    <Agent provider="anthropic" model={TEST_MODEL}>
       <System>Test error handling</System>
       <Tools>
         <Tool
@@ -359,7 +359,7 @@ test('runAgent returns full AgentResult', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL}>
+    <Agent provider="anthropic" model={TEST_MODEL}>
       <System>Test</System>
       <Tools>
         <Tool
@@ -416,7 +416,7 @@ test('runAgent with conditional agent selection', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL}>
+    <Agent provider="anthropic" model={TEST_MODEL}>
       <System>Conditional spawner</System>
       <Tools>
         <Tool

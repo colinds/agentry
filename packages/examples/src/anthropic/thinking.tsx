@@ -1,6 +1,6 @@
 import { run, Agent, System, Message, Tools, Tool } from 'agentry'
 import { z } from 'zod'
-import { MODEL } from './constants'
+import { MODEL } from '../constants'
 
 /**
  * Extended Thinking with Interleaved Tool Use

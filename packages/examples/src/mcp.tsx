@@ -8,15 +8,29 @@
  * This example uses Cloudflare's public demo MCP server.
  */
 
-import { run, Agent, System, Message, MCP } from 'agentry'
-import { MODEL } from './constants'
+import { createAI, Agent, System, Message } from 'agentry'
+import { anthropic, MCP as AnthropicMCP } from 'agentry/anthropic'
+import { openai, MCP as OpenAIMCP } from 'agentry/openai'
+import { MODEL, OPENAI_MODEL } from './constants'
+
+const EXAMPLE_PROVIDER =
+  process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
+const MCP = EXAMPLE_PROVIDER === 'openai' ? OpenAIMCP : AnthropicMCP
+const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
+const ai =
+  EXAMPLE_PROVIDER === 'openai'
+    ? createAI({ clients: { openai: openai() } })
+    : createAI({
+        clients: { anthropic: anthropic() },
+      })
 
 const MCP_SERVER_URL = 'https://demo-day.mcp.cloudflare.com/sse'
 
 console.log('Using MCP server:', MCP_SERVER_URL)
+console.log(`Provider: ${EXAMPLE_PROVIDER}`)
 
-const result = await run(
-  <Agent model={MODEL} maxTokens={4096}>
+const mcpAgent = (
+  <Agent provider={EXAMPLE_PROVIDER} model={EXAMPLE_MODEL} maxTokens={4096}>
     <System>
       You are a helpful assistant with access to external tools via MCP servers.
       Use the available tools to help answer the user's questions.
@@ -41,8 +55,10 @@ const result = await run(
     <Message role="user">
       What tools do you have available? Please list them and demonstrate one.
     </Message>
-  </Agent>,
+  </Agent>
 )
+
+const result = await ai.run(mcpAgent)
 
 console.log('\nResult:', result.content)
 console.log('\nUsage:', result.usage)

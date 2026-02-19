@@ -1,9 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { EventEmitter } from 'eventemitter3'
 import { createElement, type ReactNode } from 'react'
 import type { AgentInstance } from '../instances'
 import type { AgentResult, AgentStreamEvent } from '../types/agent'
-import type { BetaMessageParam } from '../types/messages'
+import type { AgentMessageParam } from '../types/messages'
 import type { AgentStore } from '../store'
 import type { OnStepFinishResult } from '../types/lifecycle'
 import {
@@ -20,6 +19,7 @@ import {
 import { isProcessing, type AgentState } from '../types/state'
 import { yieldToScheduler } from '../scheduler'
 import { AgentProvider } from '../context'
+import type { ProviderAdapter, ProviderClientMap } from '../providers/types'
 
 export interface AgentHandleEvents {
   stateChange: (state: AgentState) => void
@@ -36,18 +36,21 @@ export interface AgentHandleEvents {
 export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents> {
   protected containerInfo: ContainerInfo
   protected engine: ExecutionEngine | null = null
-  protected client: Anthropic
+  protected clients: Partial<ProviderClientMap>
+  protected adapters: Record<string, ProviderAdapter>
   protected running = false
   protected store: AgentStore
   protected instance: AgentInstance | null = null
 
   constructor(
-    client: Anthropic,
+    clients: Partial<ProviderClientMap>,
+    adapters: Record<string, ProviderAdapter>,
     containerInfo: ContainerInfo,
     store: AgentStore,
   ) {
     super()
-    this.client = client
+    this.clients = clients
+    this.adapters = adapters
     this.containerInfo = containerInfo
     this.store = store
   }
@@ -56,7 +59,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     return this.store.getState().executionState
   }
 
-  get messages(): readonly BetaMessageParam[] {
+  get messages(): readonly AgentMessageParam[] {
     return this.store.getState().messages
   }
 
@@ -64,7 +67,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     return this.running
   }
 
-  protected pushMessage(message: BetaMessageParam): void {
+  protected pushMessage(message: AgentMessageParam): void {
     this.store.getState().actions.pushMessage(message)
   }
 
@@ -75,7 +78,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   protected abstract beforeExecution(
     agent: AgentInstance,
     config: ExecutionEngineConfig,
-    messages: readonly BetaMessageParam[],
+    messages: readonly AgentMessageParam[],
   ): void
 
   /**
@@ -92,7 +95,8 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
     const { config } = createEngineConfig({
       agent,
-      client: this.client,
+      clients: this.clients,
+      adapters: this.adapters,
       store: this.store,
     })
 

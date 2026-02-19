@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { createContainer } from '../reconciler'
 import { createAgentStore } from '../store'
 import {
@@ -6,9 +5,13 @@ import {
   type SubagentInstance,
   isAgentInstance,
 } from '../instances/types'
-import type { BetaMessageParam } from '../types/messages'
+import type { AgentMessageParam } from '../types/messages'
 import { AbstractAgentHandle } from './AbstractAgentHandle'
 import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
+import type { ProviderClientMap } from '../providers/types'
+import type { ProviderName } from '../types/provider'
+import { createDefaultAdapters } from '../providers'
+import { ensureProviderClient, setProviderClient } from '../providers/clientResolver'
 
 export class SubagentHandle extends AbstractAgentHandle {
   private subagent: SubagentInstance
@@ -18,11 +21,22 @@ export class SubagentHandle extends AbstractAgentHandle {
   constructor(
     subagent: SubagentInstance,
     options: {
-      client: Anthropic
+      client?: ProviderClientMap[ProviderName]
+      clients?: Partial<ProviderClientMap>
+      provider?: ProviderName
       signal?: AbortSignal
     },
   ) {
-    const { client, signal } = options
+    const { signal } = options
+    const provider = options.provider ?? subagent.props.provider
+    if (!provider) {
+      throw new Error('Provider is required for the subagent.')
+    }
+    const clients: Partial<ProviderClientMap> = { ...options.clients }
+    if (options.client) {
+      setProviderClient(clients, provider, options.client)
+    }
+    const client = ensureProviderClient(clients, provider)
 
     const store = createAgentStore()
 
@@ -42,7 +56,7 @@ export class SubagentHandle extends AbstractAgentHandle {
 
     const containerInfo = createContainer(container)
 
-    super(client, containerInfo, store)
+    super(clients, createDefaultAdapters(), containerInfo, store)
 
     this.subagent = subagent
 
@@ -63,7 +77,7 @@ export class SubagentHandle extends AbstractAgentHandle {
   protected override beforeExecution(
     _agent: AgentInstance,
     _config: ExecutionEngineConfig,
-    messages: readonly BetaMessageParam[],
+    messages: readonly AgentMessageParam[],
   ): void {
     // subagents always need messages
     if (messages.length === 0) {
@@ -106,6 +120,12 @@ export class SubagentHandle extends AbstractAgentHandle {
       ...(stopSequences !== undefined && { stopSequences }),
       ...(stream !== undefined && { stream }),
     })
+
+    const provider = agentInstance.props.provider
+    if (!provider) {
+      throw new Error('Provider is required on the subagent instance.')
+    }
+    agentInstance.client = ensureProviderClient(this.clients, provider)
 
     return agentInstance
   }

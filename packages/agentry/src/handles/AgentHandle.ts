@@ -1,14 +1,22 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { createElement, type ReactNode } from 'react'
 import type { AgentInstance } from '../instances/types'
-import type { BetaMessageParam } from '../types/messages'
+import type { AgentMessageParam } from '../types/messages'
 import { createContainer, updateContainer } from '../reconciler/renderer'
 import { createAgentStore } from '../store'
 import { isAgentInstance } from '../instances/types'
 import { AgentProvider } from '../context'
-import { MODEL } from '../constants'
+import { ANTHROPIC_MODEL, OPENAI_MODEL } from '../constants'
 import { AbstractAgentHandle } from './AbstractAgentHandle'
 import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
+import type { ProviderName } from '../types/provider'
+import type { ProviderClientMap } from '../providers/types'
+import { createDefaultAdapters } from '../providers'
+import {
+  ensureProviderClient,
+  getProviderClient,
+  inferProviderFromClient,
+  setProviderClient,
+} from '../providers/clientResolver'
 
 /**
  * Handle for controlling a regular agent at runtime
@@ -18,23 +26,39 @@ import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
 export class AgentHandle extends AbstractAgentHandle {
   private element: ReactNode
   private mode: 'batch' | 'interactive'
+  private unresolvedClient?: ProviderClientMap[ProviderName]
 
   constructor(
     element: ReactNode,
-    client?: Anthropic,
+    options: {
+      client?: ProviderClientMap[ProviderName]
+      clients?: Partial<ProviderClientMap>
+    } = {},
     mode: 'batch' | 'interactive' = 'batch',
   ) {
-    const anthropicClient = client ?? new Anthropic()
+    let providerHint: ProviderName | undefined
+    let unresolvedClient: ProviderClientMap[ProviderName] | undefined
+    const clients: Partial<ProviderClientMap> = { ...options.clients }
+    if (options.client) {
+      providerHint = inferProviderFromClient(options.client)
+      if (providerHint) {
+        setProviderClient(clients, providerHint, options.client)
+      } else {
+        unresolvedClient = options.client
+      }
+    }
     const store = createAgentStore()
 
     const rootAgent: AgentInstance = {
       type: 'agent',
       props: {
-        model: MODEL,
+        provider: undefined,
+        model: providerHint === 'openai' ? OPENAI_MODEL : ANTHROPIC_MODEL,
         maxTokens: 4096,
         stream: true,
       },
-      client: anthropicClient,
+      client:
+        providerHint ? getProviderClient(clients, providerHint) : undefined,
       engine: null,
       systemParts: [],
       tools: [],
@@ -47,9 +71,10 @@ export class AgentHandle extends AbstractAgentHandle {
 
     const containerInfo = createContainer(rootAgent)
 
-    super(anthropicClient, containerInfo, store)
+    super(clients, createDefaultAdapters(), containerInfo, store)
     this.element = element
     this.mode = mode
+    this.unresolvedClient = unresolvedClient
   }
 
   update(element: ReactNode): void {
@@ -72,7 +97,7 @@ export class AgentHandle extends AbstractAgentHandle {
   protected override beforeExecution(
     _agent: AgentInstance,
     _config: ExecutionEngineConfig,
-    messages: readonly BetaMessageParam[],
+    messages: readonly AgentMessageParam[],
   ): void {
     // only validate in batch mode
     if (this.mode === 'batch' && messages.length === 0) {
@@ -94,6 +119,19 @@ export class AgentHandle extends AbstractAgentHandle {
     if (!agent || !isAgentInstance(agent)) {
       throw new Error('No agent element found in tree')
     }
+
+    const provider = agent.props.provider
+    if (!provider) {
+      throw new Error('Provider is required on the rendered agent.')
+    }
+    if (!agent.props.model) {
+      throw new Error('Model is required on the rendered agent.')
+    }
+    if (!getProviderClient(this.clients, provider) && this.unresolvedClient) {
+      setProviderClient(this.clients, provider, this.unresolvedClient)
+      this.unresolvedClient = undefined
+    }
+    agent.client = ensureProviderClient(this.clients, provider)
 
     return agent
   }

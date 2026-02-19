@@ -1,3 +1,4 @@
+import type { JsonValue } from './types/json'
 /**
  * Debug logging utility for agentry
  *
@@ -16,7 +17,11 @@ const isDebug = process.env.DEBUG === 'true' || process.env.DEBUG === '1'
  * @param message - Log message
  * @param data - Optional data to log
  */
-export function debug(category: string, message: string, data?: unknown): void {
+export function debug(
+  category: string,
+  message: string,
+  data?: JsonValue | Record<string, JsonValue> | object,
+): void {
   if (!isDebug) return
 
   const prefix = `[agentry:${category}]`

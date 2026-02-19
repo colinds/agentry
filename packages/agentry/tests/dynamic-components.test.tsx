@@ -25,7 +25,7 @@ test('state changes trigger reconciler updates', async () => {
     })
 
     return (
-      <Agent model={TEST_MODEL} stream={false}>
+      <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
         <System>Counter is at {count}</System>
         <Tools>
           <Tool {...incrementTool} />

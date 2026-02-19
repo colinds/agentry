@@ -1,6 +1,23 @@
 import { z } from 'zod'
-import { run, defineTool, Agent, System, Tools, Tool, WebSearch } from 'agentry'
-import { MODEL } from './constants'
+import { createAI, defineTool, Agent, System, Tools, Tool } from 'agentry'
+import {
+  anthropic,
+  WebSearch as AnthropicWebSearch,
+} from 'agentry/anthropic'
+import { openai, WebSearch as OpenAIWebSearch } from 'agentry/openai'
+import { MODEL, OPENAI_MODEL } from './constants'
+
+const EXAMPLE_PROVIDER =
+  process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
+const WebSearch =
+  EXAMPLE_PROVIDER === 'openai' ? OpenAIWebSearch : AnthropicWebSearch
+const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
+const ai =
+  EXAMPLE_PROVIDER === 'openai'
+    ? createAI({ clients: { openai: openai() } })
+    : createAI({
+        clients: { anthropic: anthropic() },
+      })
 
 const InteractiveAgent = () => {
   const docsSearchTool = defineTool({
@@ -17,7 +34,12 @@ const InteractiveAgent = () => {
   })
 
   return (
-    <Agent model={MODEL} maxTokens={2048} stream={true}>
+    <Agent
+      provider={EXAMPLE_PROVIDER}
+      model={EXAMPLE_MODEL}
+      maxTokens={2048}
+      stream={true}
+    >
       <System>
         You are a helpful assistant with access to documentation and web search.
       </System>
@@ -29,7 +51,7 @@ const InteractiveAgent = () => {
   )
 }
 
-const agent = await run(<InteractiveAgent />, { mode: 'interactive' })
+const agent = await ai.run(<InteractiveAgent />, { mode: 'interactive' })
 
 const question1 = 'What frameworks are popular for building React apps?'
 console.log(`User: ${question1}\n`)

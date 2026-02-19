@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type React from 'react'
 import type {
   Instance,
@@ -38,6 +37,7 @@ interface SubagentCreationProps extends Omit<
 }
 
 interface PropagatedSettings {
+  provider?: AgentProps['provider']
   stream?: boolean
   temperature?: number
   stopSequences?: string[]
@@ -76,7 +76,7 @@ export type ElementProps =
 export function createInstance(
   type: ElementType,
   props: ElementProps,
-  rootContainer: Instance | unknown,
+  rootContainer: Instance | object | null,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _hostContext: PropagatedSettings = {},
 ): Instance {
@@ -108,7 +108,7 @@ export function createInstance(
 
 function createAgentInstance(
   props: AgentComponentProps,
-  rootContainer?: unknown,
+  rootContainer?: Instance | object | null,
 ): AgentInstance {
   if (
     !rootContainer ||
@@ -119,12 +119,14 @@ function createAgentInstance(
     throw new Error('No store found in root container.')
   }
 
-  const client = props.client ?? rootContainer.client ?? new Anthropic()
+  const provider = props.provider ?? rootContainer.props.provider
+  const client = props.client ?? rootContainer.client
   const store = rootContainer.store
 
   const instance: AgentInstance = {
     type: 'agent',
     props: {
+      provider,
       model: props.model,
       name: props.name,
       description: props.description,
@@ -288,13 +290,13 @@ export function createSubagentInstance(
   inherited: PropagatedSettings = {},
 ): SubagentInstance {
   if (!props.name) {
-    throw new Error('Child agents must have a name property')
+    throw new Error('Child agents must have a name.')
   }
 
   const model = props.model ?? inherited.model
   if (!model) {
     throw new Error(
-      `Subagent "${props.name}" requires a model. Either provide model in props or ensure parent agent has a model.`,
+      `Subagent "${props.name}" requires a model. Provide one on the subagent or parent agent.`,
     )
   }
 
@@ -303,6 +305,7 @@ export function createSubagentInstance(
     name: props.name,
     description: props.description,
     props: {
+      provider: props.provider ?? inherited.provider,
       model,
       name: props.name,
       description: props.description,
