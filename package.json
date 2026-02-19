@@ -36,6 +36,7 @@
     "example:programmatic-spawn": "bun run packages/examples/src/programmatic-spawn.tsx",
     "example:openai:basic": "bun run packages/examples/src/openai/basic.tsx",
     "example:openai:subtools": "bun run packages/examples/src/openai/subtools-smoke.tsx",
+    "example:openai:codex-subagent": "bun run packages/examples/src/openai/codex-subagent.tsx",
     "example:cross-provider:subagents": "bun run packages/examples/src/cross-provider/subagents.tsx",
     "example:anthropic:cache-ephemeral": "bun run packages/examples/src/anthropic/cache-ephemeral.tsx",
     "example:chatbot": "bun run packages/examples/src/chatbot.tsx",

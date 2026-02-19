@@ -189,24 +189,25 @@ await ai.run(
 
 Want to see code? See [examples/](/packages/examples/src)
 
-| Example                                                                              | Description                                |
-| ------------------------------------------------------------------------------------ | ------------------------------------------ |
-| [`demo.tsx`](packages/examples/src/demo.tsx)                                         | Company research with web search           |
-| [`basic.tsx`](packages/examples/src/basic.tsx)                                       | Simple calculator tool                     |
-| [`interactive.tsx`](packages/examples/src/interactive.tsx)                           | Multi-turn conversations with streaming    |
-| [`subagents.tsx`](packages/examples/src/subagents.tsx)                               | Manager delegating to specialists          |
-| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                       | Hooks, composition, and dynamic tools      |
-| [`web-search.tsx`](packages/examples/src/web-search.tsx)                             | Web search workflows                       |
-| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                           | MCP server integration                     |
-| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                   | Terminal-based chatbot                     |
-| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                   | Dynamic subagent creation                  |
-| [`anthropic/cache-ephemeral.tsx`](packages/examples/src/anthropic/cache-ephemeral.tsx) | Prompt caching with ephemeral content    |
-| [`conditions.tsx`](packages/examples/src/conditions.tsx)                             | State-based and NL condition rendering     |
-| [`anthropic/thinking.tsx`](packages/examples/src/anthropic/thinking.tsx)             | Extended thinking with interleaved support |
-| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                 | Interactive authentication workflow        |
-| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx) | Conversation save/load                     |
-| [`openai/basic.tsx`](packages/examples/src/openai/basic.tsx)                         | OpenAI Responses API basic usage           |
-| [`cross-provider/subagents.tsx`](packages/examples/src/cross-provider/subagents.tsx) | OpenAI parent + Anthropic subagents        |
+| Example                                                                                | Description                                |
+| -------------------------------------------------------------------------------------- | ------------------------------------------ |
+| [`demo.tsx`](packages/examples/src/demo.tsx)                                           | Company research with web search           |
+| [`basic.tsx`](packages/examples/src/basic.tsx)                                         | Simple calculator tool                     |
+| [`interactive.tsx`](packages/examples/src/interactive.tsx)                             | Multi-turn conversations with streaming    |
+| [`subagents.tsx`](packages/examples/src/subagents.tsx)                                 | Manager delegating to specialists          |
+| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                         | Hooks, composition, and dynamic tools      |
+| [`web-search.tsx`](packages/examples/src/web-search.tsx)                               | Web search workflows                       |
+| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | MCP server integration                     |
+| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                     | Terminal-based chatbot                     |
+| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                     | Dynamic subagent creation                  |
+| [`anthropic/cache-ephemeral.tsx`](packages/examples/src/anthropic/cache-ephemeral.tsx) | Prompt caching with ephemeral content      |
+| [`conditions.tsx`](packages/examples/src/conditions.tsx)                               | State-based and NL condition rendering     |
+| [`anthropic/thinking.tsx`](packages/examples/src/anthropic/thinking.tsx)               | Extended thinking with interleaved support |
+| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                   | Interactive authentication workflow        |
+| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx)   | Conversation save/load                     |
+| [`openai/basic.tsx`](packages/examples/src/openai/basic.tsx)                           | OpenAI Responses API basic usage           |
+| [`cross-provider/subagents.tsx`](packages/examples/src/cross-provider/subagents.tsx)   | OpenAI parent + Anthropic subagents        |
+| [`openai/codex-subagent.tsx`](packages/examples/src/openai/codex-subagent.tsx)         | OpenAI Codex subagent                      |
 
 Run an example:
 
@@ -513,8 +514,8 @@ Built-ins are provider-owned exports:
 
 | Prop                 | Type                                   | Description                                                                                                                                                                                              |
 | -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `provider?`          | `'anthropic' \| 'openai'`             | AI provider for this agent                                                                                                                                                                               |
-| `model`              | `string`                               | Provider model id (e.g. `claude-sonnet-4-5`, `gpt-4.1-mini`)                                                                                                                                              |
+| `provider?`          | `'anthropic' \| 'openai'`              | AI provider for this agent                                                                                                                                                                               |
+| `model`              | `string`                               | Provider model id (e.g. `claude-sonnet-4-5`, `gpt-4.1-mini`)                                                                                                                                             |
 | `name?`              | `string`                               | Agent identifier                                                                                                                                                                                         |
 | `description?`       | `string`                               | Agent description                                                                                                                                                                                        |
 | `maxTokens?`         | `number`                               | Max output tokens (default: `4096`)                                                                                                                                                                      |
@@ -664,14 +665,14 @@ Tool handlers receive a `context` object:
 
 **RunAgentOptions:**
 
-| Field          | Type          | Description             |
-| -------------- | ------------- | ----------------------- |
-| `provider?`    | `'anthropic' \| 'openai'` | Override provider |
-| `clients?`     | `{ anthropic?: Anthropic; openai?: OpenAI }` | Override client map |
-| `model?`       | `string`      | Override parent's model |
-| `maxTokens?`   | `number`      | Override max tokens     |
-| `temperature?` | `number`      | Override temperature    |
-| `signal?`      | `AbortSignal` | Custom abort signal     |
+| Field          | Type                                         | Description             |
+| -------------- | -------------------------------------------- | ----------------------- |
+| `provider?`    | `'anthropic' \| 'openai'`                    | Override provider       |
+| `clients?`     | `{ anthropic?: Anthropic; openai?: OpenAI }` | Override client map     |
+| `model?`       | `string`                                     | Override parent's model |
+| `maxTokens?`   | `number`                                     | Override max tokens     |
+| `temperature?` | `number`                                     | Override temperature    |
+| `signal?`      | `AbortSignal`                                | Custom abort signal     |
 
 ## Requirements
 
