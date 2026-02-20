@@ -49,8 +49,8 @@ Next, in your `tsconfig.json`:
 In `agent.tsx`:
 
 ```tsx
+import Anthropic from '@anthropic-ai/sdk'
 import { run, Agent, System, Tools, Tool, Message } from 'agentry'
-import { anthropic } from 'agentry/anthropic'
 import { z } from 'zod'
 
 const result = await run(
@@ -79,7 +79,7 @@ const result = await run(
     <Message role="user">What is 42 + 17?</Message>
   </Agent>,
   {
-    clients: { anthropic: anthropic() },
+    clients: { anthropic: new Anthropic() },
   },
 )
 
@@ -118,30 +118,31 @@ Agentry supports multiple providers with a single declarative API.
   - `agentry/openai`
 - Built-ins are treated as regular tools in execution (no per-provider capability matrix to maintain).
 
-### Root + explicit provider
+### Example
 
 ```tsx
+import OpenAI from 'openai'
 import { run, Agent, Message } from 'agentry'
-import { openai } from 'agentry/openai'
 
 const result = await run(
   <Agent provider="openai" model="gpt-4.1-mini">
     <Message role="user">Hello</Message>
   </Agent>,
   {
-    clients: { openai: openai() },
+    clients: { openai: new OpenAI() },
   },
 )
 ```
 
-### `createAI` defaults
+### Reusable instance
 
 ```tsx
+import Anthropic from '@anthropic-ai/sdk'
 import { createAI, Agent, Message, Tools } from 'agentry'
-import { anthropic, WebSearch } from 'agentry/anthropic'
+import { WebSearch } from 'agentry/anthropic'
 
 const ai = createAI({
-  clients: { anthropic: anthropic() },
+  clients: { anthropic: new Anthropic() },
 })
 
 const result = await ai.run(
@@ -150,37 +151,6 @@ const result = await ai.run(
       <WebSearch maxUses={3} />
     </Tools>
     <Message role="user">Find the latest React release notes</Message>
-  </Agent>,
-)
-```
-
-### Cross-provider subagents
-
-`<AgentTool>` and `context.runAgent(...)` can run subagents on a different provider than the parent:
-
-```tsx
-import { createAI, Agent, AgentTool, Message, Tools } from 'agentry'
-import { openai } from 'agentry/openai'
-
-const ai = createAI({
-  clients: { openai: openai() },
-})
-
-await ai.run(
-  <Agent provider="openai" model="gpt-4.1-mini">
-    <Tools>
-      <AgentTool
-        name="claude_researcher"
-        description="Research with Anthropic"
-        parameters={z.object({ topic: z.string() })}
-        agent={({ topic }) => (
-          <Agent provider="anthropic" model="claude-sonnet-4-5">
-            <Message role="user">Research: {topic}</Message>
-          </Agent>
-        )}
-      />
-    </Tools>
-    <Message role="user">Use claude_researcher for React 19 updates.</Message>
   </Agent>,
 )
 ```
@@ -231,7 +201,7 @@ bun run example:anthropic:thinking
 
 ```tsx
 const result = await run(<Agent provider="anthropic">...</Agent>, {
-  clients: { anthropic: anthropic() },
+  clients: { anthropic: new Anthropic() },
 })
 ```
 
@@ -240,7 +210,7 @@ const result = await run(<Agent provider="anthropic">...</Agent>, {
 ```tsx
 const agent = await run(<Agent provider="anthropic">...</Agent>, {
   mode: 'interactive',
-  clients: { anthropic: anthropic() },
+  clients: { anthropic: new Anthropic() },
 })
 await agent.sendMessage('Hello')
 for await (const event of agent.stream('Tell me more')) {
@@ -321,6 +291,39 @@ handler={async (input, context) => {
   ])
   return `Tech: ${techResult.content}\nBiz: ${bizResult.content}`
 }}
+```
+
+### Cross-provider subagents
+
+`<AgentTool>` and `context.runAgent(...)` can run subagents on a different provider than the parent:
+
+```tsx
+import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
+import { createAI, Agent, AgentTool, Message, Tools } from 'agentry'
+import { z } from 'zod'
+
+const ai = createAI({
+  clients: { openai: new OpenAI(), anthropic: new Anthropic() },
+})
+
+await ai.run(
+  <Agent provider="openai" model="gpt-4.1-mini">
+    <Tools>
+      <AgentTool
+        name="claude_researcher"
+        description="Research with Anthropic"
+        parameters={z.object({ topic: z.string() })}
+        agent={({ topic }) => (
+          <Agent provider="anthropic" model="claude-sonnet-4-5">
+            <Message role="user">Research: {topic}</Message>
+          </Agent>
+        )}
+      />
+    </Tools>
+    <Message role="user">Use claude_researcher for React 19 updates.</Message>
+  </Agent>,
+)
 ```
 
 ### State-Driven Tools
@@ -465,13 +468,13 @@ Runs an agent and returns a result or handle.
 ```tsx
 // Batch mode
 const result: AgentResult = await run(<Agent provider="anthropic">...</Agent>, {
-  clients: { anthropic: anthropic() },
+  clients: { anthropic: new Anthropic() },
 })
 
 // Interactive mode
 const handle: AgentHandle = await run(<Agent provider="anthropic">...</Agent>, {
   mode: 'interactive',
-  clients: { anthropic: anthropic() },
+  clients: { anthropic: new Anthropic() },
 })
 ```
 
@@ -488,11 +491,11 @@ const handle: AgentHandle = await run(<Agent provider="anthropic">...</Agent>, {
 Create a defaults-bound runner so you can use `ai.run(...)` and `ai.createAgent(...)`.
 
 ```tsx
+import OpenAI from 'openai'
 import { createAI, Agent, Message } from 'agentry'
-import { openai } from 'agentry/openai'
 
 const ai = createAI({
-  clients: { openai: openai() },
+  clients: { openai: new OpenAI() },
 })
 
 const result = await ai.run(
@@ -506,8 +509,7 @@ const result = await ai.run(
 
 Built-ins are provider-owned exports:
 
-- `WebSearch` from `agentry/anthropic` or `agentry/openai`
-- `CodeExecution` and `MCP` from `agentry/anthropic` or `agentry/openai`
+- `WebSearch`, `CodeExecution`, `MCP` from `agentry/anthropic` or `agentry/openai`
 - `Memory` from `agentry/anthropic`
 
 #### `<Agent>`

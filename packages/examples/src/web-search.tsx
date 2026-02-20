@@ -22,8 +22,10 @@ import {
   useExecutionState,
   useMessages,
 } from 'agentry'
-import { anthropic, WebSearch as AnthropicWebSearch } from 'agentry/anthropic'
-import { openai, WebSearch as OpenAIWebSearch } from 'agentry/openai'
+import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
+import { WebSearch as AnthropicWebSearch } from 'agentry/anthropic'
+import { WebSearch as OpenAIWebSearch } from 'agentry/openai'
 import { MODEL, OPENAI_MODEL } from './constants'
 
 const EXAMPLE_PROVIDER =
@@ -33,9 +35,9 @@ const WebSearch =
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
 const ai =
   EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ clients: { openai: openai() } })
+    ? createAI({ clients: { openai: new OpenAI() } })
     : createAI({
-        clients: { anthropic: anthropic() },
+        clients: { anthropic: new Anthropic() },
       })
 
 /**

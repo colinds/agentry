@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { run, Agent, AgentTool, Message, System, Tools } from 'agentry'
-import { openai } from 'agentry/openai'
+import OpenAI from 'openai'
 
 const ORCHESTRATOR_MODEL = 'gpt-5.2'
 const CODEX_MODEL = 'gpt-5.2-codex'
@@ -57,7 +57,7 @@ const result = await run(
   </Agent>,
   {
     clients: {
-      openai: openai(),
+      openai: new OpenAI(),
     },
   },
 )

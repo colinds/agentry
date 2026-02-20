@@ -9,11 +9,10 @@ import {
   AgentTool,
   Message,
 } from 'agentry'
-import {
-  anthropic,
-  CodeExecution as AnthropicCodeExecution,
-} from 'agentry/anthropic'
-import { openai, CodeExecution as OpenAICodeExecution } from 'agentry/openai'
+import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
+import { CodeExecution as AnthropicCodeExecution } from 'agentry/anthropic'
+import { CodeExecution as OpenAICodeExecution } from 'agentry/openai'
 import { MODEL, OPENAI_MODEL } from './constants'
 
 const EXAMPLE_PROVIDER =
@@ -23,9 +22,9 @@ const CodeExecution =
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
 const ai =
   EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ clients: { openai: openai() } })
+    ? createAI({ clients: { openai: new OpenAI() } })
     : createAI({
-        clients: { anthropic: anthropic() },
+        clients: { anthropic: new Anthropic() },
       })
 
 function Calculator() {

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { run, Agent, AgentTool, Tool, Message, System, Tools } from 'agentry'
-import { openai } from 'agentry/openai'
+import OpenAI from 'openai'
 import { OPENAI_MODEL as EXAMPLE_OPENAI_MODEL } from '../constants'
 
 const MODEL = process.env.OPENAI_MODEL ?? EXAMPLE_OPENAI_MODEL
@@ -43,7 +43,7 @@ const result = await run(
   </Agent>,
   {
     clients: {
-      openai: openai(),
+      openai: new OpenAI(),
     },
   },
 )

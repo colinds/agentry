@@ -9,8 +9,10 @@
  */
 
 import { createAI, Agent, System, Message } from 'agentry'
-import { anthropic, MCP as AnthropicMCP } from 'agentry/anthropic'
-import { openai, MCP as OpenAIMCP } from 'agentry/openai'
+import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
+import { MCP as AnthropicMCP } from 'agentry/anthropic'
+import { MCP as OpenAIMCP } from 'agentry/openai'
 import { MODEL, OPENAI_MODEL } from './constants'
 
 const EXAMPLE_PROVIDER =
@@ -19,9 +21,9 @@ const MCP = EXAMPLE_PROVIDER === 'openai' ? OpenAIMCP : AnthropicMCP
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
 const ai =
   EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ clients: { openai: openai() } })
+    ? createAI({ clients: { openai: new OpenAI() } })
     : createAI({
-        clients: { anthropic: anthropic() },
+        clients: { anthropic: new Anthropic() },
       })
 
 const MCP_SERVER_URL = 'https://demo-day.mcp.cloudflare.com/sse'

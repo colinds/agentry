@@ -1,4 +1,3 @@
-import Anthropic, { type ClientOptions } from '@anthropic-ai/sdk'
 import {
   Agent,
   Tool,
@@ -16,10 +15,6 @@ import { WebSearch } from './components/built-ins/WebSearch'
 import { CodeExecution } from './components/built-ins/CodeExecution'
 import { Memory } from './components/built-ins/Memory'
 import { MCP } from './components/MCP'
-
-export function anthropic(options?: ClientOptions): Anthropic {
-  return new Anthropic(options)
-}
 
 export {
   Agent,

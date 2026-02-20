@@ -8,8 +8,8 @@ import {
   AgentTool,
   Tool,
 } from 'agentry'
-import { anthropic } from 'agentry/anthropic'
-import { openai } from 'agentry/openai'
+import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import {
   MODEL as EXAMPLE_ANTHROPIC_MODEL,
   OPENAI_MODEL as EXAMPLE_OPENAI_MODEL,
@@ -19,8 +19,8 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL ?? EXAMPLE_OPENAI_MODEL
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? EXAMPLE_ANTHROPIC_MODEL
 const ai = createAI({
   clients: {
-    openai: openai(),
-    anthropic: anthropic(),
+    openai: new OpenAI(),
+    anthropic: new Anthropic(),
   },
 })
 
@@ -54,7 +54,7 @@ const result = await ai.run(
             </Agent>,
             {
               provider: 'anthropic',
-              clients: { anthropic: anthropic() },
+              clients: { anthropic: new Anthropic() },
             },
           )
           return result.content

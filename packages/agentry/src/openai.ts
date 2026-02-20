@@ -1,4 +1,3 @@
-import OpenAI, { type ClientOptions } from 'openai'
 import {
   Agent,
   Tool,
@@ -15,10 +14,6 @@ import {
 import { WebSearch } from './components/built-ins/WebSearch'
 import { CodeExecution } from './components/built-ins/CodeExecution'
 import { MCP } from './components/MCP'
-
-export function openai(options?: ClientOptions): OpenAI {
-  return new OpenAI(options)
-}
 
 export {
   Agent,
