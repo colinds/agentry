@@ -52,10 +52,8 @@ function CreateSubagentTool({
           ),
         temperature: z
           .number()
-          .min(0)
-          .max(2)
           .optional()
-          .describe('Temperature 0-2, optional'),
+          .describe('Temperature between 0 and 2, optional'),
       })}
       handler={async (input) => {
         const { name, description, systemPrompt, temperature } = input

@@ -1,10 +1,5 @@
 import type { ReactElement } from 'react'
 import type { z } from 'zod'
-import type {
-  BetaCodeExecutionTool20250825,
-  BetaMemoryTool20250818,
-  BetaWebSearchTool20250305,
-} from '@anthropic-ai/sdk/resources/beta'
 import type { Model, AgentResult } from './agent'
 import type { ProviderName } from './provider'
 import type { ProviderClientMap } from '../providers/types'
@@ -44,36 +39,58 @@ export interface MemoryHandlers {
 
 export type ToolResult = string | Array<{ type: 'text'; text: string }>
 
-export type CodeExecutionTool = BetaCodeExecutionTool20250825
-export type WebSearchTool = BetaWebSearchTool20250305
-export type MemoryTool = BetaMemoryTool20250818 & {
+export interface CodeExecutionTool {
+  type: 'code_execution'
+  name: 'code_execution'
+}
+
+export interface WebSearchTool {
+  type: 'web_search'
+  name: 'web_search'
+  max_uses?: number
+  allowed_domains?: string[]
+  blocked_domains?: string[]
+  user_location?: {
+    type: 'approximate'
+    city?: string
+    region?: string
+    country?: string
+    timezone?: string
+  }
+}
+
+export interface MemoryTool {
+  type: 'memory'
+  name: 'memory'
   memoryHandlers?: MemoryHandlers
 }
 
 /**
- * Union of all supported SDK tools
+ * Union of all supported built-in tools
  */
-export type SdkTool = CodeExecutionTool | WebSearchTool | MemoryTool
+export type BuiltInTool = CodeExecutionTool | WebSearchTool | MemoryTool
 
 /**
  * Type guard for code execution tool
  */
-export function isCodeExecutionTool(tool: SdkTool): tool is CodeExecutionTool {
-  return 'type' in tool && tool.type === 'code_execution_20250825'
+export function isCodeExecutionTool(
+  tool: BuiltInTool,
+): tool is CodeExecutionTool {
+  return 'type' in tool && tool.type === 'code_execution'
 }
 
 /**
  * Type guard for web search tool
  */
-export function isWebSearchTool(tool: SdkTool): tool is WebSearchTool {
-  return 'type' in tool && tool.type === 'web_search_20250305'
+export function isWebSearchTool(tool: BuiltInTool): tool is WebSearchTool {
+  return 'type' in tool && tool.type === 'web_search'
 }
 
 /**
  * Type guard for memory tool
  */
-export function isMemoryTool(tool: SdkTool): tool is MemoryTool {
-  return 'type' in tool && tool.type === 'memory_20250818'
+export function isMemoryTool(tool: BuiltInTool): tool is MemoryTool {
+  return 'type' in tool && tool.type === 'memory'
 }
 
 /**
@@ -158,7 +175,7 @@ export type DefineToolOptions<TSchema extends z.ZodType> = Omit<
   strict?: boolean
 }
 
-export type ToolUnion = InternalTool | SdkTool
+export type ToolUnion = InternalTool | BuiltInTool
 
 export function isRunnableTool(tool: ToolUnion): tool is InternalTool {
   return 'handler' in tool && typeof tool.handler === 'function'

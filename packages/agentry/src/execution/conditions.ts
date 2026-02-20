@@ -218,8 +218,9 @@ async function evaluateNLWithAnthropic(
     return conditions.map((_, index) => trueIndices.has(index))
   }
 
-  console.warn(
-    '[agentry] NL condition evaluation: Anthropic model did not return evaluate_conditions tool call. All NL conditions defaulting to false.',
+  debug(
+    'reconciler:conditions',
+    'NL condition evaluation: Anthropic model did not return evaluate_conditions tool call. All NL conditions defaulting to false.',
   )
   return conditions.map(() => false)
 }
@@ -306,8 +307,9 @@ async function evaluateNLWithOpenAI(
     }
   }
 
-  console.warn(
-    '[agentry] NL condition evaluation: OpenAI model did not return evaluate_conditions call. All NL conditions defaulting to false.',
+  debug(
+    'reconciler:conditions',
+    'NL condition evaluation: OpenAI model did not return evaluate_conditions call. All NL conditions defaulting to false.',
   )
   return conditions.map(() => false)
 }

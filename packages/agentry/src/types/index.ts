@@ -25,7 +25,7 @@ export {
   type ToolUnion,
   type PendingToolCall,
   type ToolExecutionResult,
-  type SdkTool,
+  type BuiltInTool,
   type CodeExecutionTool,
   type WebSearchTool,
   type MemoryTool,
@@ -55,6 +55,8 @@ export { type ProviderName } from './provider'
 
 export {
   type Model,
+  type AnthropicModel,
+  type OpenAIModel,
   type AgentProps,
   type ThinkingConfig,
   type AnthropicThinkingEnabled,

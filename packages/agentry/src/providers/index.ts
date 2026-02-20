@@ -7,7 +7,7 @@ export { anthropicAdapter, openaiAdapter }
 export type { ProviderAdapter, ProviderClientMap } from './types'
 
 export function createDefaultAdapters(): Record<
-  string,
+  ProviderName,
   ProviderAdapter<ProviderName>
 > {
   return {

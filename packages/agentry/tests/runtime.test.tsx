@@ -885,6 +885,7 @@ test('provider prop omission throws correct error', async () => {
 
   await expect(
     run(
+      // @ts-expect-error intentionally missing provider to test runtime error
       <Agent model={TEST_MODEL} stream={false}>
         <Message role="user">Hello</Message>
       </Agent>,

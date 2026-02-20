@@ -16,7 +16,12 @@ import { run, Agent, System, Context, Message } from 'agentry'
 
 function CachedAgent({ timestamp }: { timestamp: string }) {
   return (
-    <Agent model="claude-sonnet-4-5" maxTokens={512} stream={false}>
+    <Agent
+      provider="anthropic"
+      model="claude-sonnet-4-5"
+      maxTokens={512}
+      stream={false}
+    >
       <System>
         You are a helpful AI assistant designed to provide accurate and
         informative responses. Your primary goal is to assist users with their

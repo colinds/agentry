@@ -2,7 +2,7 @@ import type { AgentMessageParam, AgentContentBlock } from '../types/messages'
 import type {
   AgentProps,
   InternalTool,
-  SdkTool,
+  BuiltInTool,
   AgentToolFunction,
   InternalAgentTool,
 } from '../types'
@@ -24,7 +24,7 @@ export interface AgentInstance extends BaseInstance {
   engine: ExecutionEngine | null
   systemParts: Array<{ content: string; cache?: 'ephemeral' }>
   tools: InternalTool[]
-  sdkTools: SdkTool[]
+  sdkTools: BuiltInTool[]
   mcpServers: MCPServerConfig[]
   children: Instance[]
   store: AgentStore
@@ -37,7 +37,7 @@ export interface ToolInstance extends BaseInstance {
 
 export interface SdkToolInstance extends BaseInstance {
   type: 'sdk_tool'
-  tool: SdkTool
+  tool: BuiltInTool
 }
 
 export interface SystemInstance extends BaseInstance {
@@ -86,7 +86,7 @@ export interface SubagentInstance extends BaseInstance {
   children: Instance[]
   systemParts: Array<{ content: string; cache?: 'ephemeral' }>
   tools: InternalTool[]
-  sdkTools: SdkTool[]
+  sdkTools: BuiltInTool[]
   mcpServers: MCPServerConfig[]
   agentNode: React.ReactNode | null
 }
@@ -137,7 +137,7 @@ export interface AgentToolComponentProps {
 }
 
 export interface SdkToolComponentProps {
-  tool: SdkTool
+  tool: BuiltInTool
 }
 
 export interface SystemComponentProps {

@@ -2,7 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import type OpenAI from 'openai'
 import type { AgentStreamEvent, Model, ThinkingConfig } from '../types'
 import type { AgentMessage, AgentMessageParam } from '../types/messages'
-import type { InternalTool, SdkTool } from '../types/tools'
+import type { InternalTool, BuiltInTool } from '../types/tools'
 import type { MCPServerConfig } from '../instances/types'
 import type { ProviderName } from '../types/provider'
 
@@ -23,7 +23,7 @@ export interface NormalizedTurnRequest {
   system?: string | SystemBlock[]
   messages: AgentMessageParam[]
   tools: InternalTool[]
-  sdkTools: SdkTool[]
+  sdkTools: BuiltInTool[]
   mcpServers: MCPServerConfig[]
   stopSequences?: string[]
   temperature?: number

@@ -53,7 +53,7 @@ export function Memory(props: MemoryProps): ReactNode {
   }
 
   const tool: MemoryTool = {
-    type: 'memory_20250818',
+    type: 'memory',
     name: 'memory',
     memoryHandlers: handlers,
   }

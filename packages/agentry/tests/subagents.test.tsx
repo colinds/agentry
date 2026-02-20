@@ -27,6 +27,7 @@ test('subagent has isolated message context', async () => {
 
     return (
       <Agent
+        provider="anthropic"
         name="isolated"
         stream={false}
         description="Has isolated messages"
@@ -262,7 +263,12 @@ test('tools can be mounted during execution via state change', async () => {
     })
 
     return (
-      <Agent provider="anthropic" model={TEST_MODEL} stream={false} maxIterations={5}>
+      <Agent
+        provider="anthropic"
+        model={TEST_MODEL}
+        stream={false}
+        maxIterations={5}
+      >
         <System>You manage tools</System>
         <Tools>
           <Tool {...enabler} />
@@ -369,7 +375,12 @@ test('subagents can be mounted during execution via state change', async () => {
     })
 
     return (
-      <Agent provider="anthropic" model={TEST_MODEL} stream={false} maxIterations={5}>
+      <Agent
+        provider="anthropic"
+        model={TEST_MODEL}
+        stream={false}
+        maxIterations={5}
+      >
         <System>You coordinate work</System>
         <Tools>
           <Tool {...coordinator} />
@@ -624,7 +635,12 @@ test('tools can be unmounted during execution via state change', async () => {
     })
 
     return (
-      <Agent provider="anthropic" model={TEST_MODEL} stream={false} maxIterations={5}>
+      <Agent
+        provider="anthropic"
+        model={TEST_MODEL}
+        stream={false}
+        maxIterations={5}
+      >
         <System>Manage tool lifecycle</System>
         <Tools>
           <Tool {...disabler} />

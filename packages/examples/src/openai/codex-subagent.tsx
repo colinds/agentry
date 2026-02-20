@@ -23,21 +23,29 @@ const result = await run(
             .optional()
             .describe('Programming language, if relevant'),
         })}
-        agent={({ task, language }) => (
-          <Agent
-            provider="openai"
-            model={CODEX_MODEL}
-            name="codex"
-            maxTokens={8192}
-          >
-            <System>
-              You are a code generation specialist. Write clean, well-typed
-              code.
-              {language ? ` Use ${language}.` : ''}
-            </System>
-            <Message role="user">{task}</Message>
-          </Agent>
-        )}
+        agent={({ task, language }) => {
+          console.log(`[codex] spawning subagent with model=${CODEX_MODEL}`)
+          return (
+            <Agent
+              provider="openai"
+              model={CODEX_MODEL}
+              name="codex"
+              maxTokens={8192}
+              onComplete={(result) => {
+                console.log(
+                  `[codex] subagent complete — ${result.usage.inputTokens} in / ${result.usage.outputTokens} out tokens (model=${CODEX_MODEL})`,
+                )
+              }}
+            >
+              <System>
+                You are a code generation specialist. Write clean, well-typed
+                code.
+                {language ? ` Use ${language}.` : ''}
+              </System>
+              <Message role="user">{task}</Message>
+            </Agent>
+          )
+        }}
       />
     </Tools>
 

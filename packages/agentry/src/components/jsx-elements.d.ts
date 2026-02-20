@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { InternalTool, InternalAgentTool } from '../types'
-import type { SdkTool } from '../types/tools'
+import type { BuiltInTool } from '../types/tools'
 import type { AgentComponentPublicProps } from './Agent.tsx'
 import type { MCPServerConfig } from '../instances/types'
 import type { AgentContentBlock } from '../types/messages'
@@ -22,7 +22,7 @@ export interface AgentryElements {
 
   agent_tool: { agentTool: InternalAgentTool; key?: string }
 
-  sdk_tool: { tool: SdkTool; key?: string }
+  sdk_tool: { tool: BuiltInTool; key?: string }
 
   system: { children: ReactNode; cache?: 'ephemeral' }
 

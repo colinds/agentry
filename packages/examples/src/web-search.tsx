@@ -96,7 +96,6 @@ function TechnicalWebSearch({ maxSearches = 3 }: { maxSearches?: number }) {
         'typescriptlang.org',
         'react.dev',
         'nodejs.org',
-        'stackoverflow.com',
       ]}
     />
   )
@@ -154,11 +153,11 @@ function TechnicalResearcher() {
       <System>
         You are a technical documentation researcher specializing in
         JavaScript/TypeScript ecosystems. AVAILABLE SOURCES (domain-restricted):
-        - github.com, npmjs.com, typescriptlang.org, react.dev, nodejs.org,
-        stackoverflow.com WORKFLOW: 1. Use web_search to find information from
-        technical documentation 2. Extract specific facts and code examples 3.
-        Use summarize_findings to create a structured summary 4. Provide links
-        to the most relevant sources Focus on official documentation and
+        - github.com, npmjs.com, typescriptlang.org, react.dev, nodejs.org
+        WORKFLOW: 1. Use web_search to find information from technical
+        documentation 2. Extract specific facts and code examples 3. Use
+        summarize_findings to create a structured summary 4. Provide links to
+        the most relevant sources Focus on official documentation and
         well-established community resources.
       </System>
 

@@ -49,7 +49,7 @@ const result = await ai.run(
         parameters={z.object({ text: z.string() })}
         handler={async ({ text }, context) => {
           const result = await context.runAgent(
-            <Agent model={ANTHROPIC_MODEL} name="reviewer">
+            <Agent provider="anthropic" model={ANTHROPIC_MODEL} name="reviewer">
               <Message role="user">Review this text: {text}</Message>
             </Agent>,
             {

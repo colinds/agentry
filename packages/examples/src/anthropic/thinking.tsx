@@ -26,6 +26,7 @@ let apiCallCount = 0
 
 const result = await run(
   <Agent
+    provider="anthropic"
     model={MODEL}
     maxTokens={8000}
     thinking={{

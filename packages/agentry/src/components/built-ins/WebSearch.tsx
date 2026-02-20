@@ -44,7 +44,7 @@ export function WebSearch(props: WebSearchProps): ReactNode {
     : undefined
 
   const tool: WebSearchTool = {
-    type: 'web_search_20250305',
+    type: 'web_search',
     name: 'web_search',
     max_uses: props.maxUses,
     allowed_domains: props.allowedDomains,

@@ -79,7 +79,7 @@ export interface ExecutionEngineConfig {
   provider: ProviderName
   client: ProviderClientMap[ProviderName]
   clients?: Partial<ProviderClientMap>
-  adapters?: Record<string, ProviderAdapter<ProviderName>>
+  adapters?: Record<ProviderName, ProviderAdapter<ProviderName>>
   model: Model
   maxTokens: number
   system?: SystemPrompt
@@ -138,10 +138,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     }
     const provider = config.provider
     const adapters = config.adapters ?? createDefaultAdapters()
-    if (!adapters[provider]) {
-      throw new Error(`No provider adapter configured for "${provider}"`)
-    }
-    this.adapter = adapters[provider]!
+    this.adapter = adapters[provider]
     this.config = {
       ...config,
       provider,

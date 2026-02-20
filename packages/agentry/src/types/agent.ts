@@ -1,12 +1,12 @@
 import type { OnStepFinishResult } from './lifecycle'
 import type { AgentMessageParam } from './messages'
 import type { ProviderName } from './provider'
-import type { Model as AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
-import type OpenAI from 'openai'
+import type { Model as _AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
+import type { ResponsesModel } from 'openai/resources/shared'
 
-export type Model =
-  | AnthropicModel
-  | NonNullable<OpenAI.Responses.ResponseCreateParamsNonStreaming['model']>
+export type AnthropicModel = _AnthropicModel
+export type OpenAIModel = ResponsesModel
+export type Model = AnthropicModel | OpenAIModel
 
 export interface AnthropicThinkingEnabled {
   type: 'enabled'

@@ -16,7 +16,7 @@ const result = await run(
         description="Research specialist"
         parameters={z.object({ topic: z.string() })}
         agent={({ topic }) => (
-          <Agent model={MODEL} name="researcher">
+          <Agent provider="openai" model={MODEL} name="researcher">
             <Message role="user">Research briefly: {topic}</Message>
           </Agent>
         )}
@@ -27,7 +27,7 @@ const result = await run(
         parameters={z.object({ text: z.string() })}
         handler={async ({ text }, context) => {
           const spawned = await context.runAgent(
-            <Agent model={MODEL} name="reviewer">
+            <Agent provider="openai" model={MODEL} name="reviewer">
               <Message role="user">Review and improve this: {text}</Message>
             </Agent>,
             { provider: 'openai' },

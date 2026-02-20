@@ -12,7 +12,7 @@ import type { ProviderName } from '../types/provider'
 export interface EngineConfigOptions {
   agent: AgentInstance
   clients: Partial<ProviderClientMap>
-  adapters: Record<string, ProviderAdapter<ProviderName>>
+  adapters: Record<ProviderName, ProviderAdapter<ProviderName>>
   store?: AgentStore
 }
 

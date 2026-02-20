@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import type { AgentComponentProps } from '../instances/types'
 import type {
-  Model,
+  AnthropicModel,
+  OpenAIModel,
   ThinkingConfig,
   AnthropicThinkingEnabled,
   OpenAIThinkingEnabled,
@@ -13,23 +14,22 @@ type BaseAgentProps = Omit<
 >
 
 /**
- * When `provider` is given, `model` must also be given (they go together).
+ * `provider` and `model` must be specified together or not at all.
  * - Root agents: specify both (`provider="anthropic" model="claude-haiku-4-5"`)
- * - Subagents: can omit both (inherit from context), or specify `model` alone
- *   to override the model while inheriting the provider.
+ * - Subagents inside AgentTool: can omit both (inherit from parent)
  */
 type ProviderModelProps =
   | {
       provider: 'anthropic'
-      model: Model
+      model: AnthropicModel
       thinking?: AnthropicThinkingEnabled | { type: 'disabled' }
     }
   | {
       provider: 'openai'
-      model: Model
+      model: OpenAIModel
       thinking?: OpenAIThinkingEnabled | { type: 'disabled' }
     }
-  | { provider?: undefined; model?: Model; thinking?: ThinkingConfig }
+  | { provider?: undefined; model?: undefined; thinking?: ThinkingConfig }
 
 export type AgentComponentPublicProps = BaseAgentProps & ProviderModelProps
 

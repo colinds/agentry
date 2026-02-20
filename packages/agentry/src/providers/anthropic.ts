@@ -17,9 +17,13 @@ import type {
   NormalizedTurnRequest,
   NormalizedTurnResponse,
 } from './types'
-import { isCodeExecutionTool, isMemoryTool } from '../types/tools'
+import {
+  isCodeExecutionTool,
+  isMemoryTool,
+  isWebSearchTool,
+} from '../types/tools'
 import { toApiTool } from '../tools'
-import type { SdkTool } from '../types/tools'
+import type { BuiltInTool } from '../types/tools'
 import type { JsonObject } from '../types/json'
 
 export function toAnthropicMessage(
@@ -89,12 +93,21 @@ function toAgentBlocks(content: BetaContentBlock[]): AgentContentBlock[] {
   return blocks
 }
 
-function toApiSdkTool(sdkTool: SdkTool): BetaToolUnion {
-  if (isMemoryTool(sdkTool)) {
-    const { memoryHandlers: _memoryHandlers, ...apiTool } = sdkTool
-    return apiTool as BetaMemoryTool20250818
+function toApiSdkTool(tool: BuiltInTool): BetaToolUnion {
+  if (isCodeExecutionTool(tool)) {
+    return { type: 'code_execution_20250825', name: 'code_execution' }
   }
-  return sdkTool as BetaToolUnion
+  if (isWebSearchTool(tool)) {
+    const { type: _, ...rest } = tool
+    return { type: 'web_search_20250305', ...rest }
+  }
+  if (isMemoryTool(tool)) {
+    const { type: _, memoryHandlers: _handlers, ...rest } = tool
+    return { type: 'memory_20250818', ...rest } as BetaMemoryTool20250818
+  }
+  throw new Error(
+    `[agentry] Unknown built-in tool type: ${JSON.stringify(tool)}`,
+  )
 }
 
 export const anthropicAdapter: ProviderAdapter<'anthropic'> = {

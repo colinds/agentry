@@ -21,7 +21,7 @@ import type { CodeExecutionTool } from '../../types/tools'
  */
 export function CodeExecution(): ReactNode {
   const tool: CodeExecutionTool = {
-    type: 'code_execution_20250825',
+    type: 'code_execution',
     name: 'code_execution',
   }
 
