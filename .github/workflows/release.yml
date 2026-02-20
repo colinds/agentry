@@ -57,8 +57,13 @@ jobs:
         run: bun run test
       - name: Update npm
         run: npm install -g npm@latest
+      - name: Pack
+        run: bun pm pack
+        working-directory: packages/agentry
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          npm publish "agentry-${VERSION}.tgz" --provenance --access public
         working-directory: packages/agentry
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

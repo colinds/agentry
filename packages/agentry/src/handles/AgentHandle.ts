@@ -117,7 +117,7 @@ export class AgentHandle extends AbstractAgentHandle {
     if (!getProviderClient(this.clients, provider) && this.singleClient) {
       setProviderClient(this.clients, provider, this.singleClient)
     }
-    agent.client = ensureProviderClient(this.clients, provider)
+    agent.client = await ensureProviderClient(this.clients, provider)
 
     return agent
   }

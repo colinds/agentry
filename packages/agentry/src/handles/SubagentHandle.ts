@@ -39,14 +39,13 @@ export class SubagentHandle extends AbstractAgentHandle {
     if (options.client) {
       setProviderClient(clients, provider, options.client)
     }
-    const client = ensureProviderClient(clients, provider)
 
     const store = createAgentStore()
 
     const container: AgentInstance = {
       type: 'agent',
       props: { ...subagent.props },
-      client,
+      client: undefined,
       engine: null,
       systemParts: [],
       tools: [],
@@ -133,7 +132,7 @@ export class SubagentHandle extends AbstractAgentHandle {
     if (!provider) {
       throw new Error('Provider is required on the subagent instance.')
     }
-    agentInstance.client = ensureProviderClient(this.clients, provider)
+    agentInstance.client = await ensureProviderClient(this.clients, provider)
 
     return agentInstance
   }

@@ -6,7 +6,7 @@
       "name": "agentry",
       "devDependencies": {
         "@types/bun": "1.3.9",
-        "@types/react": "^19.2.14",
+        "@types/react": "catalog:",
         "@typescript/native-preview": "^7.0.0-dev.20260219.1",
         "oxfmt": "^0.34.0",
         "oxlint": "^1.49.0",
@@ -17,36 +17,47 @@
       "name": "agentry",
       "version": "0.0.2",
       "dependencies": {
-        "@anthropic-ai/sdk": "^0.71.1",
         "eventemitter3": "^5.0.1",
-        "openai": "^6.22.0",
         "react-reconciler": "^0.33.0",
         "scheduler": "^0.27.0",
         "zustand": "^5.0.3",
       },
       "devDependencies": {
-        "@types/react": "^19.0.0",
+        "@types/react": "catalog:",
         "@types/react-reconciler": "^0.32.3",
         "@types/scheduler": "^0.26.0",
       },
       "peerDependencies": {
+        "@anthropic-ai/sdk": "^0.71.1",
+        "openai": "^6.22.0",
         "react": "^19.0.0",
         "zod": "^4.0.0",
       },
+      "optionalPeers": [
+        "@anthropic-ai/sdk",
+        "openai",
+      ],
     },
     "packages/examples": {
       "name": "@agentry/examples",
       "version": "0.0.1",
       "dependencies": {
-        "@anthropic-ai/sdk": "^0.71.2",
+        "@anthropic-ai/sdk": "catalog:",
         "agentry": "workspace:*",
-        "openai": "^6.22.0",
-        "zod": "^4.1.13",
+        "openai": "catalog:",
+        "zod": "catalog:",
       },
       "peerDependencies": {
         "react": "^19.0.0",
       },
     },
+  },
+  "catalog": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "@types/react": "^19.2.14",
+    "openai": "^6.22.0",
+    "react": "^19.0.0",
+    "zod": "^4.1.13",
   },
   "packages": {
     "@agentry/examples": ["@agentry/examples@workspace:packages/examples"],
