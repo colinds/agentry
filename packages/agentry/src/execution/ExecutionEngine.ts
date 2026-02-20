@@ -42,16 +42,8 @@ import type {
   SystemBlock,
 } from '../providers/types'
 import { createDefaultAdapters } from '../providers'
-import type Anthropic from '@anthropic-ai/sdk'
-import type OpenAI from 'openai'
-import type {
-  BetaMessage,
-  BetaMessageParam,
-  BetaTextBlock,
-} from '@anthropic-ai/sdk/resources/beta'
-import type { Model as AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
-import { toOpenAIInput } from '../providers/openai'
-import type { z } from 'zod'
+import { isTextBlock } from '../types/messages'
+import type { JsonObject } from '../types/json'
 
 export interface ExecutionEngineEvents {
   stateChange: (state: AgentState) => void
@@ -104,15 +96,8 @@ function hasName(t: object | null): t is { name: string } {
   return typeof t === 'object' && t !== null && 'name' in t
 }
 
-function isMemoryToolInput(
-  input: z.output<z.ZodType>,
-): input is MemoryToolInput {
-  return (
-    typeof input === 'object' &&
-    input !== null &&
-    'command' in input &&
-    typeof input.command === 'string'
-  )
+function isMemoryToolInput(input: JsonObject): boolean {
+  return 'command' in input && typeof input.command === 'string'
 }
 
 /**
@@ -420,7 +405,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             }
             const { result, isError } = await executeMemoryTool(
               sdkTool,
-              toolCall.input,
+              toolCall.input as unknown as MemoryToolInput,
             )
 
             return this.buildToolResult({
@@ -473,13 +458,13 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       type: 'tool_result',
       tool_use_id: toolCall.id,
       content: result,
-      is_error: isError ? true : undefined,
-    } as ToolResultContentBlock
+      is_error: isError || undefined,
+    }
   }
 
   private buildStepFinishResult(
     message: AgentMessage,
-    toolUses: Array<{ id: string; name: string; input: z.output<z.ZodType> }>,
+    toolUses: Array<{ id: string; name: string; input: JsonObject }>,
     toolResults: ToolResultContentBlock[],
   ): OnStepFinishResult {
     const text = extractText(message)
@@ -559,10 +544,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
   private async checkAndCompact(signal?: AbortSignal): Promise<boolean> {
     const compactionControl = this.config.compactionControl
-    if (!compactionControl?.enabled) {
-      return false
-    }
-    if (!this.lastMessage) {
+    if (!compactionControl?.enabled || !this.lastMessage) {
       return false
     }
 
@@ -581,93 +563,30 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
     const summaryPrompt =
       compactionControl.summaryPrompt ?? DEFAULT_SUMMARY_PROMPT
-    const currentMessages = [...this.messages]
-    const provider = this.config.provider
+    const currentMessages = [...this.messages] as AgentMessageParam[]
 
-    if (provider === 'anthropic') {
-      const model = (compactionControl.model ??
-        this.config.model) as AnthropicModel
-      const client = this.client as Anthropic
-      let response: BetaMessage
-      try {
-        response = await client.beta.messages.create(
-          {
-            model,
-            messages: [
-              ...(currentMessages as BetaMessageParam[]),
-              {
-                role: 'user',
-                content: [{ type: 'text', text: summaryPrompt }],
-              },
-            ],
-            max_tokens: this.config.maxTokens,
-            betas: this.config.betas?.length ? this.config.betas : undefined,
-          },
-          { signal },
-        )
-      } catch (e) {
-        const err = e instanceof Error ? e : new Error(String(e))
-        console.error(
-          '[agentry] Compaction API call failed, continuing without compaction:',
-          err,
-        )
-        this.emit('error', err)
-        return false
-      }
+    try {
+      const response = await this.adapter.createTurn(this.client, {
+        model: compactionControl.model ?? this.config.model,
+        maxTokens: this.config.maxTokens,
+        messages: [
+          ...currentMessages,
+          { role: 'user', content: summaryPrompt },
+        ],
+        tools: [],
+        sdkTools: [],
+        mcpServers: [],
+        betas: this.config.betas,
+        stream: false,
+        signal: signal ?? AbortSignal.timeout(60_000),
+        onStream: () => {},
+      })
 
-      const summaryBlock = response.content.find(
-        (block): block is BetaTextBlock => block.type === 'text',
-      )
-      if (!summaryBlock) {
-        console.warn('[agentry] Compaction: model returned no text summary')
-        return false
-      }
+      const summaryText = response.message.content
+        .filter(isTextBlock)
+        .map((block) => block.text)
+        .join('')
 
-      this.store.getState().actions.setMessages([
-        {
-          role: 'user',
-          content: [{ type: 'text', text: summaryBlock.text }],
-        },
-      ])
-      return true
-    } else if (provider === 'openai') {
-      const model = compactionControl.model ?? this.config.model
-      const client = this.client as OpenAI
-      const input = [
-        ...toOpenAIInput(currentMessages),
-        { role: 'user' as const, content: summaryPrompt },
-      ]
-      let oaiResponse: OpenAI.Responses.Response
-      try {
-        oaiResponse = await client.responses.create(
-          {
-            model,
-            input,
-            max_output_tokens: this.config.maxTokens,
-            stream: false,
-          },
-          { signal },
-        )
-      } catch (e) {
-        const err = e instanceof Error ? e : new Error(String(e))
-        console.error(
-          '[agentry] Compaction API call failed, continuing without compaction:',
-          err,
-        )
-        this.emit('error', err)
-        return false
-      }
-
-      const summaryText = oaiResponse.output
-        .flatMap((item) =>
-          item.type === 'message' && Array.isArray(item.content)
-            ? item.content
-            : [],
-        )
-        .filter(
-          (part): part is OpenAI.Responses.ResponseOutputText =>
-            part.type === 'output_text',
-        )[0]?.text
       if (!summaryText) {
         console.warn('[agentry] Compaction: model returned no text summary')
         return false
@@ -679,10 +598,13 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           { role: 'user', content: [{ type: 'text', text: summaryText }] },
         ])
       return true
-    } else {
-      console.warn(
-        `[agentry] Compaction not implemented for provider: ${provider}`,
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e))
+      console.error(
+        '[agentry] Compaction API call failed, continuing without compaction:',
+        err,
       )
+      this.emit('error', err)
       return false
     }
   }

@@ -59,6 +59,11 @@ export function toAnthropicMessage(
         content: block.content,
         is_error: block.is_error,
       })
+    } else {
+      debug(
+        'api',
+        `Anthropic: dropping unrecognized message block type: ${(block as { type: string }).type}`,
+      )
     }
   }
   return { role: message.role, content }

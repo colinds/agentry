@@ -4,7 +4,11 @@ import type {
   NormalizedTurnRequest,
   NormalizedTurnResponse,
 } from './types'
-import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
+import type {
+  AgentContentBlock,
+  AgentMessageParam,
+  TextContentBlock,
+} from '../types/messages'
 import type { JsonObject } from '../types/json'
 import { isCodeExecutionTool, isWebSearchTool } from '../types/tools'
 import { debug } from '../debug'
@@ -48,10 +52,11 @@ export function toOpenAIInput(
           arguments: JSON.stringify(block.input ?? {}),
         } as OpenAIInputItem)
       } else if (block.type === 'tool_result') {
+        const output = stringifyContent(block.content)
         input.push({
           type: 'function_call_output',
           call_id: block.tool_use_id,
-          output: stringifyContent(block.content),
+          output: block.is_error ? `[ERROR] ${output}` : output,
         } as OpenAIInputItem)
       }
       // thinking blocks intentionally ignored — no OpenAI equivalent
@@ -86,23 +91,24 @@ function parseOpenAIResponse(
       }
       let input: JsonObject = {}
       if (typeof item.arguments === 'string') {
+        let parsed: unknown
         try {
-          const parsed = JSON.parse(item.arguments)
-          if (
-            typeof parsed === 'object' &&
-            parsed !== null &&
-            !Array.isArray(parsed)
-          ) {
-            input = parsed as JsonObject
-          } else {
-            console.error(
-              `[agentry] OpenAI tool call "${item.name}": expected object arguments, got ${typeof parsed}`,
-            )
-          }
+          parsed = JSON.parse(item.arguments)
         } catch (e) {
-          console.error(
-            `[agentry] OpenAI tool call "${item.name}": failed to parse arguments "${item.arguments}":`,
-            e,
+          throw new Error(
+            `[agentry] OpenAI tool call "${item.name}": failed to parse arguments: ${item.arguments}`,
+            { cause: e },
+          )
+        }
+        if (
+          typeof parsed === 'object' &&
+          parsed !== null &&
+          !Array.isArray(parsed)
+        ) {
+          input = parsed as JsonObject
+        } else {
+          throw new Error(
+            `[agentry] OpenAI tool call "${item.name}": expected object arguments, got ${typeof parsed}`,
           )
         }
       }
@@ -256,8 +262,8 @@ export const openaiAdapter: ProviderAdapter<'openai'> = {
       }
     }
     const text = normalized.message.content
-      .filter((block) => block.type === 'text')
-      .map((block) => (block.type === 'text' ? block.text : ''))
+      .filter((block): block is TextContentBlock => block.type === 'text')
+      .map((block) => block.text)
       .join('')
     if (text) {
       request.onStream({ type: 'text', text, accumulated: text })

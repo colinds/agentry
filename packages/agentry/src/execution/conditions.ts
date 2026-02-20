@@ -138,10 +138,10 @@ async function evaluateNaturalLanguageConditions(
       signal,
     )
   }
-  console.warn(
-    `[agentry] No client available for NL condition evaluation (provider: ${provider}). All NL conditions defaulting to false.`,
+  throw new Error(
+    `[agentry] Cannot evaluate natural-language conditions: no ${provider} client available. ` +
+      `Provide a client via createAI({ clients: { ${provider}: ... } }) or set the appropriate API key.`,
   )
-  return conditions.map(() => false)
 }
 
 /**
@@ -299,11 +299,10 @@ async function evaluateNLWithOpenAI(
 
       return conditions.map((_, i) => trueIndices.has(i))
     } catch (e) {
-      console.error(
+      throw new Error(
         `[agentry] NL condition evaluation: failed to parse OpenAI function call arguments: "${functionCall.arguments}"`,
-        e,
+        { cause: e },
       )
-      return conditions.map(() => false)
     }
   }
 

@@ -39,6 +39,7 @@
     "example:openai:codex-subagent": "bun run packages/examples/src/openai/codex-subagent.tsx",
     "example:cross-provider:subagents": "bun run packages/examples/src/cross-provider/subagents.tsx",
     "example:anthropic:cache-ephemeral": "bun run packages/examples/src/anthropic/cache-ephemeral.tsx",
+    "example:compaction": "bun run packages/examples/src/compaction.tsx",
     "example:chatbot": "bun run packages/examples/src/chatbot.tsx",
     "example:interactive": "bun run packages/examples/src/interactive.tsx",
     "example:mcp": "bun run packages/examples/src/mcp.tsx",

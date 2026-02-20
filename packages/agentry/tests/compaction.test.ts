@@ -93,9 +93,7 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
   const lastMessage = params.messages[params.messages.length - 1]
   expect(lastMessage).toMatchObject({
     role: 'user',
-    content: [
-      { type: 'text', text: 'Please summarize the conversation so far' },
-    ],
+    content: 'Please summarize the conversation so far',
   })
 
   await controller.nextTurn()

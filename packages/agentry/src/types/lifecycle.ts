@@ -1,10 +1,10 @@
 import type { AgentMessage, AgentMessageParam } from './messages'
-import type { z } from 'zod'
+import type { JsonObject } from './json'
 
 export interface StepToolCall {
   id: string
   name: string
-  input: z.output<z.ZodType>
+  input: JsonObject
 }
 
 export interface StepToolResult {

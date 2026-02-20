@@ -76,6 +76,10 @@ async function getSharedDefaultClient(
           pendingClients.anthropic = undefined
           return client
         },
+        (err) => {
+          pendingClients.anthropic = undefined
+          throw err
+        },
       )
       return pendingClients.anthropic
     }
@@ -89,11 +93,17 @@ async function getSharedDefaultClient(
       )
     }
     if (!sharedDefaultClients.openai) {
-      pendingClients.openai ??= createDefaultOpenAIClient().then((client) => {
-        sharedDefaultClients.openai = client
-        pendingClients.openai = undefined
-        return client
-      })
+      pendingClients.openai ??= createDefaultOpenAIClient().then(
+        (client) => {
+          sharedDefaultClients.openai = client
+          pendingClients.openai = undefined
+          return client
+        },
+        (err) => {
+          pendingClients.openai = undefined
+          throw err
+        },
+      )
       return pendingClients.openai
     }
     return sharedDefaultClients.openai

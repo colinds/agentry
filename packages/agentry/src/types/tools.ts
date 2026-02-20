@@ -184,7 +184,7 @@ export function isRunnableTool(tool: ToolUnion): tool is InternalTool {
 export interface PendingToolCall {
   id: string
   name: string
-  input: unknown
+  input: JsonObject
 }
 
 export interface ToolExecutionResult {
