@@ -31,6 +31,7 @@ export {
   type MemoryTool,
   type MemoryHandlers,
   type RunAgentOptions,
+  BuiltInToolType,
   isCodeExecutionTool,
   isWebSearchTool,
   isMemoryTool,
@@ -45,6 +46,8 @@ export {
 export {
   type AgentState,
   type StateTransition,
+  AgentStatus,
+  TransitionType,
   initialState,
   transition,
   canAcceptMessages,

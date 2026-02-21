@@ -3,6 +3,7 @@ import { createAgentStore } from '../store'
 import {
   type AgentInstance,
   type SubagentInstance,
+  InstanceType,
   isAgentInstance,
 } from '../instances/types'
 import type { AgentMessageParam } from '../types/messages'
@@ -36,7 +37,7 @@ export class SubagentHandle extends AbstractAgentHandle {
     const store = createAgentStore()
 
     const container: AgentInstance = {
-      type: 'agent',
+      type: InstanceType.Agent,
       props: { ...subagent.props },
       client: undefined,
       engine: null,

@@ -40,13 +40,19 @@ export interface MemoryHandlers {
 
 export type ToolResult = string | TextContentArray
 
+export enum BuiltInToolType {
+  CodeExecution = 'code_execution',
+  WebSearch = 'web_search',
+  Memory = 'memory',
+}
+
 export interface CodeExecutionTool {
-  type: 'code_execution'
+  type: BuiltInToolType.CodeExecution
   name: 'code_execution'
 }
 
 export interface WebSearchTool {
-  type: 'web_search'
+  type: BuiltInToolType.WebSearch
   name: 'web_search'
   max_uses?: number
   allowed_domains?: string[]
@@ -61,7 +67,7 @@ export interface WebSearchTool {
 }
 
 export interface MemoryTool {
-  type: 'memory'
+  type: BuiltInToolType.Memory
   name: 'memory'
   memoryHandlers?: MemoryHandlers
 }
@@ -77,21 +83,21 @@ export type BuiltInTool = CodeExecutionTool | WebSearchTool | MemoryTool
 export function isCodeExecutionTool(
   tool: BuiltInTool,
 ): tool is CodeExecutionTool {
-  return 'type' in tool && tool.type === 'code_execution'
+  return 'type' in tool && tool.type === BuiltInToolType.CodeExecution
 }
 
 /**
  * Type guard for web search tool
  */
 export function isWebSearchTool(tool: BuiltInTool): tool is WebSearchTool {
-  return 'type' in tool && tool.type === 'web_search'
+  return 'type' in tool && tool.type === BuiltInToolType.WebSearch
 }
 
 /**
  * Type guard for memory tool
  */
 export function isMemoryTool(tool: BuiltInTool): tool is MemoryTool {
-  return 'type' in tool && tool.type === 'memory'
+  return 'type' in tool && tool.type === BuiltInToolType.Memory
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   useAgentState,
 } from '../src'
 import { createStepMockClient, mockText, mockToolUse } from './utils'
+import { AgentStatus } from '../src/types'
 import { ANTHROPIC_TEST_MODEL } from '../src/constants'
 import { createStateWatcher, createMessageCollector } from './utils/testHelpers'
 
@@ -75,8 +76,10 @@ test('useExecutionState with createStateWatcher helper', async () => {
   const result = await runPromise
 
   expect(watcher.states.length).toBeGreaterThan(0)
-  expect(watcher.states[0]?.status).toBe('idle')
-  expect(watcher.states[watcher.states.length - 1]?.status).toBe('completed')
+  expect(watcher.states[0]?.status).toBe(AgentStatus.Idle)
+  expect(watcher.states[watcher.states.length - 1]?.status).toBe(
+    AgentStatus.Completed,
+  )
   expect(result.stopReason).toBe('end_turn')
 })
 

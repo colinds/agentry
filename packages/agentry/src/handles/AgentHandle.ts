@@ -1,9 +1,9 @@
 import { createElement, type ReactNode } from 'react'
-import type { AgentInstance } from '../instances/types'
+import { InstanceType, type AgentInstance } from '../instances/types'
 import type { AgentMessageParam } from '../types/messages'
 import { createContainer, updateContainer } from '../reconciler/renderer'
 import { createAgentStore } from '../store'
-import { isAgentInstance } from '../instances/types'
+import { isAgentInstance } from '../instances'
 import { AgentProvider } from '../context'
 import { AbstractAgentHandle } from './AbstractAgentHandle'
 import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
@@ -30,7 +30,7 @@ export class AgentHandle extends AbstractAgentHandle {
     const store = createAgentStore()
 
     const rootAgent: AgentInstance = {
-      type: 'agent',
+      type: InstanceType.Agent,
       props: {
         provider: undefined,
         model: undefined,

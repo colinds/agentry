@@ -12,6 +12,8 @@ import {
   transition,
   canAcceptMessages,
   isProcessing,
+  AgentStatus,
+  TransitionType,
   type InternalTool,
 } from '../src/types'
 import { createStepMockClient } from './utils'
@@ -154,39 +156,39 @@ test('executeTool handles handler errors', async () => {
 
 test('state machine transitions correctly', () => {
   let state = initialState()
-  expect(state.status).toBe('idle')
+  expect(state.status).toBe(AgentStatus.Idle)
 
   state = transition(state, {
-    type: 'start_streaming',
+    type: TransitionType.StartStreaming,
     abortController: new AbortController(),
   })
-  expect(state.status).toBe('streaming')
+  expect(state.status).toBe(AgentStatus.Streaming)
 
   state = transition(state, {
-    type: 'tools_requested',
+    type: TransitionType.ToolsRequested,
     pendingTools: [{ id: 'tool_1', name: 'test', input: {} }],
   })
-  expect(state.status).toBe('waiting_for_tools')
+  expect(state.status).toBe(AgentStatus.WaitingForTools)
 
   state = transition(state, {
-    type: 'tools_completed',
+    type: TransitionType.ToolsCompleted,
     results: [],
   })
-  expect(state.status).toBe('idle')
+  expect(state.status).toBe(AgentStatus.Idle)
 })
 
 test('state machine transitions to error state', () => {
   let state = initialState()
   state = transition(state, {
-    type: 'start_streaming',
+    type: TransitionType.StartStreaming,
     abortController: new AbortController(),
   })
 
   const error = new Error('Something went wrong')
-  state = transition(state, { type: 'error', error })
+  state = transition(state, { type: TransitionType.Error, error })
 
-  expect(state.status).toBe('error')
-  if (state.status === 'error') {
+  expect(state.status).toBe(AgentStatus.Error)
+  if (state.status === AgentStatus.Error) {
     expect(state.error).toBe(error)
   }
 })
@@ -194,7 +196,7 @@ test('state machine transitions to error state', () => {
 test('state machine transitions to completed state', () => {
   let state = initialState()
   state = transition(state, {
-    type: 'start_streaming',
+    type: TransitionType.StartStreaming,
     abortController: new AbortController(),
   })
 
@@ -203,48 +205,60 @@ test('state machine transitions to completed state', () => {
     stop_reason: null,
     usage: { input_tokens: 0, output_tokens: 0 },
   } as AgentMessage
-  state = transition(state, { type: 'completed', finalMessage })
+  state = transition(state, { type: TransitionType.Completed, finalMessage })
 
-  expect(state.status).toBe('completed')
-  if (state.status === 'completed') {
+  expect(state.status).toBe(AgentStatus.Completed)
+  if (state.status === AgentStatus.Completed) {
     expect(state.finalMessage).toBe(finalMessage)
   }
 })
 
 test('canAcceptMessages returns true for idle and completed', () => {
-  expect(canAcceptMessages({ status: 'idle' })).toBe(true)
+  expect(canAcceptMessages({ status: AgentStatus.Idle })).toBe(true)
   expect(
     canAcceptMessages({
-      status: 'completed',
+      status: AgentStatus.Completed,
       finalMessage: {} as AgentMessage,
     }),
   ).toBe(true)
   expect(
     canAcceptMessages({
-      status: 'streaming',
+      status: AgentStatus.Streaming,
       abortController: new AbortController(),
     }),
   ).toBe(false)
   expect(
-    canAcceptMessages({ status: 'waiting_for_tools', pendingTools: [] }),
+    canAcceptMessages({
+      status: AgentStatus.WaitingForTools,
+      pendingTools: [],
+    }),
   ).toBe(false)
 })
 
 test('isProcessing returns true for active states', () => {
-  expect(isProcessing({ status: 'idle' })).toBe(false)
+  expect(isProcessing({ status: AgentStatus.Idle })).toBe(false)
   expect(
-    isProcessing({ status: 'completed', finalMessage: {} as AgentMessage }),
+    isProcessing({
+      status: AgentStatus.Completed,
+      finalMessage: {} as AgentMessage,
+    }),
   ).toBe(false)
   expect(
     isProcessing({
-      status: 'streaming',
+      status: AgentStatus.Streaming,
       abortController: new AbortController(),
     }),
   ).toBe(true)
-  expect(isProcessing({ status: 'waiting_for_tools', pendingTools: [] })).toBe(
-    true,
-  )
-  expect(isProcessing({ status: 'executing_tools', pendingTools: [] })).toBe(
-    true,
-  )
+  expect(
+    isProcessing({
+      status: AgentStatus.WaitingForTools,
+      pendingTools: [],
+    }),
+  ).toBe(true)
+  expect(
+    isProcessing({
+      status: AgentStatus.ExecutingTools,
+      pendingTools: [],
+    }),
+  ).toBe(true)
 })

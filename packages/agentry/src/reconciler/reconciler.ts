@@ -13,11 +13,7 @@ import {
   isToolInstance,
   isConditionInstance,
 } from '../instances'
-import {
-  createInstance,
-  type ElementType,
-  type ElementProps,
-} from '../instances'
+import { createInstance, InstanceType, type ElementProps } from '../instances'
 import type { AgentProps, CompactionControl, Model } from '../types'
 import { debug } from '../debug'
 import { diffProps, disposeOnIdle } from './utils'
@@ -88,7 +84,7 @@ interface PropagatedSettings {
 }
 
 interface HostConfig {
-  type: ElementType
+  type: InstanceType
   props: ElementProps
   container: AgentInstance
   instance: Instance

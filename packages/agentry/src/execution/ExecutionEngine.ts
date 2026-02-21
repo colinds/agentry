@@ -17,6 +17,8 @@ import { isMessageInstance } from '../instances'
 import { evaluateConditions } from './conditions'
 import {
   transition,
+  TransitionType,
+  AgentStatus,
   extractToolUses,
   extractText,
   isMemoryTool,
@@ -214,7 +216,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
         this.iterationCount++
         const abortController = new AbortController()
-        this.transition({ type: 'start_streaming', abortController })
+        this.transition({
+          type: TransitionType.StartStreaming,
+          abortController,
+        })
 
         const isFirstIteration = this.iterationCount === 1
         const conditionsChanged = await this.evaluateAllConditions(
@@ -243,7 +248,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             input: tu.input,
           }))
 
-          this.transition({ type: 'tools_requested', pendingTools })
+          this.transition({ type: TransitionType.ToolsRequested, pendingTools })
 
           const toolResults = await this.executeTools(
             pendingTools,
@@ -256,7 +261,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           }
           this.pushMessage(toolResultMessage)
 
-          this.transition({ type: 'tools_completed', results: [] })
+          this.transition({ type: TransitionType.ToolsCompleted, results: [] })
 
           // force React to commit any pending state updates from tool handlers
           flushSync(() => {})
@@ -281,12 +286,15 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       }
 
       const result = this.buildResult()
-      this.transition({ type: 'completed', finalMessage: this.lastMessage })
+      this.transition({
+        type: TransitionType.Completed,
+        finalMessage: this.lastMessage,
+      })
       this.emit('complete', result)
       return result
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error))
-      this.transition({ type: 'error', error: err })
+      this.transition({ type: TransitionType.Error, error: err })
       this.emit('error', err)
       throw err
     }
@@ -327,7 +335,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     pendingTools: PendingToolCall[],
     abortController: AbortController,
   ): Promise<ToolResultContentBlock[]> {
-    this.transition({ type: 'tools_executing', pendingTools })
+    this.transition({ type: TransitionType.ToolsExecuting, pendingTools })
 
     const signal = abortController.signal
     const context: ToolContext = {
@@ -525,12 +533,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   abort(): void {
     this.aborted = true
     const currentState = this.executionState
-    if (currentState.status === 'streaming') {
+    if (currentState.status === AgentStatus.Streaming) {
       currentState.abortController.abort()
     }
     const error = new Error('Execution aborted')
     error.name = 'AbortError'
-    this.transition({ type: 'error', error })
+    this.transition({ type: TransitionType.Error, error })
     this.emit('error', error)
   }
 

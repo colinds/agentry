@@ -1,9 +1,5 @@
 export * from './types'
-export {
-  createInstance,
-  type ElementType,
-  type ElementProps,
-} from './createInstance'
+export { createInstance, type ElementProps } from './createInstance'
 export {
   isSubagentInstance,
   isMCPServerInstance,

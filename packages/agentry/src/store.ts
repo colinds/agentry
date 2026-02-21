@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
-import type { AgentState } from './types/state'
+import { AgentStatus, type AgentState } from './types/state'
 import type { AgentMessageParam } from './types/messages'
 
 export interface AgentStoreState {
@@ -17,7 +17,7 @@ export type AgentStore = StoreApi<AgentStoreState>
 
 export function createAgentStore(): AgentStore {
   return createStore<AgentStoreState>((set) => ({
-    executionState: { status: 'idle' },
+    executionState: { status: AgentStatus.Idle },
     messages: [],
     actions: {
       setExecutionState: (state) => set({ executionState: state }),

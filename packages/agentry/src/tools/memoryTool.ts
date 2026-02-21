@@ -1,7 +1,7 @@
 import type { MemoryTool } from '../types'
 
 export interface MemoryToolInput {
-  command: string
+  command: 'view' | 'create' | 'str_replace' | 'insert' | 'delete' | 'rename'
   path?: string
   view_range?: [number, number]
   file_text?: string

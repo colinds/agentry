@@ -23,7 +23,7 @@ import type {
   MCPServerComponentProps,
   ConditionComponentProps,
 } from './types'
-import { isAgentInstance, isInstance } from './types'
+import { InstanceType, isAgentInstance, isInstance } from './types'
 import type {
   AgentProps,
   BaseAgentProps,
@@ -61,18 +61,6 @@ interface PropagatedSettings {
   betas?: string[]
 }
 
-export type ElementType =
-  | 'agent'
-  | 'agent_tool'
-  | 'tool'
-  | 'sdk_tool'
-  | 'system'
-  | 'context'
-  | 'message'
-  | 'tools'
-  | 'mcp_server'
-  | 'condition'
-
 export type ElementProps =
   | AgentComponentProps
   | AgentToolComponentProps
@@ -87,32 +75,32 @@ export type ElementProps =
 
 // oxlint-disable-next-line max-params -- called by reconciler host config with fixed arity
 export function createInstance(
-  type: ElementType,
+  type: InstanceType,
   props: ElementProps,
   rootContainer: Instance | object | null,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _hostContext: PropagatedSettings = {},
 ): Instance {
   switch (type) {
-    case 'agent':
+    case InstanceType.Agent:
       return createAgentInstance(props as AgentComponentProps, rootContainer)
-    case 'agent_tool':
+    case InstanceType.AgentTool:
       return createAgentToolInstance(props as AgentToolComponentProps)
-    case 'tool':
+    case InstanceType.Tool:
       return createToolInstance(props as ToolComponentProps)
-    case 'sdk_tool':
+    case InstanceType.SdkTool:
       return createSdkToolInstance(props as SdkToolComponentProps)
-    case 'system':
+    case InstanceType.System:
       return createSystemInstance(props as SystemComponentProps)
-    case 'context':
+    case InstanceType.Context:
       return createContextInstance(props as ContextComponentProps)
-    case 'message':
+    case InstanceType.Message:
       return createMessageInstance(props as MessageComponentProps)
-    case 'tools':
+    case InstanceType.Tools:
       return createToolsContainerInstance(props as ToolsContainerProps)
-    case 'mcp_server':
+    case InstanceType.McpServer:
       return createMCPServerInstance(props as MCPServerComponentProps)
-    case 'condition':
+    case InstanceType.Condition:
       return createConditionInstance(props as ConditionComponentProps)
     default:
       throw new Error(`Unknown element type: ${type}`)
@@ -137,7 +125,7 @@ function createAgentInstance(
   const store = rootContainer.store
 
   const instance: AgentInstance = {
-    type: 'agent',
+    type: InstanceType.Agent,
     props: {
       provider,
       model: props.model,
@@ -181,7 +169,7 @@ function createAgentInstance(
 
 function createToolInstance(props: ToolComponentProps): ToolInstance {
   return {
-    type: 'tool',
+    type: InstanceType.Tool,
     tool: props.tool,
     parent: null,
   }
@@ -192,7 +180,7 @@ function createAgentToolInstance(
 ): AgentToolInstance {
   const { agentTool } = props
   return {
-    type: 'agent_tool',
+    type: InstanceType.AgentTool,
     name: agentTool.name,
     description: agentTool.description,
     parameters: agentTool.parameters,
@@ -204,7 +192,7 @@ function createAgentToolInstance(
 
 function createSdkToolInstance(props: SdkToolComponentProps): SdkToolInstance {
   return {
-    type: 'sdk_tool',
+    type: InstanceType.SdkTool,
     tool: props.tool,
     parent: null,
   }
@@ -212,7 +200,7 @@ function createSdkToolInstance(props: SdkToolComponentProps): SdkToolInstance {
 
 function createSystemInstance(props: SystemComponentProps): SystemInstance {
   return {
-    type: 'system',
+    type: InstanceType.System,
     content: reactNodeToString(props.children),
     cache: props.cache,
     parent: null,
@@ -221,7 +209,7 @@ function createSystemInstance(props: SystemComponentProps): SystemInstance {
 
 function createContextInstance(props: ContextComponentProps): ContextInstance {
   return {
-    type: 'context',
+    type: InstanceType.Context,
     content: reactNodeToString(props.children),
     cache: props.cache,
     parent: null,
@@ -251,7 +239,7 @@ function createMessageInstance(props: MessageComponentProps): MessageInstance {
   const content = props.rawContent ?? reactNodeToString(props.children)
 
   return {
-    type: 'message',
+    type: InstanceType.Message,
     message: {
       role: props.role,
       content: content,
@@ -264,7 +252,7 @@ function createToolsContainerInstance(
   _props: ToolsContainerProps, // eslint-disable-line @typescript-eslint/no-unused-vars
 ): ToolsContainerInstance {
   return {
-    type: 'tools_container',
+    type: InstanceType.Tools,
     children: [],
     parent: null,
   }
@@ -274,7 +262,7 @@ function createMCPServerInstance(
   props: MCPServerComponentProps,
 ): MCPServerInstance {
   return {
-    type: 'mcp_server',
+    type: InstanceType.McpServer,
     config: {
       type: 'url',
       name: props.name,
@@ -290,7 +278,7 @@ function createConditionInstance(
   props: ConditionComponentProps,
 ): ConditionInstance {
   return {
-    type: 'condition',
+    type: InstanceType.Condition,
     when: props.when,
     isActive: false,
     children: [],
@@ -314,7 +302,7 @@ export function createSubagentInstance(
   }
 
   return {
-    type: 'subagent',
+    type: InstanceType.Subagent,
     name: props.name,
     description: props.description,
     props: {

@@ -3,8 +3,8 @@ import { ExecutionEngine } from '../src/execution'
 import { createAgentStore } from '../src/store'
 import { createStepMockClient, mockText } from './utils'
 import { ANTHROPIC_TEST_MODEL } from '../src/constants'
-import type { AgentMessageParam } from '../src/types'
-import type { AgentInstance } from '../src/instances'
+import { AgentStatus, type AgentMessageParam } from '../src/types'
+import { InstanceType, type AgentInstance } from '../src/instances'
 
 test('compactionControl compacts messages when threshold is exceeded', async () => {
   const { client, controller } = createStepMockClient([
@@ -24,12 +24,12 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
   ]
 
   store.setState(() => ({
-    executionState: { status: 'idle' },
+    executionState: { status: AgentStatus.Idle },
     messages: originalMessages,
   }))
 
   const agentInstance: AgentInstance = {
-    type: 'agent',
+    type: InstanceType.Agent,
     props: {
       provider: 'anthropic',
       model: ANTHROPIC_TEST_MODEL,
@@ -132,12 +132,12 @@ test('compactionControl does nothing when under threshold', async () => {
   ]
 
   store.setState(() => ({
-    executionState: { status: 'idle' },
+    executionState: { status: AgentStatus.Idle },
     messages: originalMessages,
   }))
 
   const agentInstance: AgentInstance = {
-    type: 'agent',
+    type: InstanceType.Agent,
     props: {
       provider: 'anthropic',
       model: ANTHROPIC_TEST_MODEL,

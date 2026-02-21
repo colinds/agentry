@@ -14,13 +14,27 @@ import type { ProviderClientMap, MCPServerConfig } from '../providers/types'
 
 export type { MCPServerConfig }
 
+export enum InstanceType {
+  Agent = 'agent',
+  Tool = 'tool',
+  SdkTool = 'sdk_tool',
+  System = 'system',
+  Context = 'context',
+  Message = 'message',
+  McpServer = 'mcp_server',
+  Subagent = 'subagent',
+  AgentTool = 'agent_tool',
+  Tools = 'tools',
+  Condition = 'condition',
+}
+
 export interface BaseInstance {
-  type: string
+  type: InstanceType
   parent: Instance | null
 }
 
 export interface AgentInstance extends BaseInstance {
-  type: 'agent'
+  type: InstanceType.Agent
   props: AgentProps
   client: ProviderClientMap[keyof ProviderClientMap] | undefined
   engine: ExecutionEngine | null
@@ -33,44 +47,44 @@ export interface AgentInstance extends BaseInstance {
 }
 
 export interface ToolInstance extends BaseInstance {
-  type: 'tool'
+  type: InstanceType.Tool
   tool: InternalTool
 }
 
 export interface SdkToolInstance extends BaseInstance {
-  type: 'sdk_tool'
+  type: InstanceType.SdkTool
   tool: BuiltInTool
 }
 
 export interface SystemInstance extends BaseInstance {
-  type: 'system'
+  type: InstanceType.System
   content: string
   cache?: 'ephemeral'
 }
 
 export interface ContextInstance extends BaseInstance {
-  type: 'context'
+  type: InstanceType.Context
   content: string
   cache?: 'ephemeral'
 }
 
 export interface MessageInstance extends BaseInstance {
-  type: 'message'
+  type: InstanceType.Message
   message: AgentMessageParam
 }
 
 export interface MCPServerInstance extends BaseInstance {
-  type: 'mcp_server'
+  type: InstanceType.McpServer
   config: MCPServerConfig
 }
 
 export interface ToolsContainerInstance extends BaseInstance {
-  type: 'tools_container'
+  type: InstanceType.Tools
   children: Instance[]
 }
 
 export interface SubagentInstance extends BaseInstance {
-  type: 'subagent'
+  type: InstanceType.Subagent
   name: string
   description?: string
   props: AgentProps
@@ -83,7 +97,7 @@ export interface SubagentInstance extends BaseInstance {
 }
 
 export interface AgentToolInstance extends BaseInstance {
-  type: 'agent_tool'
+  type: InstanceType.AgentTool
   name: string
   description: string
   parameters: z.ZodType
@@ -92,7 +106,7 @@ export interface AgentToolInstance extends BaseInstance {
 }
 
 export interface ConditionInstance extends BaseInstance {
-  type: 'condition'
+  type: InstanceType.Condition
   parent: Instance | null
   when: boolean | string
   isActive: boolean
@@ -164,69 +178,72 @@ export interface ConditionComponentProps {
 }
 
 export function isAgentInstance(instance: Instance): instance is AgentInstance {
-  return instance.type === 'agent'
+  return instance.type === InstanceType.Agent
 }
 
 export function isToolInstance(instance: Instance): instance is ToolInstance {
-  return instance.type === 'tool'
+  return instance.type === InstanceType.Tool
 }
 
 export function isSdkToolInstance(
   instance: Instance,
 ): instance is SdkToolInstance {
-  return instance.type === 'sdk_tool'
+  return instance.type === InstanceType.SdkTool
 }
 
 export function isSystemInstance(
   instance: Instance,
 ): instance is SystemInstance {
-  return instance.type === 'system'
+  return instance.type === InstanceType.System
 }
 
 export function isContextInstance(
   instance: Instance,
 ): instance is ContextInstance {
-  return instance.type === 'context'
+  return instance.type === InstanceType.Context
 }
 
 export function isMessageInstance(
   instance: Instance,
 ): instance is MessageInstance {
-  return instance.type === 'message'
+  return instance.type === InstanceType.Message
 }
 
 export function isToolsContainerInstance(
   instance: Instance,
 ): instance is ToolsContainerInstance {
-  return instance.type === 'tools_container'
+  return instance.type === InstanceType.Tools
 }
 
 export function isSubagentInstance(
   instance: Instance,
 ): instance is SubagentInstance {
-  return instance.type === 'subagent'
+  return instance.type === InstanceType.Subagent
 }
 
 export function isAgentLike(instance: Instance): instance is AgentLike {
-  return instance.type === 'agent' || instance.type === 'subagent'
+  return (
+    instance.type === InstanceType.Agent ||
+    instance.type === InstanceType.Subagent
+  )
 }
 
 export function isMCPServerInstance(
   instance: Instance,
 ): instance is MCPServerInstance {
-  return instance.type === 'mcp_server'
+  return instance.type === InstanceType.McpServer
 }
 
 export function isAgentToolInstance(
   instance: Instance,
 ): instance is AgentToolInstance {
-  return instance.type === 'agent_tool'
+  return instance.type === InstanceType.AgentTool
 }
 
 export function isConditionInstance(
   instance: Instance,
 ): instance is ConditionInstance {
-  return instance.type === 'condition'
+  return instance.type === InstanceType.Condition
 }
 
 export function isInstance(value: object | null): value is Instance {
