@@ -105,8 +105,6 @@ bun run agent.tsx
 - **Conditional rendering** - Use `<Condition>` to conditionally render agent components based on state or natural language intent
 - **Structured outputs** - Use `strict` on tools
 - **Prompt caching** - Supports Anthropic's prompt caching
-- **Provider-specific built-ins** - Import built-ins from `agentry/anthropic` or `agentry/openai`
-- **SDK-native tool shapes** - Built-ins reuse provider SDK types where available
 
 ## Providers
 
@@ -117,22 +115,6 @@ Agentry supports multiple providers with a single declarative API.
   - `agentry/anthropic`
   - `agentry/openai`
 - Built-ins are treated as regular tools in execution (no per-provider capability matrix to maintain).
-
-### Example
-
-```tsx
-import OpenAI from 'openai'
-import { run, Agent, Message } from 'agentry'
-
-const result = await run(
-  <Agent provider="openai" model="gpt-5-mini">
-    <Message role="user">Hello</Message>
-  </Agent>,
-  {
-    clients: { openai: new OpenAI() },
-  },
-)
-```
 
 ### Reusable instance
 
@@ -514,24 +496,24 @@ Built-ins are provider-owned exports:
 
 #### `<Agent>`
 
-| Prop                 | Type                                   | Description                                                                                                                                                                                              |
-| -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `provider?`          | `'anthropic' \| 'openai'`              | AI provider for this agent                                                                                                                                                                               |
-| `model`              | `string`                               | Provider model id (e.g. `claude-sonnet-4-5`, `gpt-5-mini`)                                                                                                                                               |
-| `name?`              | `string`                               | Agent identifier                                                                                                                                                                                         |
-| `description?`       | `string`                               | Agent description                                                                                                                                                                                        |
-| `maxTokens?`         | `number`                               | Max output tokens (default: `4096`)                                                                                                                                                                      |
-| `maxIterations?`     | `number`                               | Max tool call iterations (default: `20`)                                                                                                                                                                 |
-| `stopSequences?`     | `string[]`                             | Stop sequences                                                                                                                                                                                           |
-| `temperature?`       | `number`                               | Sampling temperature (0-1)                                                                                                                                                                               |
-| `stream?`            | `boolean`                              | Enable streaming (default: `true`)                                                                                                                                                                       |
-| `betas?`             | `string[]`                             | Additional Anthropic beta features to enable                                                                                                                                                             |
+| Prop                 | Type                                   | Description                                                                                                                                                                                                                                                                     |
+| -------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `provider?`          | `'anthropic' \| 'openai'`              | AI provider for this agent                                                                                                                                                                                                                                                      |
+| `model`              | `string`                               | Provider model id (e.g. `claude-sonnet-4-5`, `gpt-5-mini`)                                                                                                                                                                                                                      |
+| `name?`              | `string`                               | Agent identifier                                                                                                                                                                                                                                                                |
+| `description?`       | `string`                               | Agent description                                                                                                                                                                                                                                                               |
+| `maxTokens?`         | `number`                               | Max output tokens (default: `4096`)                                                                                                                                                                                                                                             |
+| `maxIterations?`     | `number`                               | Max tool call iterations (default: `20`)                                                                                                                                                                                                                                        |
+| `stopSequences?`     | `string[]`                             | Stop sequences                                                                                                                                                                                                                                                                  |
+| `temperature?`       | `number`                               | Sampling temperature (0-1)                                                                                                                                                                                                                                                      |
+| `stream?`            | `boolean`                              | Enable streaming (default: `true`)                                                                                                                                                                                                                                              |
+| `betas?`             | `string[]`                             | Additional Anthropic beta features to enable                                                                                                                                                                                                                                    |
 | `thinking?`          | `ThinkingConfig`                       | Extended thinking config (provider-dependent). Anthropic: `{ type: 'enabled', budget_tokens: number, interleaved?: boolean }`. OpenAI: `{ type: 'enabled', effort: 'low' \| 'medium' \| 'high', summary: 'auto' \| 'concise' \| 'detailed' }`. Disable: `{ type: 'disabled' }`. |
-| `compactionControl?` | `CompactionControl`                    | Context compaction settings (see below)                                                                                                                                                                  |
-| `onMessage?`         | `(event: AgentStreamEvent) => void`    | Stream event callback                                                                                                                                                                                    |
-| `onComplete?`        | `(result: AgentResult) => void`        | Completion callback                                                                                                                                                                                      |
-| `onError?`           | `(error: Error) => void`               | Error callback                                                                                                                                                                                           |
-| `onStepFinish?`      | `(result: OnStepFinishResult) => void` | Step completion callback                                                                                                                                                                                 |
+| `compactionControl?` | `CompactionControl`                    | Context compaction settings (see below)                                                                                                                                                                                                                                         |
+| `onMessage?`         | `(event: AgentStreamEvent) => void`    | Stream event callback                                                                                                                                                                                                                                                           |
+| `onComplete?`        | `(result: AgentResult) => void`        | Completion callback                                                                                                                                                                                                                                                             |
+| `onError?`           | `(error: Error) => void`               | Error callback                                                                                                                                                                                                                                                                  |
+| `onStepFinish?`      | `(result: OnStepFinishResult) => void` | Step completion callback                                                                                                                                                                                                                                                        |
 
 **CompactionControl:**
 
@@ -623,11 +605,11 @@ No props. Enables sandboxed code execution.
 
 ### Hooks
 
-| Hook                  | Returns              | Description             |
-| --------------------- | -------------------- | ----------------------- |
-| `useExecutionState()` | `AgentState`         | Current execution state |
+| Hook                  | Returns               | Description             |
+| --------------------- | --------------------- | ----------------------- |
+| `useExecutionState()` | `AgentState`          | Current execution state |
 | `useMessages()`       | `AgentMessageParam[]` | Conversation messages   |
-| `useAgentState()`     | `AgentStoreState`    | Full agent state        |
+| `useAgentState()`     | `AgentStoreState`     | Full agent state        |
 
 ### AgentHandle (Interactive Mode)
 
