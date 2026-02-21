@@ -218,12 +218,12 @@ const result = await run(
           console.log(`\n📝 Spawning ${input.language} specialist agent...`)
 
           // Spawn different agents based on language using components
-          const AgentComponent =
-            input.language === 'python'
-              ? PythonExpertAgent
-              : input.language === 'typescript'
-                ? TypeScriptExpertAgent
-                : RustExpertAgent
+          const languageAgents = {
+            python: PythonExpertAgent,
+            typescript: TypeScriptExpertAgent,
+            rust: RustExpertAgent,
+          } as const
+          const AgentComponent = languageAgents[input.language]
 
           const result = await context.runAgent(
             <AgentComponent code={input.code} />,
@@ -258,14 +258,13 @@ const result = await run(
           // Spawn multiple agents in parallel using components
           const results = await Promise.all(
             input.perspectives.map(async (perspective) => {
-              const AgentComponent =
-                perspective === 'technical'
-                  ? TechnicalAnalystAgent
-                  : perspective === 'business'
-                    ? BusinessAnalystAgent
-                    : perspective === 'creative'
-                      ? CreativeAnalystAgent
-                      : SecurityAnalystAgent
+              const perspectiveAgents = {
+                technical: TechnicalAnalystAgent,
+                business: BusinessAnalystAgent,
+                creative: CreativeAnalystAgent,
+                security: SecurityAnalystAgent,
+              } as const
+              const AgentComponent = perspectiveAgents[perspective]
 
               const result = await context.runAgent(
                 <AgentComponent content={input.content} />,
@@ -314,12 +313,12 @@ const result = await run(
           )
 
           // Configure agent based on depth
-          const config =
-            input.depth === 'shallow'
-              ? { maxTokens: 512, temperature: 0.3 }
-              : input.depth === 'medium'
-                ? { maxTokens: 2048, temperature: 0.5 }
-                : { maxTokens: 4096, temperature: 0.7 }
+          const depthConfigs = {
+            shallow: { maxTokens: 512, temperature: 0.3 },
+            medium: { maxTokens: 2048, temperature: 0.5 },
+            deep: { maxTokens: 4096, temperature: 0.7 },
+          } as const
+          const config = depthConfigs[input.depth]
 
           const result = await context.runAgent(
             <ResearcherAgent topic={input.topic} depth={input.depth} />,

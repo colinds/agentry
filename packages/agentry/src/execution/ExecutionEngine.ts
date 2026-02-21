@@ -161,15 +161,15 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     options?: { evaluateNL?: boolean },
   ): Promise<boolean> {
     try {
-      return await evaluateConditions(
-        this.agentInstance,
-        this.messages as AgentMessageParam[],
-        this.config.clients ?? {},
-        this.config.provider,
-        this.config.model,
+      return await evaluateConditions({
+        root: this.agentInstance,
+        messages: this.messages as AgentMessageParam[],
+        clients: this.config.clients ?? {},
+        provider: this.config.provider,
+        model: this.config.model,
         signal,
-        options,
-      )
+        evaluateNL: options?.evaluateNL,
+      })
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
       if (err.name === 'AbortError') throw err

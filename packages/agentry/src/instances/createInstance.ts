@@ -73,6 +73,7 @@ export type ElementProps =
   | MCPServerComponentProps
   | ConditionComponentProps
 
+// oxlint-disable-next-line max-params -- called by reconciler host config with fixed arity
 export function createInstance(
   type: ElementType,
   props: ElementProps,

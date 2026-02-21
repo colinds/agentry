@@ -58,7 +58,12 @@ export class AgentHandle extends AbstractAgentHandle {
 
     const containerInfo = createContainer(rootAgent)
 
-    super(clients, createDefaultAdapters(), containerInfo, store)
+    super({
+      clients,
+      adapters: createDefaultAdapters(),
+      containerInfo,
+      store,
+    })
     this.element = element
     this.mode = mode
     this.singleClient = options.client

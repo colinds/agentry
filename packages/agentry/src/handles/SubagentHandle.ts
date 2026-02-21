@@ -58,7 +58,12 @@ export class SubagentHandle extends AbstractAgentHandle {
 
     const containerInfo = createContainer(container)
 
-    super(clients, createDefaultAdapters(), containerInfo, store)
+    super({
+      clients,
+      adapters: createDefaultAdapters(),
+      containerInfo,
+      store,
+    })
 
     this.subagent = subagent
 

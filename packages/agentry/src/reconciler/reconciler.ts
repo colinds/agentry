@@ -149,6 +149,7 @@ export const reconciler = createReconciler<
   startSuspendingCommit() {},
   suspendInstance() {},
   waitForCommitToBeReady: () => null,
+  // oxlint-disable-next-line max-params -- React reconciler host config callback signature
   createInstance(type, props, rootContainer, hostContext, _internalHandle) {
     void _internalHandle
     return createInstance(type, props, rootContainer, hostContext)
@@ -221,6 +222,7 @@ export const reconciler = createReconciler<
   resetTextContent() {},
   commitTextUpdate() {},
   commitMount() {},
+  // oxlint-disable-next-line max-params -- React reconciler host config callback signature
   commitUpdate(instance, _type, prevProps, nextProps, _internalHandle) {
     void _internalHandle
     const { changes, hasChanges } = diffProps(prevProps, nextProps)

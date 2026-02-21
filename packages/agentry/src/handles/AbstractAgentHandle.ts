@@ -43,12 +43,17 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   protected store: AgentStore
   protected instance: AgentInstance | null = null
 
-  constructor(
-    clients: Partial<ProviderClientMap>,
-    adapters: Record<string, ProviderAdapter<ProviderName>>,
-    containerInfo: ContainerInfo,
-    store: AgentStore,
-  ) {
+  constructor({
+    clients,
+    adapters,
+    containerInfo,
+    store,
+  }: {
+    clients: Partial<ProviderClientMap>
+    adapters: Record<string, ProviderAdapter<ProviderName>>
+    containerInfo: ContainerInfo
+    store: AgentStore
+  }) {
     super()
     this.clients = clients
     this.adapters = adapters

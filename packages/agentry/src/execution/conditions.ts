@@ -41,15 +41,23 @@ export function findAllConditions(root: Instance): ConditionInstance[] {
  * Evaluate all conditions and update isActive state
  * Returns true if any condition changed state
  */
-export async function evaluateConditions(
-  root: Instance,
-  messages: AgentMessageParam[],
-  clients: Partial<ProviderClientMap>,
-  provider: ProviderName,
-  model: string,
-  signal?: AbortSignal,
-  options?: { evaluateNL?: boolean },
-): Promise<boolean> {
+export async function evaluateConditions({
+  root,
+  messages,
+  clients,
+  provider,
+  model,
+  signal,
+  evaluateNL,
+}: {
+  root: Instance
+  messages: AgentMessageParam[]
+  clients: Partial<ProviderClientMap>
+  provider: ProviderName
+  model: string
+  signal?: AbortSignal
+  evaluateNL?: boolean
+}): Promise<boolean> {
   const conditions = findAllConditions(root)
 
   if (conditions.length === 0) {
@@ -77,15 +85,15 @@ export async function evaluateConditions(
   // step 2: batch evaluate all natural language conditions via LLM
   const nlConditions = conditions.filter((c) => typeof c.when === 'string')
 
-  if (nlConditions.length > 0 && options?.evaluateNL !== false) {
-    const nlResults = await evaluateNaturalLanguageConditions(
-      nlConditions,
+  if (nlConditions.length > 0 && evaluateNL !== false) {
+    const nlResults = await evaluateNaturalLanguageConditions({
+      conditions: nlConditions,
       messages,
       clients,
       provider,
       model,
       signal,
-    )
+    })
 
     for (let i = 0; i < nlConditions.length; i++) {
       const condition = nlConditions[i]!
@@ -112,50 +120,60 @@ export async function evaluateConditions(
 /**
  * Map provider-returned true-condition indices into a boolean[] aligned with the input conditions.
  */
-function mapConditionResults(opts: {
+function mapConditionResults({
+  trueConditionIndices,
+  conditionCount,
+  provider,
+  durationMs,
+}: {
   trueConditionIndices: number[]
   conditionCount: number
   provider: ProviderName
   durationMs: number
 }): boolean[] {
-  const trueIndices = new Set(opts.trueConditionIndices)
+  const trueIndices = new Set(trueConditionIndices)
   debug(
     'reconciler:conditions',
-    `NL evaluation via ${opts.provider} (${opts.durationMs}ms): ${trueIndices.size}/${opts.conditionCount} conditions true [${Array.from(trueIndices).join(', ')}]`,
+    `NL evaluation via ${provider} (${durationMs}ms): ${trueIndices.size}/${conditionCount} conditions true [${Array.from(trueIndices).join(', ')}]`,
   )
-  return Array.from({ length: opts.conditionCount }, (_, i) =>
-    trueIndices.has(i),
-  )
+  return Array.from({ length: conditionCount }, (_, i) => trueIndices.has(i))
 }
 
 /**
  * Dispatch NL condition evaluation to the appropriate provider implementation.
  */
-async function evaluateNaturalLanguageConditions(
-  conditions: ConditionInstance[],
-  messages: AgentMessageParam[],
-  clients: Partial<ProviderClientMap>,
-  provider: ProviderName,
-  model: string,
-  signal?: AbortSignal,
-): Promise<boolean[]> {
+async function evaluateNaturalLanguageConditions({
+  conditions,
+  messages,
+  clients,
+  provider,
+  model,
+  signal,
+}: {
+  conditions: ConditionInstance[]
+  messages: AgentMessageParam[]
+  clients: Partial<ProviderClientMap>
+  provider: ProviderName
+  model: string
+  signal?: AbortSignal
+}): Promise<boolean[]> {
   if (provider === 'anthropic' && clients.anthropic) {
-    return evaluateNLWithAnthropic(
+    return evaluateNLWithAnthropic({
       conditions,
       messages,
-      clients.anthropic,
+      client: clients.anthropic,
       model,
       signal,
-    )
+    })
   }
   if (provider === 'openai' && clients.openai) {
-    return evaluateNLWithOpenAI(
+    return evaluateNLWithOpenAI({
       conditions,
       messages,
-      clients.openai,
+      client: clients.openai,
       model,
       signal,
-    )
+    })
   }
   throw new Error(
     `[agentry] Cannot evaluate natural-language conditions: no ${provider} client available. ` +
@@ -166,13 +184,19 @@ async function evaluateNaturalLanguageConditions(
 /**
  * Evaluate NL conditions using Anthropic's structured outputs beta.
  */
-async function evaluateNLWithAnthropic(
-  conditions: ConditionInstance[],
-  messages: AgentMessageParam[],
-  client: Anthropic,
-  model: string,
-  signal?: AbortSignal,
-): Promise<boolean[]> {
+async function evaluateNLWithAnthropic({
+  conditions,
+  messages,
+  client,
+  model,
+  signal,
+}: {
+  conditions: ConditionInstance[]
+  messages: AgentMessageParam[]
+  client: Anthropic
+  model: string
+  signal?: AbortSignal
+}): Promise<boolean[]> {
   const conditionDescriptions = conditions
     .map((c, index) => `${index}. ${c.when}`)
     .join('\n')
@@ -244,13 +268,19 @@ async function evaluateNLWithAnthropic(
 /**
  * Evaluate NL conditions using OpenAI's function calling via the Responses API.
  */
-async function evaluateNLWithOpenAI(
-  conditions: ConditionInstance[],
-  messages: AgentMessageParam[],
-  client: OpenAI,
-  model: string,
-  signal?: AbortSignal,
-): Promise<boolean[]> {
+async function evaluateNLWithOpenAI({
+  conditions,
+  messages,
+  client,
+  model,
+  signal,
+}: {
+  conditions: ConditionInstance[]
+  messages: AgentMessageParam[]
+  client: OpenAI
+  model: string
+  signal?: AbortSignal
+}): Promise<boolean[]> {
   const conditionDescriptions = conditions
     .map((c, index) => `${index}. ${c.when}`)
     .join('\n')
