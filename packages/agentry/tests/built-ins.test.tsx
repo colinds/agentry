@@ -5,7 +5,7 @@ import { MCP as OpenAIMCP } from '../src/openai'
 import { createStepMockClient, mockText } from './utils'
 import { createOpenAIMockClient } from './utils'
 import {
-  TEST_MODEL,
+  ANTHROPIC_TEST_MODEL,
   OPENAI_TEST_MODEL,
   ANTHROPIC_BETAS,
 } from '../src/constants'
@@ -22,13 +22,13 @@ describe('Anthropic', () => {
     ])
 
     const runPromise = run(
-      <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100}>
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100}>
         <Tools>
           <CodeExecution />
         </Tools>
         <Message role="user">run some code</Message>
       </Agent>,
-      { client },
+      { clients: { anthropic: client } },
     )
 
     await controller.waitForNextCall()
@@ -46,13 +46,13 @@ describe('Anthropic', () => {
     ])
 
     const runPromise = run(
-      <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100}>
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100}>
         <Tools>
           <WebSearch maxUses={5} allowedDomains={['example.com']} />
         </Tools>
         <Message role="user">search something</Message>
       </Agent>,
-      { client },
+      { clients: { anthropic: client } },
     )
 
     await controller.waitForNextCall()
@@ -77,13 +77,13 @@ describe('Anthropic', () => {
     ])
 
     const runPromise = run(
-      <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100}>
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100}>
         <Tools>
           <Memory onView={async () => 'contents'} />
         </Tools>
         <Message role="user">remember something</Message>
       </Agent>,
-      { client },
+      { clients: { anthropic: client } },
     )
 
     await controller.waitForNextCall()
@@ -105,13 +105,13 @@ describe('Anthropic beta headers', () => {
     ])
 
     const runPromise = run(
-      <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100}>
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100}>
         <Tools>
           <CodeExecution />
         </Tools>
         <Message role="user">run code</Message>
       </Agent>,
-      { client },
+      { clients: { anthropic: client } },
     )
 
     await controller.waitForNextCall()
@@ -129,13 +129,13 @@ describe('Anthropic beta headers', () => {
     ])
 
     const runPromise = run(
-      <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100}>
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100}>
         <Tools>
           <Memory onView={async () => 'contents'} />
         </Tools>
         <Message role="user">remember something</Message>
       </Agent>,
-      { client },
+      { clients: { anthropic: client } },
     )
 
     await controller.waitForNextCall()
@@ -153,11 +153,11 @@ describe('Anthropic beta headers', () => {
     ])
 
     const runPromise = run(
-      <Agent provider="anthropic" model={TEST_MODEL} maxTokens={100}>
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100}>
         <MCP name="filesystem" url="https://mcp.example.com/sse" />
         <Message role="user">use mcp</Message>
       </Agent>,
-      { client },
+      { clients: { anthropic: client } },
     )
 
     await controller.waitForNextCall()

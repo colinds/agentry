@@ -23,7 +23,11 @@ const mockContext: ToolContext = {
   agentName: 'test-agent',
   provider: 'anthropic',
   client,
-  runAgent: createRunAgent({ client, model: 'claude-sonnet-4-5', provider: 'anthropic' }),
+  runAgent: createRunAgent({
+    clients: { anthropic: client },
+    model: 'claude-sonnet-4-5',
+    provider: 'anthropic',
+  }),
 }
 
 test('defineTool creates a type-safe tool', () => {
@@ -194,7 +198,11 @@ test('state machine transitions to completed state', () => {
     abortController: new AbortController(),
   })
 
-  const finalMessage = { content: [], stop_reason: null, usage: { input_tokens: 0, output_tokens: 0 } } as AgentMessage
+  const finalMessage = {
+    content: [],
+    stop_reason: null,
+    usage: { input_tokens: 0, output_tokens: 0 },
+  } as AgentMessage
   state = transition(state, { type: 'completed', finalMessage })
 
   expect(state.status).toBe('completed')
@@ -206,7 +214,10 @@ test('state machine transitions to completed state', () => {
 test('canAcceptMessages returns true for idle and completed', () => {
   expect(canAcceptMessages({ status: 'idle' })).toBe(true)
   expect(
-    canAcceptMessages({ status: 'completed', finalMessage: {} as AgentMessage }),
+    canAcceptMessages({
+      status: 'completed',
+      finalMessage: {} as AgentMessage,
+    }),
   ).toBe(true)
   expect(
     canAcceptMessages({

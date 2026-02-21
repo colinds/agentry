@@ -2,7 +2,7 @@ import { test, expect } from 'bun:test'
 import { ExecutionEngine } from '../src/execution'
 import { createAgentStore } from '../src/store'
 import { createStepMockClient, mockText } from './utils'
-import { TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from '../src/constants'
 import type { AgentMessageParam } from '../src/types'
 import type { AgentInstance } from '../src/instances'
 
@@ -30,7 +30,11 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
 
   const agentInstance: AgentInstance = {
     type: 'agent',
-    props: { provider: 'anthropic', model: TEST_MODEL, maxTokens: 100 },
+    props: {
+      provider: 'anthropic',
+      model: ANTHROPIC_TEST_MODEL,
+      maxTokens: 100,
+    },
     client,
     engine: null,
     systemParts: [],
@@ -45,14 +49,14 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
   const engine = new ExecutionEngine({
     provider: 'anthropic',
     client,
-    model: TEST_MODEL,
+    model: ANTHROPIC_TEST_MODEL,
     maxTokens: 100,
     store,
     agentInstance,
     compactionControl: {
       enabled: true,
       contextTokenThreshold: 10,
-      model: TEST_MODEL,
+      model: ANTHROPIC_TEST_MODEL,
       summaryPrompt: 'Please summarize the conversation so far',
     },
   })
@@ -67,7 +71,7 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
     type: 'message',
     role: 'assistant',
     content: [],
-    model: TEST_MODEL,
+    model: ANTHROPIC_TEST_MODEL,
     stop_reason: 'end_turn',
     stop_sequence: null,
     container: null,
@@ -134,7 +138,11 @@ test('compactionControl does nothing when under threshold', async () => {
 
   const agentInstance: AgentInstance = {
     type: 'agent',
-    props: { provider: 'anthropic', model: TEST_MODEL, maxTokens: 100 },
+    props: {
+      provider: 'anthropic',
+      model: ANTHROPIC_TEST_MODEL,
+      maxTokens: 100,
+    },
     client,
     engine: null,
     systemParts: [],
@@ -149,14 +157,14 @@ test('compactionControl does nothing when under threshold', async () => {
   const engine = new ExecutionEngine({
     provider: 'anthropic',
     client,
-    model: TEST_MODEL,
+    model: ANTHROPIC_TEST_MODEL,
     maxTokens: 100,
     store,
     agentInstance,
     compactionControl: {
       enabled: true,
       contextTokenThreshold: 1_000_000,
-      model: TEST_MODEL,
+      model: ANTHROPIC_TEST_MODEL,
       summaryPrompt: 'Please summarize the conversation so far',
     },
   })
@@ -171,7 +179,7 @@ test('compactionControl does nothing when under threshold', async () => {
     type: 'message',
     role: 'assistant',
     content: [],
-    model: TEST_MODEL,
+    model: ANTHROPIC_TEST_MODEL,
     stop_reason: 'end_turn',
     stop_sequence: null,
     container: null,

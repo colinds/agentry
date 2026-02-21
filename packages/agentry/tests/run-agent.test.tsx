@@ -8,7 +8,7 @@ import {
   createOpenAIMockClient,
 } from './utils'
 import { z } from 'zod'
-import { TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
 
 test('runAgent executes subagent and returns result', async () => {
   const { client, controller } = createStepMockClient([
@@ -27,7 +27,7 @@ test('runAgent executes subagent and returns result', async () => {
   ])
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL}>
       <System>Test agent with spawn capability</System>
       <Tools>
         <Tool
@@ -47,7 +47,7 @@ test('runAgent executes subagent and returns result', async () => {
       </Tools>
       <Message role="user">Research AI technologies</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   await controller.nextTurn() // Parent tool use
@@ -81,7 +81,7 @@ test('runAgent supports parallel spawning', async () => {
   ])
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL}>
       <System>Parallel analysis coordinator</System>
       <Tools>
         <Tool
@@ -110,7 +110,7 @@ test('runAgent supports parallel spawning', async () => {
       </Tools>
       <Message role="user">Analyze this content</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   await controller.nextTurn() // Parent tool use
@@ -170,7 +170,7 @@ test('runAgent respects custom model option', async () => {
   }) as typeof client.beta.messages.stream
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL}>
       <System>Test</System>
       <Tools>
         <Tool
@@ -193,7 +193,7 @@ test('runAgent respects custom model option', async () => {
       </Tools>
       <Message role="user">Test</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   await controller.nextTurn()
@@ -243,7 +243,7 @@ test('runAgent respects custom maxTokens option', async () => {
   }) as typeof client.beta.messages.create
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL} maxTokens={4096}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={4096}>
       <System>Test</System>
       <Tools>
         <Tool
@@ -266,7 +266,7 @@ test('runAgent respects custom maxTokens option', async () => {
       </Tools>
       <Message role="user">Test</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   await controller.nextTurn()
@@ -306,7 +306,7 @@ test('runAgent handles errors gracefully', async () => {
   }) as typeof client.beta.messages.create
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL}>
       <System>Test error handling</System>
       <Tools>
         <Tool
@@ -330,7 +330,7 @@ test('runAgent handles errors gracefully', async () => {
       </Tools>
       <Message role="user">Test error handling</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   await controller.nextTurn() // Parent tool use
@@ -364,7 +364,7 @@ test('runAgent returns full AgentResult', async () => {
   ])
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL}>
       <System>Test</System>
       <Tools>
         <Tool
@@ -385,7 +385,7 @@ test('runAgent returns full AgentResult', async () => {
       </Tools>
       <Message role="user">Test</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   await controller.nextTurn()
@@ -421,7 +421,7 @@ test('runAgent with conditional agent selection', async () => {
   ])
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL}>
       <System>Conditional spawner</System>
       <Tools>
         <Tool
@@ -451,7 +451,7 @@ test('runAgent with conditional agent selection', async () => {
       </Tools>
       <Message role="user">Analyze with high complexity</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   await controller.nextTurn()
@@ -490,7 +490,7 @@ test('context.runAgent with provider and clients override', async () => {
   let capturedSubResult = ''
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <Tools>
         <Tool
           name="cross_provider_task"

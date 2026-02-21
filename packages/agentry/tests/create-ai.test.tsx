@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { createAI, Agent, Message, AgentHandle } from '../src'
 import { createStepMockClient, mockText, createOpenAIMockClient } from './utils'
-import { TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
 
 test('createAI default clients are used when no per-call override given', async () => {
   const { client, controller } = createStepMockClient([
@@ -11,7 +11,7 @@ test('createAI default clients are used when no per-call override given', async 
   const ai = createAI({ clients: { anthropic: client } })
 
   const runPromise = ai.run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <Message role="user">Hello</Message>
     </Agent>,
   )
@@ -32,7 +32,7 @@ test('createAI per-call clients override default clients', async () => {
   const ai = createAI({ clients: { anthropic: defaultClient } })
 
   const runPromise = ai.run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <Message role="user">Hello</Message>
     </Agent>,
     { clients: { anthropic: overrideClient } },
@@ -54,7 +54,7 @@ test('createAI per-call mode overrides default mode', async () => {
   ])
   const ai2 = createAI({ clients: { anthropic: batchClient } })
   const runPromise = ai2.run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <Message role="user">Run in batch</Message>
     </Agent>,
     { mode: 'batch' },
@@ -76,7 +76,11 @@ test('createAI interactive mode returns a handle', async () => {
   })
 
   const handlePromise = ai.run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}></Agent>,
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+    ></Agent>,
     { mode: 'interactive' },
   )
 
@@ -100,7 +104,7 @@ test('createAI createAgent uses merged clients', async () => {
   const ai = createAI({ clients: { anthropic: client } })
 
   const agentHandle = ai.createAgent(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <Message role="user">Hello</Message>
     </Agent>,
   )
@@ -120,7 +124,11 @@ test('createAI default mode=interactive returns handle without explicit mode ove
   // TypeScript types the return as AgentResult (no per-call mode override),
   // but at runtime the merged defaults make it interactive → AgentHandle
   const result = (await ai.run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}></Agent>,
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+    ></Agent>,
   )) as unknown as AgentHandle
 
   expect(result).toBeInstanceOf(AgentHandle)

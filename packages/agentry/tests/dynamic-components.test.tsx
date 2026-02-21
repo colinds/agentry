@@ -5,7 +5,7 @@ import { run } from '../src'
 import { defineTool } from '../src/tools'
 import { Agent, System, Tools, Tool, Message } from '../src'
 import { createStepMockClient, mockText, mockToolUse } from './utils'
-import { TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from '../src/constants'
 
 test('state changes trigger reconciler updates', async () => {
   let updateCount = 0
@@ -25,7 +25,7 @@ test('state changes trigger reconciler updates', async () => {
     })
 
     return (
-      <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
         <System>Counter is at {count}</System>
         <Tools>
           <Tool {...incrementTool} />
@@ -41,7 +41,9 @@ test('state changes trigger reconciler updates', async () => {
     { content: [mockText('Done incrementing')] },
   ])
 
-  const runPromise = run(<StateUpdateAgent />, { client })
+  const runPromise = run(<StateUpdateAgent />, {
+    clients: { anthropic: client },
+  })
 
   await controller.nextTurn()
   await controller.waitForNextCall()

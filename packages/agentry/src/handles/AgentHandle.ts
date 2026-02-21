@@ -7,14 +7,9 @@ import { isAgentInstance } from '../instances/types'
 import { AgentProvider } from '../context'
 import { AbstractAgentHandle } from './AbstractAgentHandle'
 import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
-import type { ProviderName } from '../types/provider'
 import type { ProviderClientMap } from '../providers/types'
 import { createDefaultAdapters } from '../providers'
-import {
-  ensureProviderClient,
-  getProviderClient,
-  setProviderClient,
-} from '../providers/clientResolver'
+import { ensureProviderClient } from '../providers/clientResolver'
 
 /**
  * Handle for controlling a regular agent at runtime
@@ -24,12 +19,9 @@ import {
 export class AgentHandle extends AbstractAgentHandle {
   private element: ReactNode
   private mode: 'batch' | 'interactive'
-  private singleClient?: ProviderClientMap[ProviderName]
-
   constructor(
     element: ReactNode,
     options: {
-      client?: ProviderClientMap[ProviderName]
       clients?: Partial<ProviderClientMap>
     } = {},
     mode: 'batch' | 'interactive' = 'batch',
@@ -66,7 +58,6 @@ export class AgentHandle extends AbstractAgentHandle {
     })
     this.element = element
     this.mode = mode
-    this.singleClient = options.client
   }
 
   update(element: ReactNode): void {
@@ -118,9 +109,6 @@ export class AgentHandle extends AbstractAgentHandle {
     }
     if (!agent.props.model) {
       throw new Error('Model is required on the rendered agent.')
-    }
-    if (!getProviderClient(this.clients, provider) && this.singleClient) {
-      setProviderClient(this.clients, provider, this.singleClient)
     }
     agent.client = await ensureProviderClient(this.clients, provider)
 

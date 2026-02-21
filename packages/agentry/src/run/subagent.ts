@@ -5,8 +5,6 @@ import type { ProviderClientMap } from '../providers/types'
 import type { ProviderName } from '../types/provider'
 
 export interface RunSubagentOptions {
-  /** single provider client (backward-compatible) */
-  client?: ProviderClientMap[ProviderName]
   /** provider clients */
   clients?: Partial<ProviderClientMap>
   /** provider for subagent execution */

@@ -44,7 +44,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Hello')
@@ -73,7 +73,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Hello')
@@ -103,7 +103,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Both')
@@ -152,7 +152,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -207,7 +207,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -237,7 +237,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Hello')
@@ -278,7 +278,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -314,7 +314,10 @@ describe('Condition', () => {
       ])
 
       // Create agent in interactive mode
-      const handle = await run(<TestAgent />, { client, mode: 'interactive' })
+      const handle = await run(<TestAgent />, {
+        clients: { anthropic: client },
+        mode: 'interactive',
+      })
 
       // Trigger reconciler by starting execution (but abort immediately after first API call)
       const runPromise = handle.run()
@@ -383,7 +386,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn() // Route evaluation
       await controller.nextTurn() // Tool use
       await controller.nextTurn() // Final response
@@ -453,7 +456,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       await controller.nextTurn()
       await controller.nextTurn()
@@ -500,7 +503,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -550,7 +553,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -583,7 +586,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('authenticate')
@@ -629,7 +632,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -689,7 +692,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       await controller.nextTurn()
       await controller.nextTurn()
@@ -748,7 +751,7 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn()
       await controller.nextTurn()
       await controller.nextTurn()
@@ -804,7 +807,7 @@ describe('NL Condition Evaluation', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn() // NL eval
       await controller.nextTurn() // agent calls calculate
       await controller.nextTurn() // final response
@@ -846,7 +849,7 @@ describe('NL Condition Evaluation', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, { clients: { anthropic: client } })
       await controller.nextTurn() // NL eval (no tool_use — fallback)
       await controller.nextTurn() // agent response
       const result = await runPromise

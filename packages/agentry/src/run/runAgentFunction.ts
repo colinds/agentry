@@ -28,7 +28,6 @@ export interface RunAgentOptions {
  */
 export interface RunAgentContext {
   clients?: Partial<ProviderClientMap>
-  client?: ProviderClientMap[ProviderName]
   provider?: ProviderName
   model?: Model
   signal?: AbortSignal
@@ -39,13 +38,13 @@ export interface RunAgentContext {
  * This function is attached to ToolContext and allows tool handlers to
  * programmatically spawn and execute agents on-demand.
  *
- * @param context - The execution context (client, model, signal)
+ * @param context - The execution context (clients, model, signal)
  * @returns A runAgent function that can execute React agent elements
  *
  * @example
  * ```tsx
  * const runSubagent = createRunAgent({
- *   client: anthropicClient,
+ *   clients: { anthropic: anthropicClient },
  *   model: 'claude-sonnet-4',
  *   signal: abortController.signal,
  * })
@@ -68,14 +67,7 @@ export function createRunAgent(context: RunAgentContext) {
     if (!provider) {
       throw new Error('Provider is required for runAgent.')
     }
-    const clients =
-      options.clients ??
-      context.clients ??
-      (context.client
-        ? ({
-            [provider]: context.client,
-          } as Partial<ProviderClientMap>)
-        : {})
+    const clients = options.clients ?? context.clients ?? {}
 
     const elementProps = agentElement.props as {
       name?: string

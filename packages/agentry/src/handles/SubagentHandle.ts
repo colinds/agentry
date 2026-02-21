@@ -11,10 +11,7 @@ import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
 import type { ProviderClientMap } from '../providers/types'
 import type { ProviderName } from '../types/provider'
 import { createDefaultAdapters } from '../providers'
-import {
-  ensureProviderClient,
-  setProviderClient,
-} from '../providers/clientResolver'
+import { ensureProviderClient } from '../providers/clientResolver'
 
 export class SubagentHandle extends AbstractAgentHandle {
   private subagent: SubagentInstance
@@ -24,7 +21,6 @@ export class SubagentHandle extends AbstractAgentHandle {
   constructor(
     subagent: SubagentInstance,
     options: {
-      client?: ProviderClientMap[ProviderName]
       clients?: Partial<ProviderClientMap>
       provider?: ProviderName
       signal?: AbortSignal
@@ -36,9 +32,6 @@ export class SubagentHandle extends AbstractAgentHandle {
       throw new Error('Provider is required for the subagent.')
     }
     const clients: Partial<ProviderClientMap> = { ...options.clients }
-    if (options.client) {
-      setProviderClient(clients, provider, options.client)
-    }
 
     const store = createAgentStore()
 

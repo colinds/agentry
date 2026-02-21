@@ -7,7 +7,7 @@ import {
   mockText,
   mockToolUse,
 } from './utils'
-import { TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
 import { resetSharedDefaultClients } from '../src/providers/clientResolver'
 
 beforeEach(() => {
@@ -59,7 +59,7 @@ test('openai provider runs basic response flow', async () => {
   ])
 
   const result = await run(
-    <Agent provider="openai" model="gpt-4.1-mini" stream={false}>
+    <Agent provider="openai" model="gpt-5-mini" stream={false}>
       <Message role="user">Hello</Message>
     </Agent>,
     {
@@ -111,14 +111,18 @@ test('openai parent can run anthropic AgentTool subagent', async () => {
   } as any
 
   const runPromise = run(
-    <Agent provider="openai" model="gpt-4.1-mini" stream={false}>
+    <Agent provider="openai" model="gpt-5-mini" stream={false}>
       <Tools>
         <AgentTool
           name="researcher"
           description="Research specialist"
           parameters={z.object({ topic: z.string() })}
           agent={({ topic }) => (
-            <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+            <Agent
+              provider="anthropic"
+              model={ANTHROPIC_TEST_MODEL}
+              stream={false}
+            >
               <Message role="user">Research: {topic}</Message>
             </Agent>
           )}
@@ -149,28 +153,6 @@ test('openai parent can run anthropic AgentTool subagent', async () => {
   expect(functionCallOutput).toBeDefined()
   expect(functionCallOutput!.call_id).toBe('call_1')
   expect(functionCallOutput!.output).toContain('Anthropic subagent result')
-})
-
-test('client: backward-compat detects OpenAI client without clients:', async () => {
-  const { client } = createOpenAIMockClient([
-    {
-      output: [
-        {
-          type: 'message',
-          content: [{ type: 'output_text', text: 'Detected via client:' }],
-        },
-      ],
-    },
-  ])
-
-  const result = await run(
-    <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
-      <Message role="user">Hello</Message>
-    </Agent>,
-    { client },
-  )
-
-  expect(result.content).toBe('Detected via client:')
 })
 
 test('missing OpenAI client throws descriptive error when no env var set', async () => {
@@ -242,7 +224,7 @@ test('anthropic parent can run openai AgentTool subagent', async () => {
   }
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <Tools>
         <AgentTool
           name="summarizer"

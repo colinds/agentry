@@ -10,14 +10,6 @@ const sharedDefaultClients: Partial<ProviderClientMap> = {}
 const pendingClients: Partial<Record<ProviderName, Promise<ProviderClient>>> =
   {}
 
-export function setProviderClient(
-  clients: Partial<ProviderClientMap>,
-  provider: ProviderName,
-  client: ProviderClient,
-): void {
-  ;(clients as Record<ProviderName, ProviderClient>)[provider] = client
-}
-
 export function getProviderClient(
   clients: Partial<ProviderClientMap>,
   provider: ProviderName,

@@ -13,7 +13,7 @@ import {
   useMessages,
 } from '../src'
 import { createStepMockClient, mockText, mockToolUse } from './utils'
-import { TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from '../src/constants'
 import { z } from 'zod'
 import { getRegisteredTools } from './utils/testHelpers'
 
@@ -31,7 +31,7 @@ test('subagent has isolated message context', async () => {
         name="isolated"
         stream={false}
         description="Has isolated messages"
-        model={TEST_MODEL}
+        model={ANTHROPIC_TEST_MODEL}
       >
         <System>You are isolated</System>
         <Message role="user">Perform isolated task</Message>
@@ -46,7 +46,7 @@ test('subagent has isolated message context', async () => {
   ])
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <System>Parent system prompt</System>
       <Tools>
         <AgentTool
@@ -58,7 +58,7 @@ test('subagent has isolated message context', async () => {
       </Tools>
       <Message role="user">Call the isolated agent</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   await controller.nextTurn()
@@ -96,7 +96,7 @@ test('onStepFinish callback fires for subagent calls', async () => {
   const runPromise = run(
     <Agent
       provider="anthropic"
-      model={TEST_MODEL}
+      model={ANTHROPIC_TEST_MODEL}
       stream={false}
       onStepFinish={(result) => {
         stepFinishCalled = true
@@ -113,7 +113,7 @@ test('onStepFinish callback fires for subagent calls', async () => {
       </Tools>
       <Message role="user">Call subagent</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   await controller.nextTurn()
@@ -160,7 +160,7 @@ test('onComplete callback fires when agent finishes', async () => {
   ])
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <Tools>
         <AgentTool
           name="completable"
@@ -171,7 +171,7 @@ test('onComplete callback fires when agent finishes', async () => {
       </Tools>
       <Message role="user">Run the completable agent</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   await controller.nextTurn()
@@ -199,7 +199,7 @@ test('conditionally hidden subagents are not available as tools', async () => {
   function OptionalSubagentTest() {
     const showHidden = false
     return (
-      <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
         <Tools>
           {showHidden && (
             <AgentTool
@@ -219,7 +219,9 @@ test('conditionally hidden subagents are not available as tools', async () => {
     { content: [mockText('I cannot help with that')] },
   ])
 
-  const runPromise = run(<OptionalSubagentTest />, { client })
+  const runPromise = run(<OptionalSubagentTest />, {
+    clients: { anthropic: client },
+  })
 
   await controller.nextTurn()
 
@@ -265,7 +267,7 @@ test('tools can be mounted during execution via state change', async () => {
     return (
       <Agent
         provider="anthropic"
-        model={TEST_MODEL}
+        model={ANTHROPIC_TEST_MODEL}
         stream={false}
         maxIterations={5}
       >
@@ -302,7 +304,9 @@ test('tools can be mounted during execution via state change', async () => {
     { content: [mockText('Task completed')], stop_reason: 'end_turn' },
   ])
 
-  const agent = createAgent(<MountingToolTest />, { client })
+  const agent = createAgent(<MountingToolTest />, {
+    clients: { anthropic: client },
+  })
 
   try {
     // Start execution
@@ -377,7 +381,7 @@ test('subagents can be mounted during execution via state change', async () => {
     return (
       <Agent
         provider="anthropic"
-        model={TEST_MODEL}
+        model={ANTHROPIC_TEST_MODEL}
         stream={false}
         maxIterations={5}
       >
@@ -414,7 +418,9 @@ test('subagents can be mounted during execution via state change', async () => {
     { content: [mockText('Work coordinated')], stop_reason: 'end_turn' },
   ])
 
-  const agent = createAgent(<MountingSubagentTest />, { client })
+  const agent = createAgent(<MountingSubagentTest />, {
+    clients: { anthropic: client },
+  })
 
   try {
     const runPromise = agent.run()
@@ -478,7 +484,7 @@ test('subagent sees pre-loaded JSX messages', async () => {
   ])
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <System>You delegate tasks</System>
       <Tools>
         <AgentTool
@@ -492,7 +498,7 @@ test('subagent sees pre-loaded JSX messages', async () => {
       </Tools>
       <Message role="user">Call preloaded agent</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   // parent turn - calls preloaded
@@ -561,7 +567,7 @@ test('useMessages works inside subagent children', async () => {
   ])
 
   const runPromise = run(
-    <Agent provider="anthropic" model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <System>Parent</System>
       <Tools>
         <AgentTool
@@ -575,7 +581,7 @@ test('useMessages works inside subagent children', async () => {
       </Tools>
       <Message role="user">Call the hooked agent</Message>
     </Agent>,
-    { client },
+    { clients: { anthropic: client } },
   )
 
   // parent turn
@@ -637,7 +643,7 @@ test('tools can be unmounted during execution via state change', async () => {
     return (
       <Agent
         provider="anthropic"
-        model={TEST_MODEL}
+        model={ANTHROPIC_TEST_MODEL}
         stream={false}
         maxIterations={5}
       >
@@ -659,7 +665,9 @@ test('tools can be unmounted during execution via state change', async () => {
     { content: [mockText('Done')] },
   ])
 
-  const agent = createAgent(<UnmountingToolTest />, { client })
+  const agent = createAgent(<UnmountingToolTest />, {
+    clients: { anthropic: client },
+  })
 
   try {
     const runPromise = agent.run()
