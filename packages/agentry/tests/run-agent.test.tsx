@@ -149,7 +149,6 @@ test('runAgent respects custom model option', async () => {
   const originalCreate = client.beta.messages.create.bind(client.beta.messages)
   const originalStream = client.beta.messages.stream.bind(client.beta.messages)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client.beta.messages.create = (async (params: any, options?: any) => {
     callCount++
     // Second call should be the spawned agent
@@ -159,7 +158,6 @@ test('runAgent respects custom model option', async () => {
     return originalCreate(params, options)
   }) as typeof client.beta.messages.create
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client.beta.messages.stream = ((params: any, options?: any) => {
     callCount++
     // Second call should be the spawned agent
@@ -229,7 +227,6 @@ test('runAgent respects custom maxTokens option', async () => {
   // So we capture the first create() call that has system === 'Test' and max_tokens !== 4096
   const originalCreate = client.beta.messages.create.bind(client.beta.messages)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client.beta.messages.create = (async (params: any, options?: any) => {
     // Capture if it's the spawned agent (has Test system and not the parent's maxTokens)
     if (
@@ -295,7 +292,6 @@ test('runAgent handles errors gracefully', async () => {
   // The spawned agent uses create() (streaming disabled), identify it by system prompt
   const originalCreate = client.beta.messages.create.bind(client.beta.messages)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client.beta.messages.create = (async (params: any, options?: any) => {
     // The spawned agent has system === 'Test' and uses create() (not stream)
     if (params.system === 'Test') {

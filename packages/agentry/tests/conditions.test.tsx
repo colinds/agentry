@@ -350,7 +350,6 @@ describe('Condition', () => {
                     expression: z.string(),
                   })}
                   handler={async ({ expression }) => {
-                    // eslint-disable-next-line react-hooks/unsupported-syntax
                     const result = eval(expression)
                     return `Result: ${result}`
                   }}
@@ -408,7 +407,6 @@ describe('Condition', () => {
                   description="Calculate"
                   parameters={z.object({ expr: z.string() })}
                   handler={async ({ expr }) => {
-                    // eslint-disable-next-line react-hooks/unsupported-syntax
                     return `Result: ${eval(expr)}`
                   }}
                 />
@@ -655,7 +653,6 @@ describe('Condition', () => {
                     description="Perform calculation"
                     parameters={z.object({ expression: z.string() })}
                     handler={async ({ expression }) => {
-                      // eslint-disable-next-line react-hooks/unsupported-syntax
                       const result = eval(expression)
                       return `Result: ${result}`
                     }}
@@ -774,7 +771,6 @@ describe('NL Condition Evaluation', () => {
                 description="Perform a calculation"
                 parameters={z.object({ expression: z.string() })}
                 handler={async ({ expression }) => {
-                  // eslint-disable-next-line react-hooks/unsupported-syntax
                   return `Result: ${eval(expression)}`
                 }}
               />
@@ -827,7 +823,6 @@ describe('NL Condition Evaluation', () => {
                 description="Perform a calculation"
                 parameters={z.object({ expression: z.string() })}
                 handler={async ({ expression }) => {
-                  // eslint-disable-next-line react-hooks/unsupported-syntax
                   return `Result: ${eval(expression)}`
                 }}
               />
@@ -905,7 +900,6 @@ describe('NL Condition Evaluation', () => {
                 description="Perform a calculation"
                 parameters={z.object({ expression: z.string() })}
                 handler={async ({ expression }) => {
-                  // eslint-disable-next-line react-hooks/unsupported-syntax
                   return `Result: ${eval(expression)}`
                 }}
               />
@@ -952,7 +946,6 @@ describe('NL Condition Evaluation', () => {
                 description="Perform a calculation"
                 parameters={z.object({ expression: z.string() })}
                 handler={async ({ expression }) => {
-                  // eslint-disable-next-line react-hooks/unsupported-syntax
                   return `Result: ${eval(expression)}`
                 }}
               />

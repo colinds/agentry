@@ -22,7 +22,6 @@ test('subagent has isolated message context', async () => {
 
   function IsolatedAgent() {
     const messages = useMessages()
-    // eslint-disable-next-line react-hooks/immutability
     subagentMessageCountRef.current = messages.length
 
     return (
@@ -257,7 +256,6 @@ test('tools can be mounted during execution via state change', async () => {
       description: 'Enable the helper tool',
       parameters: z.object({}),
       handler: async () => {
-        // eslint-disable-next-line react-hooks/immutability
         enablerCalledRef.current = true
         setMounted(true)
         return 'Helper tool is now enabled'
@@ -371,7 +369,6 @@ test('subagents can be mounted during execution via state change', async () => {
       description: 'Start research phase',
       parameters: z.object({}),
       handler: async () => {
-        // eslint-disable-next-line react-hooks/immutability
         coordinatorCalledRef.current = true
         setHasResearcher(true)
         return 'Research phase activated'
@@ -534,7 +531,6 @@ test('useMessages works inside subagent children', async () => {
   // component rendered inside subagent that uses useMessages
   function SubagentBody() {
     const messages = useMessages()
-    // eslint-disable-next-line react-hooks/immutability
     subagentMessagesRef.current = messages.map((m) => {
       if (typeof m.content === 'string') return m.content
       return JSON.stringify(m.content)
@@ -622,7 +618,6 @@ test('tools can be unmounted during execution via state change', async () => {
       description: 'Disable the temporary tool',
       parameters: z.object({}),
       handler: async () => {
-        // eslint-disable-next-line react-hooks/immutability
         disablerCalledRef.current = true
         setEnabled(false)
         return 'Tool disabled'
@@ -634,7 +629,6 @@ test('tools can be unmounted during execution via state change', async () => {
       description: 'Temporary tool that will be disabled',
       parameters: z.object({}),
       handler: async () => {
-        // eslint-disable-next-line react-hooks/immutability
         temporaryCalledRef.current = true
         return 'This runs'
       },

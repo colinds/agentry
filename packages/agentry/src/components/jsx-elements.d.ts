@@ -49,21 +49,18 @@ export interface AgentryElements {
 
 declare module 'react' {
   namespace JSX {
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface IntrinsicElements extends AgentryElements {}
   }
 }
 
 declare module 'react/jsx-runtime' {
   namespace JSX {
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface IntrinsicElements extends AgentryElements {}
   }
 }
 
 declare module 'react/jsx-dev-runtime' {
   namespace JSX {
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface IntrinsicElements extends AgentryElements {}
   }
 }

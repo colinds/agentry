@@ -78,7 +78,6 @@ export function createInstance(
   type: InstanceType,
   props: ElementProps,
   rootContainer: Instance | object | null,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _hostContext: PropagatedSettings = {},
 ): Instance {
   switch (type) {
@@ -249,7 +248,7 @@ function createMessageInstance(props: MessageComponentProps): MessageInstance {
 }
 
 function createToolsContainerInstance(
-  _props: ToolsContainerProps, // eslint-disable-line @typescript-eslint/no-unused-vars
+  _props: ToolsContainerProps,
 ): ToolsContainerInstance {
   return {
     type: InstanceType.Tools,

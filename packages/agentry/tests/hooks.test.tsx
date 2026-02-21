@@ -147,7 +147,6 @@ test('useAgentState provides full state access', async () => {
 
   function FullStateTracker() {
     const state = useAgentState()
-    // eslint-disable-next-line react-hooks/immutability
     capturedStateRef.current = state
     return null
   }
@@ -177,7 +176,6 @@ test('hooks throw error when used outside AgentProvider', () => {
   function InvalidComponent() {
     try {
       useExecutionState()
-      // eslint-disable-next-line react-hooks/error-boundaries
       return <div>Should not reach here</div>
     } catch (error: unknown) {
       const err = error as Error
