@@ -2,8 +2,21 @@ import type { MemoryTool } from '../types'
 import type { JsonObject } from '../types/json'
 import { debug } from '../debug'
 
+const MEMORY_COMMANDS = [
+  'view',
+  'create',
+  'str_replace',
+  'insert',
+  'delete',
+  'rename',
+] as const
+
+type MemoryCommand = (typeof MEMORY_COMMANDS)[number]
+
+const validCommands = new Set<MemoryCommand>(MEMORY_COMMANDS)
+
 export interface MemoryToolInput {
-  command: 'view' | 'create' | 'str_replace' | 'insert' | 'delete' | 'rename'
+  command: MemoryCommand
   path?: string
   view_range?: [number, number]
   file_text?: string
@@ -20,19 +33,13 @@ export interface MemoryToolResult {
   isError: boolean
 }
 
-const validCommands: Set<string> = new Set([
-  'view',
-  'create',
-  'str_replace',
-  'insert',
-  'delete',
-  'rename',
-] satisfies MemoryToolInput['command'][])
-
 export function isMemoryToolInput(
   input: JsonObject,
 ): input is JsonObject & MemoryToolInput {
-  return typeof input.command === 'string' && validCommands.has(input.command)
+  return (
+    typeof input.command === 'string' &&
+    validCommands.has(input.command as MemoryCommand)
+  )
 }
 
 /**

@@ -104,7 +104,13 @@ export async function ensureProviderClient(
   if (configured) {
     return configured
   }
-  return getSharedDefaultClient(provider)
+  const client = await getSharedDefaultClient(provider)
+  // Write the resolved client back into the caller's map so subsequent calls
+  // hit the fast path (configured check above) instead of going through the
+  // shared cache again. Object.assign avoids a cast since TypeScript can't
+  // narrow Partial<ProviderClientMap>[provider] through a union-typed key.
+  Object.assign(clients, { [provider]: client })
+  return client
 }
 
 /** For testing only — clears the module-level default client cache. */

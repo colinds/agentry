@@ -1,7 +1,11 @@
 import type { OnStepFinishResult } from './lifecycle'
 import type { AgentMessageParam } from './messages'
 import type { Model as _AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
-import type { ResponsesModel } from 'openai/resources/shared'
+import type {
+  Reasoning,
+  ReasoningEffort,
+  ResponsesModel,
+} from 'openai/resources/shared'
 
 export type AnthropicModel = _AnthropicModel
 export type OpenAIModel = ResponsesModel
@@ -15,8 +19,8 @@ export interface AnthropicThinkingEnabled {
 
 export interface OpenAIThinkingEnabled {
   type: 'enabled'
-  effort: 'low' | 'medium' | 'high'
-  summary: 'auto' | 'concise' | 'detailed'
+  effort: NonNullable<ReasoningEffort>
+  summary: NonNullable<Reasoning['summary']>
 }
 
 export type ThinkingConfig =

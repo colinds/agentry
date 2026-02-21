@@ -134,8 +134,6 @@ export class SubagentHandle extends AbstractAgentHandle {
       throw new Error('Provider is required on the subagent instance.')
     }
     agentInstance.client = await ensureProviderClient(this.clients, provider)
-    ;(this.clients as Record<string, typeof agentInstance.client>)[provider] =
-      agentInstance.client
 
     return agentInstance
   }

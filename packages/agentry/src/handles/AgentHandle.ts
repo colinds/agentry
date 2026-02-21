@@ -111,8 +111,6 @@ export class AgentHandle extends AbstractAgentHandle {
       throw new Error('Model is required on the rendered agent.')
     }
     agent.client = await ensureProviderClient(this.clients, provider)
-    ;(this.clients as Record<string, typeof agent.client>)[provider] =
-      agent.client
 
     return agent
   }
