@@ -113,19 +113,21 @@ export class SubagentHandle extends AbstractAgentHandle {
       )
     }
 
-    // Copy props from subagent to the rendered instance
-    if (!agentInstance.props.model && this.subagent.props.model) {
-      agentInstance.props.model = this.subagent.props.model
-    }
-
-    // Inherit provider from the subagent instance if the <Agent> element omits it
-    if (!agentInstance.props.provider && this.subagent.props.provider) {
-      agentInstance.props.provider = this.subagent.props.provider
-    }
-
-    const { maxTokens, temperature, maxIterations, stopSequences, stream } =
-      this.subagent.props
+    // Inherit subagent props into the rendered instance
+    const {
+      provider: subagentProvider,
+      model: subagentModel,
+      maxTokens,
+      temperature,
+      maxIterations,
+      stopSequences,
+      stream,
+    } = this.subagent.props
     Object.assign(agentInstance.props, {
+      ...(!agentInstance.props.provider &&
+        subagentProvider && { provider: subagentProvider }),
+      ...(!agentInstance.props.model &&
+        subagentModel && { model: subagentModel }),
       ...(maxTokens !== undefined && { maxTokens }),
       ...(temperature !== undefined && { temperature }),
       ...(maxIterations !== undefined && { maxIterations }),

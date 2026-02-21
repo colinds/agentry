@@ -114,7 +114,7 @@ export type Instance =
   | MCPServerInstance
   | ConditionInstance
 
-export interface AgentComponentProps extends AgentProps {
+export type AgentComponentProps = AgentProps & {
   client?: ProviderClientMap[keyof ProviderClientMap]
   children?: React.ReactNode
 }

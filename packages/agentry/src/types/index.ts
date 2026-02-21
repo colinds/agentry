@@ -58,6 +58,8 @@ export {
   type AnthropicModel,
   type OpenAIModel,
   type AgentProps,
+  type BaseAgentProps,
+  type ProviderVariant,
   type ThinkingConfig,
   type AnthropicThinkingEnabled,
   type OpenAIThinkingEnabled,

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import type { AgentComponentProps } from '../instances/types'
 import type {
+  BaseAgentProps,
   AnthropicModel,
   OpenAIModel,
   ThinkingConfig,
@@ -8,17 +8,12 @@ import type {
   OpenAIThinkingEnabled,
 } from '../types/agent'
 
-type BaseAgentProps = Omit<
-  AgentComponentProps,
-  'client' | 'model' | 'provider' | 'thinking'
->
-
 /**
  * `provider` and `model` must be specified together or not at all.
  * - Root agents: specify both (`provider="anthropic" model="claude-haiku-4-5"`)
  * - Subagents inside AgentTool: can omit both (inherit from parent)
  */
-type ProviderModelProps =
+type PublicProviderVariant =
   | {
       provider: 'anthropic'
       model: AnthropicModel
@@ -31,7 +26,8 @@ type ProviderModelProps =
     }
   | { provider?: undefined; model?: undefined; thinking?: ThinkingConfig }
 
-export type AgentComponentPublicProps = BaseAgentProps & ProviderModelProps
+export type AgentComponentPublicProps = BaseAgentProps &
+  PublicProviderVariant & { children?: React.ReactNode }
 
 /**
  * Agent component - the root container for an AI agent

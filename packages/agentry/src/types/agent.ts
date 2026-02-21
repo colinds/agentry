@@ -1,6 +1,5 @@
 import type { OnStepFinishResult } from './lifecycle'
 import type { AgentMessageParam } from './messages'
-import type { ProviderName } from './provider'
 import type { Model as _AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
 import type { ResponsesModel } from 'openai/resources/shared'
 
@@ -25,10 +24,7 @@ export type ThinkingConfig =
   | AnthropicThinkingEnabled
   | OpenAIThinkingEnabled
 
-export interface AgentProps {
-  provider?: ProviderName
-  model?: Model
-
+export interface BaseAgentProps {
   name?: string
   description?: string
   maxTokens?: number
@@ -36,7 +32,6 @@ export interface AgentProps {
   stopSequences?: string[]
   temperature?: number
   stream?: boolean
-  thinking?: ThinkingConfig
   betas?: string[]
   onMessage?: (message: AgentStreamEvent) => void
   onComplete?: (result: AgentResult) => void
@@ -44,6 +39,21 @@ export interface AgentProps {
   onStepFinish?: (result: OnStepFinishResult) => void | Promise<void>
   compactionControl?: CompactionControl
 }
+
+export type ProviderVariant =
+  | {
+      provider: 'anthropic'
+      model?: AnthropicModel
+      thinking?: AnthropicThinkingEnabled | { type: 'disabled' }
+    }
+  | {
+      provider: 'openai'
+      model?: OpenAIModel
+      thinking?: OpenAIThinkingEnabled | { type: 'disabled' }
+    }
+  | { provider?: undefined; model?: Model; thinking?: ThinkingConfig }
+
+export type AgentProps = BaseAgentProps & ProviderVariant
 
 export interface CompactionControl {
   enabled: boolean

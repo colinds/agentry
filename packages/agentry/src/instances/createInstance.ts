@@ -24,9 +24,21 @@ import type {
   ConditionComponentProps,
 } from './types'
 import { isAgentInstance, isInstance } from './types'
-import type { AgentProps, CompactionControl, Model } from '../types'
+import type {
+  AgentProps,
+  BaseAgentProps,
+  CompactionControl,
+  Model,
+} from '../types'
 
-type RequiredAgentProps = { [K in keyof Required<AgentProps>]: AgentProps[K] }
+/** Requires all AgentProps keys, with variant fields distributed across the union. */
+type AgentPropsAllKeys = {
+  [K in keyof Required<BaseAgentProps>]: BaseAgentProps[K]
+} & {
+  provider: AgentProps['provider']
+  model: AgentProps['model']
+  thinking: AgentProps['thinking']
+}
 
 interface SubagentCreationProps extends Omit<
   AgentComponentProps,
@@ -143,7 +155,7 @@ function createAgentInstance(
       onComplete: props.onComplete,
       onError: props.onError,
       onStepFinish: props.onStepFinish,
-    } satisfies RequiredAgentProps,
+    } satisfies AgentPropsAllKeys as AgentProps,
     client,
     engine: null,
     systemParts: [],
@@ -330,7 +342,7 @@ export function createSubagentInstance(
       onComplete: props.onComplete,
       onError: props.onError,
       onStepFinish: props.onStepFinish,
-    } satisfies RequiredAgentProps,
+    } satisfies AgentPropsAllKeys as AgentProps,
     systemParts: [],
     tools: [],
     sdkTools: [],
