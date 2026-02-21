@@ -259,10 +259,9 @@ async function evaluateNLWithAnthropic({
     })
   }
 
-  console.warn(
-    '[agentry] NL condition evaluation: model did not return evaluate_conditions tool call. All NL conditions defaulting to false.',
+  throw new Error(
+    '[agentry] NL condition evaluation: model did not invoke the evaluate_conditions tool. Conditions cannot be reliably evaluated.',
   )
-  return conditions.map(() => false)
 }
 
 /**
@@ -350,10 +349,9 @@ async function evaluateNLWithOpenAI({
     }
   }
 
-  console.warn(
-    '[agentry] NL condition evaluation: model did not return evaluate_conditions tool call. All NL conditions defaulting to false.',
+  throw new Error(
+    '[agentry] NL condition evaluation: model did not invoke the evaluate_conditions tool. Conditions cannot be reliably evaluated.',
   )
-  return conditions.map(() => false)
 }
 
 // ensure messages don't start with a tool_result (which requires a preceding tool_use)

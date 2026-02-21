@@ -62,5 +62,5 @@ export function Memory(props: MemoryProps): ReactNode {
     memoryHandlers: handlers,
   }
 
-  return <sdk_tool tool={tool} key="memory" />
+  return <built_in_tool tool={tool} key="memory" />
 }

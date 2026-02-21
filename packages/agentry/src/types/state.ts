@@ -78,8 +78,10 @@ export function transition(
     case TransitionType.Error:
       return { status: AgentStatus.Error, error: event.error }
 
-    default:
+    default: {
+      const _exhaustive: never = event
       return state
+    }
   }
 }
 

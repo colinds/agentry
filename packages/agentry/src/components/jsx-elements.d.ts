@@ -22,7 +22,7 @@ export interface AgentryElements {
 
   agent_tool: { agentTool: InternalAgentTool; key?: string }
 
-  sdk_tool: { tool: BuiltInTool; key?: string }
+  built_in_tool: { tool: BuiltInTool; key?: string }
 
   system: { children: ReactNode; cache?: 'ephemeral' }
 

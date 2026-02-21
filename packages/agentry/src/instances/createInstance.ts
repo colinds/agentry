@@ -88,7 +88,7 @@ export function createInstance(
       return createAgentToolInstance(props as AgentToolComponentProps)
     case InstanceType.Tool:
       return createToolInstance(props as ToolComponentProps)
-    case InstanceType.SdkTool:
+    case InstanceType.BuiltInTool:
       return createSdkToolInstance(props as SdkToolComponentProps)
     case InstanceType.System:
       return createSystemInstance(props as SystemComponentProps)
@@ -192,7 +192,7 @@ function createAgentToolInstance(
 
 function createSdkToolInstance(props: SdkToolComponentProps): SdkToolInstance {
   return {
-    type: InstanceType.SdkTool,
+    type: InstanceType.BuiltInTool,
     tool: props.tool,
     parent: null,
   }

@@ -204,7 +204,12 @@ function toOpenAITools(
             }
           : undefined,
       } satisfies OpenAI.Responses.WebSearchTool)
+      continue
     }
+
+    console.warn(
+      `[agentry] OpenAI adapter: built-in tool type "${sdkTool.type}" is not supported on OpenAI and will be skipped.`,
+    )
   }
 
   for (const server of request.mcpServers) {
@@ -246,6 +251,7 @@ export const openaiAdapter: ProviderAdapter<'openai'> = {
       max_output_tokens: request.maxTokens,
       temperature: request.temperature,
       ...(systemText ? { instructions: systemText } : {}),
+      ...(request.stopSequences?.length ? { stop: request.stopSequences } : {}),
       ...(oaiThinking
         ? {
             reasoning: {

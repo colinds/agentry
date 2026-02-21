@@ -1,4 +1,6 @@
 import type { MemoryTool } from '../types'
+import type { JsonObject } from '../types/json'
+import { debug } from '../debug'
 
 export interface MemoryToolInput {
   command: 'view' | 'create' | 'str_replace' | 'insert' | 'delete' | 'rename'
@@ -16,6 +18,21 @@ export interface MemoryToolInput {
 export interface MemoryToolResult {
   result: string
   isError: boolean
+}
+
+const validCommands: Set<string> = new Set([
+  'view',
+  'create',
+  'str_replace',
+  'insert',
+  'delete',
+  'rename',
+] satisfies MemoryToolInput['command'][])
+
+export function isMemoryToolInput(
+  input: JsonObject,
+): input is JsonObject & MemoryToolInput {
+  return typeof input.command === 'string' && validCommands.has(input.command)
 }
 
 /**
@@ -113,6 +130,11 @@ export async function executeMemoryTool(
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') throw error
+    debug(
+      'tool',
+      `Memory tool command "${input.command}" failed:`,
+      error instanceof Error ? error : { message: String(error) },
+    )
     const message = error instanceof Error ? error.message : String(error)
     result = `Error: ${message}`
     isError = true

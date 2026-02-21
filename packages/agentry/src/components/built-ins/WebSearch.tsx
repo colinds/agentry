@@ -52,5 +52,5 @@ export function WebSearch(props: WebSearchProps): ReactNode {
     user_location: userLocation,
   }
 
-  return <sdk_tool tool={tool} key="web_search" />
+  return <built_in_tool tool={tool} key="web_search" />
 }

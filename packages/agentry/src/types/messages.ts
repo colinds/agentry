@@ -1,6 +1,6 @@
 import type { JsonObject } from './json'
 
-export type TextContentArray = Array<{ type: 'text'; text: string }>
+export type TextContentArray = TextContentBlock[]
 
 export interface TextContentBlock {
   type: 'text'

@@ -25,5 +25,5 @@ export function CodeExecution(): ReactNode {
     name: 'code_execution',
   }
 
-  return <sdk_tool tool={tool} key="code_execution" />
+  return <built_in_tool tool={tool} key="code_execution" />
 }

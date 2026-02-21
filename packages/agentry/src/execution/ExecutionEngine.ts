@@ -24,7 +24,7 @@ import {
   isMemoryTool,
 } from '../types'
 import { executeTool } from '../tools'
-import { executeMemoryTool, type MemoryToolInput } from '../tools/memoryTool'
+import { executeMemoryTool, isMemoryToolInput } from '../tools/memoryTool'
 import { createRunAgent } from '../run/runAgentFunction'
 import { debug } from '../debug'
 import { buildSystemPrompt } from './createEngineConfig'
@@ -98,8 +98,39 @@ function hasName(t: object | null): t is { name: string } {
   return t !== null && 'name' in t
 }
 
-function isMemoryToolInput(input: JsonObject): boolean {
-  return 'command' in input && typeof input.command === 'string'
+function buildToolContext(
+  config: ExecutionEngineConfig,
+  client: ProviderClientMap[ProviderName],
+  signal: AbortSignal,
+): ToolContext {
+  const base = {
+    agentName: config.agentName ?? 'agent',
+    clients: config.clients,
+    model: config.model,
+    signal,
+    runAgent: createRunAgent({
+      provider: config.provider,
+      clients: config.clients,
+      model: config.model,
+      signal,
+    }),
+  }
+  if (config.provider === 'anthropic') {
+    return {
+      ...base,
+      provider: 'anthropic',
+      client: client as ProviderClientMap['anthropic'],
+    }
+  }
+  if (config.provider === 'openai') {
+    return {
+      ...base,
+      provider: 'openai',
+      client: client as ProviderClientMap['openai'],
+    }
+  }
+  // Unreachable with current ProviderName union, included for exhaustiveness
+  return { ...base, provider: undefined, client: undefined }
 }
 
 /**
@@ -126,6 +157,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const provider = config.provider
     const adapters = config.adapters ?? createDefaultAdapters()
     this.adapter = adapters[provider]
+    if (!this.adapter) {
+      throw new Error(
+        `[agentry] No adapter registered for provider "${provider}". Available: ${Object.keys(adapters).join(', ')}.`,
+      )
+    }
     this.config = {
       ...config,
       provider,
@@ -338,20 +374,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.transition({ type: TransitionType.ToolsExecuting, pendingTools })
 
     const signal = abortController.signal
-    const context: ToolContext = {
-      agentName: this.config.agentName ?? 'agent',
-      clients: this.config.clients,
-      model: this.config.model,
-      signal,
-      runAgent: createRunAgent({
-        provider: this.config.provider,
-        clients: this.config.clients,
-        model: this.config.model,
-        signal,
-      }),
-      provider: this.config.provider,
-      client: this.client,
-    } as ToolContext
+    const context = buildToolContext(this.config, this.client, signal)
 
     const { tools: internalTools = [], sdkTools = [] } = this.agentInstance
 
@@ -404,7 +427,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             }
             const { result, isError } = await executeMemoryTool(
               sdkTool,
-              toolCall.input as unknown as MemoryToolInput,
+              toolCall.input,
             )
 
             return this.buildToolResult({

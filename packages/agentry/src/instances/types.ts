@@ -17,7 +17,7 @@ export type { MCPServerConfig }
 export enum InstanceType {
   Agent = 'agent',
   Tool = 'tool',
-  SdkTool = 'sdk_tool',
+  BuiltInTool = 'built_in_tool',
   System = 'system',
   Context = 'context',
   Message = 'message',
@@ -52,7 +52,7 @@ export interface ToolInstance extends BaseInstance {
 }
 
 export interface SdkToolInstance extends BaseInstance {
-  type: InstanceType.SdkTool
+  type: InstanceType.BuiltInTool
   tool: BuiltInTool
 }
 
@@ -188,7 +188,7 @@ export function isToolInstance(instance: Instance): instance is ToolInstance {
 export function isSdkToolInstance(
   instance: Instance,
 ): instance is SdkToolInstance {
-  return instance.type === InstanceType.SdkTool
+  return instance.type === InstanceType.BuiltInTool
 }
 
 export function isSystemInstance(
