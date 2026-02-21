@@ -125,7 +125,7 @@ import OpenAI from 'openai'
 import { run, Agent, Message } from 'agentry'
 
 const result = await run(
-  <Agent provider="openai" model="gpt-4.1-mini">
+  <Agent provider="openai" model="gpt-5-mini">
     <Message role="user">Hello</Message>
   </Agent>,
   {
@@ -308,7 +308,7 @@ const ai = createAI({
 })
 
 await ai.run(
-  <Agent provider="openai" model="gpt-4.1-mini">
+  <Agent provider="openai" model="gpt-5-mini">
     <Tools>
       <AgentTool
         name="claude_researcher"
@@ -481,7 +481,7 @@ const handle: AgentHandle = await run(<Agent provider="anthropic">...</Agent>, {
 **Options:**
 
 - `mode?: 'batch' | 'interactive'` - Execution mode (default: `'batch'`)
-- `client?: Anthropic | OpenAI` - Single provider client (backward-compatible shortcut)
+- `client?: Anthropic | OpenAI` - Single provider client
 - `clients?: { anthropic?: Anthropic; openai?: OpenAI }` - Provider client map
   - provider is chosen from `<Agent provider=\"...\">`
   - if omitted, provider clients are created from environment variables by default
@@ -517,7 +517,7 @@ Built-ins are provider-owned exports:
 | Prop                 | Type                                   | Description                                                                                                                                                                                              |
 | -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `provider?`          | `'anthropic' \| 'openai'`              | AI provider for this agent                                                                                                                                                                               |
-| `model`              | `string`                               | Provider model id (e.g. `claude-sonnet-4-5`, `gpt-4.1-mini`)                                                                                                                                             |
+| `model`              | `string`                               | Provider model id (e.g. `claude-sonnet-4-5`, `gpt-5-mini`)                                                                                                                                               |
 | `name?`              | `string`                               | Agent identifier                                                                                                                                                                                         |
 | `description?`       | `string`                               | Agent description                                                                                                                                                                                        |
 | `maxTokens?`         | `number`                               | Max output tokens (default: `4096`)                                                                                                                                                                      |

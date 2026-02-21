@@ -21,13 +21,13 @@ export function createContainer(agentInstance: AgentInstance): ContainerInfo {
 
   const fiber = createContainerFn(
     agentInstance,
-    ConcurrentRoot,
-    null,
-    false,
-    null,
-    '',
-    (error: Error) => console.error('Recoverable error:', error),
-    null,
+    ConcurrentRoot, // Use ConcurrentRoot for better scheduling and transitions
+    null, // hydrationCallbacks
+    false, // isStrictMode
+    null, // concurrentUpdatesByDefaultOverride
+    '', // identifierPrefix
+    (error: Error) => console.error('Recoverable error:', error), // onRecoverableError
+    null, // transitionCallbacks
   )
 
   return {
