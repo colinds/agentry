@@ -224,7 +224,7 @@ agent.close()
 Create subagents using `<AgentTool>` with type-safe parameters:
 
 ```tsx
-<Agent name="manager" model="claude-haiku-4-5">
+<Agent name="manager" provider="anthropic" model="claude-haiku-4-5">
   <Tools>
     <AgentTool
       name="researcher"
@@ -250,7 +250,7 @@ The manager can call `researcher(topic="...")` and the framework spawns and runs
 Spawn agents programmatically from within tool handlers using `context.runAgent()`. This allows for conditional agent creation, parallel execution, and dynamic agent selection based on runtime data:
 
 ```tsx
-<Agent model="claude-haiku-4-5">
+<Agent provider="anthropic" model="claude-haiku-4-5">
   <Tools>
     <Tool
       name="analyze_code"
@@ -334,7 +334,7 @@ Tools can be added/removed during execution using React state:
 function DynamicAgent() {
   const [hasAdvanced, setHasAdvanced] = useState(false)
   return (
-    <Agent model="claude-haiku-4-5">
+    <Agent provider="anthropic" model="claude-haiku-4-5">
       <System>
         You are a helpful assistant that can analyze technical and business content.
         You can unlock advanced analysis tools by calling the unlock_advanced tool.
@@ -368,7 +368,7 @@ function AuthAgent() {
   const [isPremium, setIsPremium] = useState(false)
 
   return (
-    <Agent model="claude-haiku-4-5">
+    <Agent provider="anthropic" model="claude-haiku-4-5">
       {/* Boolean condition */}
       <Condition when={!isAuthenticated}>
         <System>Please authenticate first</System>
@@ -419,7 +419,7 @@ Conditions are evaluated before each API call:
 Use `cache="ephemeral"` on `<System>` or `<Context>` components to mark dynamic content that shouldn't be cached.
 
 ```tsx
-<Agent model="claude-sonnet-4-5">
+<Agent provider="anthropic" model="claude-sonnet-4-5">
   {/* Stable instructions - will be cached */}
   <System>You are a helpful assistant. Always be concise and accurate.</System>
 
@@ -439,6 +439,7 @@ For long-running conversations, you can enable automatic message compaction to m
 
 ```tsx
 <Agent
+  provider="anthropic"
   model="claude-haiku-4-5"
   compactionControl={{
     enabled: true,
@@ -481,7 +482,6 @@ const handle: AgentHandle = await run(<Agent provider="anthropic">...</Agent>, {
 **Options:**
 
 - `mode?: 'batch' | 'interactive'` - Execution mode (default: `'batch'`)
-- `client?: Anthropic | OpenAI` - Single provider client
 - `clients?: { anthropic?: Anthropic; openai?: OpenAI }` - Provider client map
   - provider is chosen from `<Agent provider=\"...\">`
   - if omitted, provider clients are created from environment variables by default
@@ -526,7 +526,7 @@ Built-ins are provider-owned exports:
 | `temperature?`       | `number`                               | Sampling temperature (0-1)                                                                                                                                                                               |
 | `stream?`            | `boolean`                              | Enable streaming (default: `true`)                                                                                                                                                                       |
 | `betas?`             | `string[]`                             | Additional Anthropic beta features to enable                                                                                                                                                             |
-| `thinking?`          | `ThinkingConfig`                       | Extended thinking config: `{ type: 'enabled', budget_tokens: number, interleaved?: boolean }`. When enabled, `interleaved` defaults to `true`. Set `interleaved: false` to disable interleaved thinking. |
+| `thinking?`          | `ThinkingConfig`                       | Extended thinking config (provider-dependent). Anthropic: `{ type: 'enabled', budget_tokens: number, interleaved?: boolean }`. OpenAI: `{ type: 'enabled', effort: 'low' \| 'medium' \| 'high', summary: 'auto' \| 'concise' \| 'detailed' }`. Disable: `{ type: 'disabled' }`. |
 | `compactionControl?` | `CompactionControl`                    | Context compaction settings (see below)                                                                                                                                                                  |
 | `onMessage?`         | `(event: AgentStreamEvent) => void`    | Stream event callback                                                                                                                                                                                    |
 | `onComplete?`        | `(result: AgentResult) => void`        | Completion callback                                                                                                                                                                                      |
@@ -626,7 +626,7 @@ No props. Enables sandboxed code execution.
 | Hook                  | Returns              | Description             |
 | --------------------- | -------------------- | ----------------------- |
 | `useExecutionState()` | `AgentState`         | Current execution state |
-| `useMessages()`       | `BetaMessageParam[]` | Conversation messages   |
+| `useMessages()`       | `AgentMessageParam[]` | Conversation messages   |
 | `useAgentState()`     | `AgentStoreState`    | Full agent state        |
 
 ### AgentHandle (Interactive Mode)
@@ -639,7 +639,7 @@ No props. Enables sandboxed code execution.
 | `abort()`              | `() => void`                                                | Abort current execution         |
 | `close()`              | `() => void`                                                | Clean up resources              |
 | `state`                | `AgentState`                                                | Current execution state         |
-| `messages`             | `BetaMessageParam[]`                                        | Conversation history            |
+| `messages`             | `AgentMessageParam[]`                                       | Conversation history            |
 | `isRunning`            | `boolean`                                                   | Whether agent is processing     |
 
 ### Utilities
