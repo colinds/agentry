@@ -10,7 +10,7 @@ import type {
 } from '@anthropic-ai/sdk/resources/beta'
 import type { Model as AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
 import { ANTHROPIC_BETAS } from '../constants'
-import { debug } from '../debug'
+
 import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
 import type {
   ProviderAdapter,
@@ -60,9 +60,8 @@ export function toAnthropicMessage(
         is_error: block.is_error,
       })
     } else {
-      debug(
-        'api',
-        `Anthropic: dropping unrecognized message block type: ${(block as { type: string }).type}`,
+      console.warn(
+        `[agentry] Anthropic: dropping unrecognized message block type: ${(block as { type: string }).type}`,
       )
     }
   }
@@ -92,9 +91,8 @@ function toAgentBlocks(content: BetaContentBlock[]): AgentContentBlock[] {
         input,
       })
     } else {
-      debug(
-        'api',
-        `Anthropic: unrecognized content block type: "${(block as { type: string }).type}" — block dropped`,
+      console.warn(
+        `[agentry] Anthropic: unrecognized content block type: "${(block as { type: string }).type}" — block dropped`,
       )
     }
   }
@@ -116,6 +114,18 @@ function toApiSdkTool(tool: BuiltInTool): BetaToolUnion {
   throw new Error(
     `[agentry] Unknown built-in tool type: ${JSON.stringify(tool)}`,
   )
+}
+
+function resolveAnthropicThinking(
+  thinking: NormalizedTurnRequest['thinking'],
+): MessageCreateParams['thinking'] {
+  if (thinking?.type === 'enabled' && 'budget_tokens' in thinking) {
+    return { type: 'enabled' as const, budget_tokens: thinking.budget_tokens }
+  }
+  if (thinking?.type === 'disabled') {
+    return { type: 'disabled' as const }
+  }
+  return undefined
 }
 
 export const anthropicAdapter: ProviderAdapter<'anthropic'> = {
@@ -165,16 +175,7 @@ export const anthropicAdapter: ProviderAdapter<'anthropic'> = {
       stop_sequences: request.stopSequences,
       temperature: request.temperature,
       betas: betas.size > 0 ? Array.from(betas) : undefined,
-      thinking:
-        request.thinking?.type === 'enabled' &&
-        'budget_tokens' in request.thinking
-          ? {
-              type: 'enabled' as const,
-              budget_tokens: request.thinking.budget_tokens,
-            }
-          : request.thinking?.type === 'disabled'
-            ? { type: 'disabled' as const }
-            : undefined,
+      thinking: resolveAnthropicThinking(request.thinking),
     }
 
     let response: BetaMessage

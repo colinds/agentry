@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import type OpenAI from 'openai'
-import type { ProviderName } from '../types/provider'
+import { providerDisplayNames, type ProviderName } from '../types/provider'
 import type { ProviderClientMap } from './types'
 
 type ProviderClient = ProviderClientMap[ProviderName]
@@ -15,17 +15,14 @@ export function setProviderClient(
   provider: ProviderName,
   client: ProviderClient,
 ): void {
-  Object.assign(
-    clients,
-    provider === 'anthropic' ? { anthropic: client } : { openai: client },
-  )
+  ;(clients as Record<ProviderName, ProviderClient>)[provider] = client
 }
 
 export function getProviderClient(
   clients: Partial<ProviderClientMap>,
   provider: ProviderName,
 ): ProviderClient | undefined {
-  return provider === 'anthropic' ? clients.anthropic : clients.openai
+  return clients[provider]
 }
 
 async function createDefaultAnthropicClient(): Promise<
@@ -60,69 +57,51 @@ async function createDefaultOpenAIClient(): Promise<
   return new OpenAIClass({ apiKey: process.env.OPENAI_API_KEY })
 }
 
+const envVarNames: Record<ProviderName, string> = {
+  anthropic: 'ANTHROPIC_API_KEY',
+  openai: 'OPENAI_API_KEY',
+}
+
+const clientFactories: Record<ProviderName, () => Promise<ProviderClient>> = {
+  anthropic: createDefaultAnthropicClient,
+  openai: createDefaultOpenAIClient,
+}
+
 async function getSharedDefaultClient(
   provider: ProviderName,
 ): Promise<ProviderClient> {
-  if (provider === 'anthropic') {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      throw new Error(
-        'No Anthropic client configured. Provide clients.anthropic or set ANTHROPIC_API_KEY.',
-      )
-    }
-    if (!sharedDefaultClients.anthropic) {
-      pendingClients.anthropic ??= createDefaultAnthropicClient().then(
-        (client) => {
-          sharedDefaultClients.anthropic = client
-          pendingClients.anthropic = undefined
-          return client
-        },
-        (err) => {
-          pendingClients.anthropic = undefined
-          throw err
-        },
-      )
-      return pendingClients.anthropic
-    }
-    return sharedDefaultClients.anthropic
+  const envVar = envVarNames[provider]
+  if (!envVar) {
+    throw new Error(
+      `[agentry] No default client factory for unknown provider: "${provider as string}". ` +
+        'Pass a client explicitly via createAI({ clients: { ... } }).',
+    )
   }
 
-  if (provider === 'openai') {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error(
-        'No OpenAI client configured. Provide clients.openai or set OPENAI_API_KEY.',
-      )
-    }
-    if (!sharedDefaultClients.openai) {
-      pendingClients.openai ??= createDefaultOpenAIClient().then(
-        (client) => {
-          sharedDefaultClients.openai = client
-          pendingClients.openai = undefined
-          return client
-        },
-        (err) => {
-          pendingClients.openai = undefined
-          throw err
-        },
-      )
-      return pendingClients.openai
-    }
-    return sharedDefaultClients.openai
+  if (!process.env[envVar]) {
+    throw new Error(
+      `No ${providerDisplayNames[provider]} client configured. Provide clients.${provider} or set ${envVar}.`,
+    )
   }
 
-  throw new Error(
-    `[agentry] No default client factory for unknown provider: "${provider as string}". ` +
-      'Pass a client explicitly via createAI({ clients: { ... } }).',
-  )
-}
+  if (!sharedDefaultClients[provider]) {
+    pendingClients[provider] ??= clientFactories[provider]().then(
+      (client) => {
+        ;(sharedDefaultClients as Record<ProviderName, ProviderClient>)[
+          provider
+        ] = client
+        pendingClients[provider] = undefined
+        return client
+      },
+      (err) => {
+        pendingClients[provider] = undefined
+        throw err
+      },
+    )
+    return pendingClients[provider]!
+  }
 
-export function inferProviderFromClient(
-  client: ProviderClient,
-): ProviderName | undefined {
-  const constructorName = (client as { constructor?: { name?: string } })
-    ?.constructor?.name
-  if (constructorName === 'Anthropic') return 'anthropic'
-  if (constructorName === 'OpenAI') return 'openai'
-  return undefined
+  return sharedDefaultClients[provider]!
 }
 
 export async function ensureProviderClient(

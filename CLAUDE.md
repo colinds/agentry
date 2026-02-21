@@ -73,6 +73,10 @@ bun run example:<name>
 - Natural-language conditions are evaluated in a batched model call.
 - Conditions can be nested; active parent + active child is required for nested content.
 
+## Workflow
+
+- After finishing a set of changes, always run `bun test`, `bun run typecheck`, `bun run lint`, and `bun run format` before considering the work done.
+
 ## Implementation Guidelines
 
 - Keep strict typing (`no any` / `no unknown` type annotations in implementation code paths).

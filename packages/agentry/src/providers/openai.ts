@@ -7,7 +7,6 @@ import type {
 import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
 import type { JsonObject } from '../types/json'
 import { isCodeExecutionTool, isWebSearchTool } from '../types/tools'
-import { debug } from '../debug'
 
 type OpenAIResponseCreateParams =
   OpenAI.Responses.ResponseCreateParamsNonStreaming
@@ -127,21 +126,24 @@ function parseOpenAIResponse(
         .join('\n')
       if (text) content.push({ type: 'thinking', thinking: text })
     } else {
-      debug('api', `OpenAI: unrecognized output item type: ${item.type}`)
+      console.warn(
+        `[agentry] OpenAI: unrecognized output item type: ${item.type}`,
+      )
     }
   }
 
-  const stopReason =
-    response.status === 'incomplete'
-      ? (response.incomplete_details?.reason ?? 'length')
-      : content.some((block) => block.type === 'tool_use')
-        ? 'tool_use'
-        : 'end_turn'
+  let stopReason: string
+  if (response.status === 'incomplete') {
+    stopReason = response.incomplete_details?.reason ?? 'length'
+  } else if (content.some((block) => block.type === 'tool_use')) {
+    stopReason = 'tool_use'
+  } else {
+    stopReason = 'end_turn'
+  }
 
   if (!response.usage) {
-    debug(
-      'api',
-      'OpenAI response missing usage field; token counts will be reported as 0',
+    console.warn(
+      '[agentry] OpenAI response missing usage field; token counts will be reported as 0',
     )
   }
 
@@ -181,9 +183,17 @@ function toOpenAITools(
       tools.push({
         type: 'web_search',
         search_context_size: 'medium',
-        filters: sdkTool.allowed_domains
-          ? { allowed_domains: sdkTool.allowed_domains }
-          : undefined,
+        filters:
+          sdkTool.allowed_domains || sdkTool.blocked_domains
+            ? {
+                ...(sdkTool.allowed_domains && {
+                  allowed_domains: sdkTool.allowed_domains,
+                }),
+                ...(sdkTool.blocked_domains && {
+                  blocked_domains: sdkTool.blocked_domains,
+                }),
+              }
+            : undefined,
         user_location: sdkTool.user_location
           ? {
               type: 'approximate',

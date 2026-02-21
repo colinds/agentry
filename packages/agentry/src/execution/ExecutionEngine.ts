@@ -93,7 +93,7 @@ export interface ExecutionEngineConfig {
 }
 
 function hasName(t: object | null): t is { name: string } {
-  return typeof t === 'object' && t !== null && 'name' in t
+  return t !== null && 'name' in t
 }
 
 function isMemoryToolInput(input: JsonObject): boolean {
@@ -330,16 +330,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.transition({ type: 'tools_executing', pendingTools })
 
     const signal = abortController.signal
-    const providerFields =
-      this.config.provider === 'anthropic'
-        ? {
-            provider: 'anthropic' as const,
-            client: this.client as ProviderClientMap['anthropic'],
-          }
-        : {
-            provider: 'openai' as const,
-            client: this.client as ProviderClientMap['openai'],
-          }
     const context: ToolContext = {
       agentName: this.config.agentName ?? 'agent',
       clients: this.config.clients,
@@ -351,8 +341,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         model: this.config.model,
         signal,
       }),
-      ...providerFields,
-    }
+      provider: this.config.provider,
+      client: this.client,
+    } as ToolContext
 
     const { tools: internalTools = [], sdkTools = [] } = this.agentInstance
 
@@ -538,6 +529,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       currentState.abortController.abort()
     }
     const error = new Error('Execution aborted')
+    error.name = 'AbortError'
     this.transition({ type: 'error', error })
     this.emit('error', error)
   }

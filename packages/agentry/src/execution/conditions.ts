@@ -110,6 +110,25 @@ export async function evaluateConditions(
 }
 
 /**
+ * Map provider-returned true-condition indices into a boolean[] aligned with the input conditions.
+ */
+function mapConditionResults(opts: {
+  trueConditionIndices: number[]
+  conditionCount: number
+  provider: ProviderName
+  durationMs: number
+}): boolean[] {
+  const trueIndices = new Set(opts.trueConditionIndices)
+  debug(
+    'reconciler:conditions',
+    `NL evaluation via ${opts.provider} (${opts.durationMs}ms): ${trueIndices.size}/${opts.conditionCount} conditions true [${Array.from(trueIndices).join(', ')}]`,
+  )
+  return Array.from({ length: opts.conditionCount }, (_, i) =>
+    trueIndices.has(i),
+  )
+}
+
+/**
  * Dispatch NL condition evaluation to the appropriate provider implementation.
  */
 async function evaluateNaturalLanguageConditions(
@@ -208,19 +227,16 @@ async function evaluateNLWithAnthropic(
   const toolUse = response.content.find((block) => block.type === 'tool_use')
   if (toolUse && toolUse.type === 'tool_use') {
     const input = toolUse.input as { trueConditionIndices: number[] }
-    const trueIndices = new Set(input.trueConditionIndices || [])
-
-    debug(
-      'reconciler:conditions',
-      `NL evaluation via Anthropic (${durationMs}ms): ${trueIndices.size}/${conditions.length} conditions true [${Array.from(trueIndices).join(', ')}]`,
-    )
-
-    return conditions.map((_, index) => trueIndices.has(index))
+    return mapConditionResults({
+      trueConditionIndices: input.trueConditionIndices || [],
+      conditionCount: conditions.length,
+      provider: 'anthropic',
+      durationMs,
+    })
   }
 
-  debug(
-    'reconciler:conditions',
-    'NL condition evaluation: Anthropic model did not return evaluate_conditions tool call. All NL conditions defaulting to false.',
+  console.warn(
+    '[agentry] NL condition evaluation: model did not return evaluate_conditions tool call. All NL conditions defaulting to false.',
   )
   return conditions.map(() => false)
 }
@@ -290,14 +306,12 @@ async function evaluateNLWithOpenAI(
       const parsed = JSON.parse(functionCall.arguments) as {
         trueConditionIndices: number[]
       }
-      const trueIndices = new Set(parsed.trueConditionIndices ?? [])
-
-      debug(
-        'reconciler:conditions',
-        `NL evaluation via OpenAI (${durationMs}ms): ${trueIndices.size}/${conditions.length} conditions true [${Array.from(trueIndices).join(', ')}]`,
-      )
-
-      return conditions.map((_, i) => trueIndices.has(i))
+      return mapConditionResults({
+        trueConditionIndices: parsed.trueConditionIndices ?? [],
+        conditionCount: conditions.length,
+        provider: 'openai',
+        durationMs,
+      })
     } catch (e) {
       throw new Error(
         `[agentry] NL condition evaluation: failed to parse OpenAI function call arguments: "${functionCall.arguments}"`,
@@ -306,9 +320,8 @@ async function evaluateNLWithOpenAI(
     }
   }
 
-  debug(
-    'reconciler:conditions',
-    'NL condition evaluation: OpenAI model did not return evaluate_conditions call. All NL conditions defaulting to false.',
+  console.warn(
+    '[agentry] NL condition evaluation: model did not return evaluate_conditions tool call. All NL conditions defaulting to false.',
   )
   return conditions.map(() => false)
 }
