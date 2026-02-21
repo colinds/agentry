@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { BetaTool } from '@anthropic-ai/sdk/resources/beta'
 import type { InternalTool, ToolContext, ToolResult } from '../types'
+import { debug } from '../debug'
 
 /**
  * define a type-safe tool with Zod schema validation
@@ -128,6 +129,8 @@ export async function executeTool<TInput>(
     const result = await tool.handler(parseResult.data, context)
     return { result, isError: false }
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw error
+    debug('tool', `Tool "${tool.name}" handler threw:`, error as object)
     const message = error instanceof Error ? error.message : String(error)
     return {
       result: `Error: ${message}`,

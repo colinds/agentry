@@ -4,6 +4,7 @@ import type { Model, AgentResult } from './agent'
 import type { ProviderName } from './provider'
 import type { ProviderClientMap } from '../providers/types'
 import type { JsonObject, JsonValue } from './json'
+import type { TextContentArray } from './messages'
 
 export interface MemoryHandlers {
   /** Handler for viewing directory contents or file contents */
@@ -37,7 +38,7 @@ export interface MemoryHandlers {
   }) => Promise<string> | string
 }
 
-export type ToolResult = string | Array<{ type: 'text'; text: string }>
+export type ToolResult = string | TextContentArray
 
 export interface CodeExecutionTool {
   type: 'code_execution'

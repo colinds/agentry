@@ -1,4 +1,8 @@
-import type { AgentMessage, AgentMessageParam } from './messages'
+import type {
+  AgentMessage,
+  AgentMessageParam,
+  TextContentArray,
+} from './messages'
 import type { JsonObject } from './json'
 
 export interface StepToolCall {
@@ -10,7 +14,7 @@ export interface StepToolCall {
 export interface StepToolResult {
   toolCallId: string
   toolName: string
-  result: string | Array<{ type: 'text'; text: string }>
+  result: string | TextContentArray
   isError: boolean
   executionTime?: number // milliseconds
 }

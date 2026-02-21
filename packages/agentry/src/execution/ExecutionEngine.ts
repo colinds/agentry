@@ -174,7 +174,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       const err = e instanceof Error ? e : new Error(String(e))
       if (err.name === 'AbortError') throw err
       console.error(
-        '[agentry] NL condition evaluation failed, conditions unchanged:',
+        `[agentry] NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}), conditions unchanged:`,
         err,
       )
       this.emit('error', err)
@@ -600,8 +600,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       return true
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
+      const compactionModel = compactionControl.model ?? this.config.model
+      const tokenCount =
+        (this.lastMessage?.usage.input_tokens ?? 0) +
+        (this.lastMessage?.usage.output_tokens ?? 0)
       console.error(
-        '[agentry] Compaction API call failed, continuing without compaction:',
+        `[agentry] Compaction API call failed (agent: ${this.config.agentName ?? 'unknown'}, model: ${compactionModel}, tokens: ${tokenCount}), continuing without compaction:`,
         err,
       )
       this.emit('error', err)

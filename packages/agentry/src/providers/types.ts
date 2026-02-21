@@ -3,7 +3,6 @@ import type OpenAI from 'openai'
 import type { AgentStreamEvent, Model, ThinkingConfig } from '../types'
 import type { AgentMessage, AgentMessageParam } from '../types/messages'
 import type { InternalTool, BuiltInTool } from '../types/tools'
-import type { MCPServerConfig } from '../instances/types'
 import type { ProviderName } from '../types/provider'
 
 export interface ProviderClientMap {
@@ -17,6 +16,17 @@ export interface SystemBlock {
   cache_control?: { type: 'ephemeral' }
 }
 
+export interface MCPServerConfig {
+  type: 'url'
+  name: string
+  url: string
+  authorization_token?: string
+  tool_configuration?: {
+    enabled?: boolean
+    allowed_tools?: string[]
+  }
+}
+
 export interface NormalizedTurnRequest {
   model: Model
   maxTokens: number
@@ -28,6 +38,7 @@ export interface NormalizedTurnRequest {
   stopSequences?: string[]
   temperature?: number
   thinking?: ThinkingConfig
+  /** Anthropic-specific beta features to enable. Ignored by other providers. */
   betas?: string[]
   stream?: boolean
   signal: AbortSignal

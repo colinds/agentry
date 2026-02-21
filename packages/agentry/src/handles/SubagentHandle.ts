@@ -118,10 +118,10 @@ export class SubagentHandle extends AbstractAgentHandle {
       agentInstance.props.provider = this.subagent.props.provider
     }
 
-    const { temperature, maxIterations, stopSequences, stream } =
+    const { maxTokens, temperature, maxIterations, stopSequences, stream } =
       this.subagent.props
     Object.assign(agentInstance.props, {
-      maxTokens: this.subagent.props.maxTokens,
+      ...(maxTokens !== undefined && { maxTokens }),
       ...(temperature !== undefined && { temperature }),
       ...(maxIterations !== undefined && { maxIterations }),
       ...(stopSequences !== undefined && { stopSequences }),

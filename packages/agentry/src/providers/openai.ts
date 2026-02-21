@@ -4,11 +4,7 @@ import type {
   NormalizedTurnRequest,
   NormalizedTurnResponse,
 } from './types'
-import type {
-  AgentContentBlock,
-  AgentMessageParam,
-  TextContentBlock,
-} from '../types/messages'
+import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
 import type { JsonObject } from '../types/json'
 import { isCodeExecutionTool, isWebSearchTool } from '../types/tools'
 import { debug } from '../debug'
@@ -41,6 +37,7 @@ export function toOpenAIInput(
       input.push({ role: message.role, content: message.content })
       continue
     }
+    const itemCountBefore = input.length
     for (const block of message.content) {
       if (block.type === 'text' && block.text) {
         input.push({ role: message.role, content: block.text })
@@ -60,6 +57,11 @@ export function toOpenAIInput(
         } as OpenAIInputItem)
       }
       // thinking blocks intentionally ignored — no OpenAI equivalent
+    }
+    // If we emitted nothing for an assistant message (e.g. thinking-only turn),
+    // insert an empty placeholder to preserve conversation structure.
+    if (message.role === 'assistant' && input.length === itemCountBefore) {
+      input.push({ role: 'assistant', content: '' })
     }
   }
   return input
@@ -137,8 +139,9 @@ function parseOpenAIResponse(
         : 'end_turn'
 
   if (!response.usage) {
-    console.warn(
-      '[agentry] OpenAI response missing usage field; token counts will be reported as 0',
+    debug(
+      'api',
+      'OpenAI response missing usage field; token counts will be reported as 0',
     )
   }
 
@@ -254,34 +257,7 @@ export const openaiAdapter: ProviderAdapter<'openai'> = {
     const response = await client.responses.create(payload, {
       signal: request.signal,
     })
-    const normalized = parseOpenAIResponse(response)
-    // fire synthetic stream events so the engine's onStream handler is always called
-    for (const block of normalized.message.content) {
-      if (block.type === 'thinking') {
-        request.onStream({ type: 'thinking', text: block.thinking })
-      }
-    }
-    const text = normalized.message.content
-      .filter((block): block is TextContentBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('')
-    if (text) {
-      request.onStream({ type: 'text', text, accumulated: text })
-    }
-    for (const block of normalized.message.content) {
-      if (block.type === 'tool_use') {
-        request.onStream({
-          type: 'tool_use_start',
-          toolName: block.name,
-          toolId: block.id,
-        })
-      }
-    }
-    request.onStream({
-      type: 'message_complete',
-      stopReason: normalized.message.stop_reason ?? 'unknown',
-    })
-    return normalized
+    return parseOpenAIResponse(response)
   },
 }
 
@@ -323,9 +299,8 @@ async function streamOpenAITurn(
             toolId: callId,
           })
         } else {
-          console.error(
-            '[agentry] OpenAI stream: function_call item missing call_id or name, skipping tool_use_start event',
-            item,
+          throw new Error(
+            `[agentry] OpenAI stream: function_call item missing call_id or name: ${JSON.stringify(item)}`,
           )
         }
       }

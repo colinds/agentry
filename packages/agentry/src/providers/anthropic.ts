@@ -92,7 +92,10 @@ function toAgentBlocks(content: BetaContentBlock[]): AgentContentBlock[] {
         input,
       })
     } else {
-      debug('api', `Anthropic: unrecognized content block type: ${block.type}`)
+      debug(
+        'api',
+        `Anthropic: unrecognized content block type: "${(block as { type: string }).type}" — block dropped`,
+      )
     }
   }
   return blocks

@@ -10,7 +10,9 @@ import type { JsonValue } from '../types/json'
 import type { ExecutionEngine } from '../execution'
 import type { AgentStore } from '../store'
 import type { z } from 'zod'
-import type { ProviderClientMap } from '../providers/types'
+import type { ProviderClientMap, MCPServerConfig } from '../providers/types'
+
+export type { MCPServerConfig }
 
 export interface BaseInstance {
   type: string
@@ -55,17 +57,6 @@ export interface ContextInstance extends BaseInstance {
 export interface MessageInstance extends BaseInstance {
   type: 'message'
   message: AgentMessageParam
-}
-
-export interface MCPServerConfig {
-  type: 'url'
-  name: string
-  url: string
-  authorization_token?: string
-  tool_configuration?: {
-    enabled?: boolean
-    allowed_tools?: string[]
-  }
 }
 
 export interface MCPServerInstance extends BaseInstance {

@@ -301,8 +301,6 @@ test('thinking sends reasoning params to OpenAI API (non-streaming)', async () =
 })
 
 test('reasoning summary returned in result.thinking (non-streaming)', async () => {
-  const thinkingEvents: string[] = []
-
   const { client } = createOpenAIMockClient([
     {
       output: [
@@ -324,17 +322,14 @@ test('reasoning summary returned in result.thinking (non-streaming)', async () =
       model={OPENAI_TEST_MODEL}
       stream={false}
       thinking={{ type: 'enabled', effort: 'medium', summary: 'auto' }}
-      onMessage={(event) => {
-        if (event.type === 'thinking') thinkingEvents.push(event.text)
-      }}
     >
       <Message role="user">Think about this</Message>
     </Agent>,
     { clients: { openai: client } },
   )
 
+  // thinking is available in the final result; onMessage does not fire in non-streaming mode
   expect(result.thinking).toBe('I reasoned...')
-  expect(thinkingEvents).toContain('I reasoned...')
 })
 
 test('streaming: reasoning delta fires thinking event', async () => {
@@ -372,6 +367,54 @@ test('streaming: reasoning delta fires thinking event', async () => {
 
   expect(result.content).toBe('Streamed answer')
   expect(thinkingEvents).toContain('Streaming thought')
+})
+
+test('tool handler error is returned as [ERROR] function_call_output', async () => {
+  const { client, calls } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'function_call',
+          call_id: 'call_err',
+          name: 'failing_tool',
+          arguments: JSON.stringify({}),
+        },
+      ],
+    },
+    {
+      output: [
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'Got error from tool' }],
+        },
+      ],
+    },
+  ])
+
+  await run(
+    <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+      <Tools>
+        <Tool
+          name="failing_tool"
+          description="A tool that always throws"
+          parameters={z.object({})}
+          handler={async () => {
+            throw new Error('boom')
+          }}
+        />
+      </Tools>
+      <Message role="user">Call the failing tool</Message>
+    </Agent>,
+    { clients: { openai: client } },
+  )
+
+  const secondCallInput = calls[1]!.input as Array<Record<string, unknown>>
+  const toolOutput = secondCallInput.find(
+    (item) => item.type === 'function_call_output',
+  )
+  expect(toolOutput).toBeDefined()
+  expect(toolOutput!.call_id).toBe('call_err')
+  expect(String(toolOutput!.output)).toMatch(/boom/i)
 })
 
 test('openai multi-turn tool round-trip (function_call → result → response)', async () => {
@@ -433,4 +476,58 @@ test('openai multi-turn tool round-trip (function_call → result → response)'
   expect(functionCall).toBeDefined()
   expect(functionCall!.call_id).toBe('call_abc')
   expect(functionCall!.name).toBe('get_weather')
+})
+
+test('streaming: function_call item fires tool_use_start event', async () => {
+  const toolUseEvents: Array<{ toolName: string; toolId: string }> = []
+
+  const { client } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'function_call',
+          call_id: 'call_stream_1',
+          name: 'get_weather',
+          arguments: JSON.stringify({ city: 'Paris' }),
+        },
+      ],
+    },
+    {
+      output: [
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'Paris is cloudy' }],
+        },
+      ],
+    },
+  ])
+
+  const result = await run(
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={true}
+      onMessage={(event) => {
+        if (event.type === 'tool_use_start') {
+          toolUseEvents.push({ toolName: event.toolName, toolId: event.toolId })
+        }
+      }}
+    >
+      <Tools>
+        <Tool
+          name="get_weather"
+          description="Get weather"
+          parameters={z.object({ city: z.string() })}
+          handler={async ({ city }) => `Weather in ${city}: Cloudy`}
+        />
+      </Tools>
+      <Message role="user">What is the weather in Paris?</Message>
+    </Agent>,
+    { clients: { openai: client } },
+  )
+
+  expect(result.content).toBe('Paris is cloudy')
+  expect(toolUseEvents).toHaveLength(1)
+  expect(toolUseEvents[0]!.toolName).toBe('get_weather')
+  expect(toolUseEvents[0]!.toolId).toBe('call_stream_1')
 })

@@ -10,7 +10,13 @@ import {
   Tool,
   Message,
 } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from './utils'
+import {
+  createStepMockClient,
+  createOpenAIMockClient,
+  mockText,
+  mockToolUse,
+} from './utils'
+import { OPENAI_TEST_MODEL } from '../src/constants'
 import { z } from 'zod'
 
 describe('Condition', () => {
@@ -359,11 +365,11 @@ describe('Condition', () => {
             {
               type: 'tool_use',
               id: 'route_1',
-              name: 'select_routes',
-              input: { matchingRouteIndices: [1] }, // Route index 1 (math route)
+              name: 'evaluate_conditions',
+              input: { trueConditionIndices: [0] }, // NL condition index 0 (math route)
             },
           ],
-          stop_reason: 'tool_use',
+          stop_reason: 'end_turn',
         },
         // Second call: Agent's response with math tool
         {
@@ -427,11 +433,11 @@ describe('Condition', () => {
             {
               type: 'tool_use',
               id: 'route_1',
-              name: 'select_routes',
-              input: { matchingRouteIndices: [0, 1] }, // Both routes active
+              name: 'evaluate_conditions',
+              input: { trueConditionIndices: [0, 1] }, // Both routes active
             },
           ],
-          stop_reason: 'tool_use',
+          stop_reason: 'end_turn',
         },
         // Agent uses both tools
         {
@@ -665,11 +671,11 @@ describe('Condition', () => {
             {
               type: 'tool_use',
               id: 'route_1',
-              name: 'select_routes',
-              input: { matchingRouteIndices: [0] }, // Math route matches
+              name: 'evaluate_conditions',
+              input: { trueConditionIndices: [0] }, // NL condition index 0 (math route)
             },
           ],
-          stop_reason: 'tool_use',
+          stop_reason: 'end_turn',
         },
         // Agent uses calculate tool
         {
@@ -749,5 +755,286 @@ describe('Condition', () => {
       const result = await runPromise
       expect(result.content).toContain('action')
     })
+  })
+})
+
+describe('NL Condition Evaluation', () => {
+  describe('Anthropic', () => {
+    it('should activate condition and make tool available when model returns trueConditionIndices', async () => {
+      const TestAgent = () => (
+        <Agent provider="anthropic" model="claude-sonnet-4">
+          <Message role="user">Calculate 6 times 7</Message>
+          <Condition when="user wants to do math or calculations">
+            <Tools>
+              <Tool
+                name="calculate"
+                description="Perform a calculation"
+                parameters={z.object({ expression: z.string() })}
+                handler={async ({ expression }) => {
+                  // eslint-disable-next-line react-hooks/unsupported-syntax
+                  return `Result: ${eval(expression)}`
+                }}
+              />
+            </Tools>
+          </Condition>
+        </Agent>
+      )
+
+      const { client, controller } = createStepMockClient([
+        // Turn 1: NL eval — condition 0 is true
+        {
+          content: [
+            mockToolUse(
+              'evaluate_conditions',
+              { trueConditionIndices: [0] },
+              'eval_1',
+            ),
+          ],
+          stop_reason: 'end_turn',
+        },
+        // Turn 2: agent calls calculate (tool is available because condition activated)
+        {
+          content: [mockToolUse('calculate', { expression: '6 * 7' })],
+          stop_reason: 'tool_use',
+        },
+        // Turn 3: final response
+        {
+          content: [mockText('6 times 7 is 42.')],
+          stop_reason: 'end_turn',
+        },
+      ])
+
+      const runPromise = run(<TestAgent />, { client })
+      await controller.nextTurn() // NL eval
+      await controller.nextTurn() // agent calls calculate
+      await controller.nextTurn() // final response
+      const result = await runPromise
+
+      expect(result.content).toContain('42')
+    })
+
+    it('should keep condition false and skip tool when model returns no tool_use', async () => {
+      const TestAgent = () => (
+        <Agent provider="anthropic" model="claude-sonnet-4">
+          <Message role="user">Hello</Message>
+          <Condition when="user wants to do math or calculations">
+            <Tools>
+              <Tool
+                name="calculate"
+                description="Perform a calculation"
+                parameters={z.object({ expression: z.string() })}
+                handler={async ({ expression }) => {
+                  // eslint-disable-next-line react-hooks/unsupported-syntax
+                  return `Result: ${eval(expression)}`
+                }}
+              />
+            </Tools>
+          </Condition>
+        </Agent>
+      )
+
+      const { client, controller } = createStepMockClient([
+        // Turn 1: NL eval returns plain text (no tool_use) — conditions stay false
+        {
+          content: [mockText('I cannot evaluate that')],
+          stop_reason: 'end_turn',
+        },
+        // Turn 2: agent responds without tools (condition is false, calculate not available)
+        {
+          content: [mockText('Default response without tools.')],
+          stop_reason: 'end_turn',
+        },
+      ])
+
+      const runPromise = run(<TestAgent />, { client })
+      await controller.nextTurn() // NL eval (no tool_use — fallback)
+      await controller.nextTurn() // agent response
+      const result = await runPromise
+
+      expect(result.content).toContain('Default')
+      expect(result.content).not.toContain('Result:')
+    })
+  })
+
+  describe('OpenAI', () => {
+    it('should activate condition and make tool available when model returns trueConditionIndices', async () => {
+      const { client } = createOpenAIMockClient([
+        // Turn 1: NL eval (stream: false) — condition 0 is true
+        {
+          output: [
+            {
+              type: 'function_call',
+              call_id: 'cond_1',
+              name: 'evaluate_conditions',
+              arguments: JSON.stringify({ trueConditionIndices: [0] }),
+            },
+          ],
+        },
+        // Turn 2: agent calls calculate (tool available because condition activated)
+        {
+          output: [
+            {
+              type: 'function_call',
+              call_id: 'calc_1',
+              name: 'calculate',
+              arguments: JSON.stringify({ expression: '6 * 7' }),
+            },
+          ],
+        },
+        // Turn 3: final response
+        {
+          output: [
+            {
+              type: 'message',
+              content: [{ type: 'output_text', text: '6 times 7 is 42.' }],
+            },
+          ],
+        },
+      ])
+
+      const result = await run(
+        <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+          <Message role="user">Calculate 6 times 7</Message>
+          <Condition when="user wants to do math or calculations">
+            <Tools>
+              <Tool
+                name="calculate"
+                description="Perform a calculation"
+                parameters={z.object({ expression: z.string() })}
+                handler={async ({ expression }) => {
+                  // eslint-disable-next-line react-hooks/unsupported-syntax
+                  return `Result: ${eval(expression)}`
+                }}
+              />
+            </Tools>
+          </Condition>
+        </Agent>,
+        { clients: { openai: client } },
+      )
+
+      expect(result.content).toContain('42')
+    })
+
+    it('should keep condition false and skip tool when model returns no function_call', async () => {
+      const { client } = createOpenAIMockClient([
+        // Turn 1: NL eval returns a plain message (no function_call) — conditions stay false
+        {
+          output: [
+            {
+              type: 'message',
+              content: [
+                { type: 'output_text', text: 'I cannot evaluate that' },
+              ],
+            },
+          ],
+        },
+        // Turn 2: agent responds without tools (condition is false)
+        {
+          output: [
+            {
+              type: 'message',
+              content: [{ type: 'output_text', text: 'Default response.' }],
+            },
+          ],
+        },
+      ])
+
+      const result = await run(
+        <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+          <Message role="user">Hello</Message>
+          <Condition when="user wants to do math or calculations">
+            <Tools>
+              <Tool
+                name="calculate"
+                description="Perform a calculation"
+                parameters={z.object({ expression: z.string() })}
+                handler={async ({ expression }) => {
+                  // eslint-disable-next-line react-hooks/unsupported-syntax
+                  return `Result: ${eval(expression)}`
+                }}
+              />
+            </Tools>
+          </Condition>
+        </Agent>,
+        { clients: { openai: client } },
+      )
+
+      expect(result.content).toContain('Default')
+      expect(result.content).not.toContain('Result:')
+    })
+  })
+})
+
+describe('OpenAI Natural Language Conditions', () => {
+  it('should evaluate NL conditions via OpenAI function calling', async () => {
+    const { client } = createOpenAIMockClient([
+      // First call: NL condition evaluation — model returns evaluate_conditions tool call
+      {
+        output: [
+          {
+            type: 'function_call',
+            call_id: 'cond_1',
+            name: 'evaluate_conditions',
+            arguments: JSON.stringify({ trueConditionIndices: [0] }),
+          },
+        ],
+      },
+      // Second call: agent response
+      {
+        output: [
+          {
+            type: 'message',
+            content: [{ type: 'output_text', text: 'Math mode active: 42' }],
+          },
+        ],
+      },
+    ])
+
+    const result = await run(
+      <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+        <Message role="user">Calculate 6 times 7</Message>
+        <Condition when="user wants to do math">
+          <Context>Math mode active</Context>
+        </Condition>
+      </Agent>,
+      { clients: { openai: client } },
+    )
+
+    expect(result.content).toContain('42')
+  })
+
+  it('should default all NL conditions to false when model returns no function call', async () => {
+    const { client } = createOpenAIMockClient([
+      // NL condition evaluation — model returns a plain message instead of function_call
+      {
+        output: [
+          {
+            type: 'message',
+            content: [{ type: 'output_text', text: 'I cannot evaluate that' }],
+          },
+        ],
+      },
+      // Agent response (conditions stayed false)
+      {
+        output: [
+          {
+            type: 'message',
+            content: [{ type: 'output_text', text: 'Default response' }],
+          },
+        ],
+      },
+    ])
+
+    const result = await run(
+      <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+        <Message role="user">Hello</Message>
+        <Condition when="user wants something special">
+          <Context>Special mode</Context>
+        </Condition>
+      </Agent>,
+      { clients: { openai: client } },
+    )
+
+    expect(result.content).toContain('Default')
   })
 })

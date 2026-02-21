@@ -4,6 +4,7 @@ import type { SubagentInstance } from '../instances/types'
 import { parseToolInput, formatValidationError } from './defineTool'
 import { runSubagent } from '../run/subagent'
 import { createSubagentInstance } from '../instances/createInstance'
+import { debug } from '../debug'
 
 export const createAgentSyntheticTool = (
   agentTool: AgentToolInstance,
@@ -49,14 +50,24 @@ export const createAgentSyntheticTool = (
         },
       )
 
-      const result = await runSubagent(subagent, {
-        provider: subagent.props.provider,
-        clients: toolContext.clients,
-        signal: toolContext.signal,
-      })
+      let result
+      try {
+        result = await runSubagent(subagent, {
+          provider: subagent.props.provider,
+          clients: toolContext.clients,
+          signal: toolContext.signal,
+        })
+      } catch (error) {
+        debug('agent', `Subagent "${agentTool.name}" failed:`, error as object)
+        throw error
+      }
 
       const content = result.content
       if (!content) {
+        debug(
+          'agent',
+          `Subagent "${agentTool.name}" produced no text output. Stop reason: ${result.stopReason ?? 'unknown'}`,
+        )
         return `Subagent "${agentTool.name}" completed but produced no text output. Stop reason: ${result.stopReason ?? 'unknown'}.`
       }
       return content
