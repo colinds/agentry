@@ -932,6 +932,19 @@ test('toAnthropicMessage: thinking blocks are dropped from replayed history', ()
   expect(blocks.some((b) => b.type === 'text')).toBe(true)
 })
 
+test('toAnthropicMessage: thinking-only assistant message gets empty text placeholder', () => {
+  const converted = toAnthropicMessage({
+    role: 'assistant',
+    content: [{ type: 'thinking', thinking: 'internal monologue' }],
+  })
+
+  expect(Array.isArray(converted.content)).toBe(true)
+  const blocks = converted.content as Array<{ type: string; text?: string }>
+  expect(blocks).toHaveLength(1)
+  expect(blocks[0]!.type).toBe('text')
+  expect(blocks[0]!.text).toBe('')
+})
+
 test('toAnthropicMessage: thinking blocks stripped when replaying assistant turn in multi-turn conversation', async () => {
   // First turn: thinking + tool_use forces a second API call with the first turn in history
   const { client, controller } = createStepMockClient([

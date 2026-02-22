@@ -66,6 +66,11 @@ export function toAnthropicMessage(
         )
     }
   }
+  // Thinking blocks are dropped (no preserved signatures), so guard against
+  // an empty content array which the Anthropic API rejects.
+  if (message.role === 'assistant' && content.length === 0) {
+    content.push({ type: 'text', text: '' })
+  }
   return { role: message.role, content }
 }
 
