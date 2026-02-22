@@ -26,7 +26,7 @@ export function createAgentStore(): AgentStore {
       removeMessage: ({ role, content }) =>
         set((s) => ({
           messages: s.messages.filter(
-            (m) => m.role !== role && m.content !== content,
+            (m) => m.role !== role || m.content !== content,
           ),
         })),
       setMessages: (messages) => set({ messages }),

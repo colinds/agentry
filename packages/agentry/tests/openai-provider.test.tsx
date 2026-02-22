@@ -8,6 +8,11 @@ import {
   mockToolUse,
 } from './utils'
 import { ANTHROPIC_TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
+import { toOpenAIInput } from '../src/providers/openai'
+import { createAgentStore } from '../src/store'
+import { ExecutionEngine } from '../src/execution'
+import { InstanceType, type AgentInstance } from '../src/instances'
+import { AgentStatus } from '../src/types'
 import { resetSharedDefaultClients } from '../src/providers/clientResolver'
 
 beforeEach(() => {
@@ -512,4 +517,165 @@ test('streaming: function_call item fires tool_use_start event', async () => {
   expect(toolUseEvents).toHaveLength(1)
   expect(toolUseEvents[0]!.toolName).toBe('get_weather')
   expect(toolUseEvents[0]!.toolId).toBe('call_stream_1')
+})
+
+// toOpenAIInput unit tests
+
+test('toOpenAIInput: tool_result with is_error:true is prefixed with [ERROR]', () => {
+  const input = toOpenAIInput([
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'tool_result',
+          tool_use_id: 'call_x',
+          content: 'something went wrong',
+          is_error: true,
+        },
+      ],
+    },
+  ])
+  expect(input).toHaveLength(1)
+  const item = input[0] as unknown as Record<string, unknown>
+  expect(item.type).toBe('function_call_output')
+  expect(item.call_id).toBe('call_x')
+  expect(item.output).toBe('[ERROR] something went wrong')
+})
+
+test('toOpenAIInput: tool_result without is_error has no [ERROR] prefix', () => {
+  const input = toOpenAIInput([
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'tool_result',
+          tool_use_id: 'call_y',
+          content: 'success result',
+        },
+      ],
+    },
+  ])
+  const item = input[0] as unknown as Record<string, unknown>
+  expect(item.output).toBe('success result')
+  expect(String(item.output)).not.toMatch(/^\[ERROR\]/)
+})
+
+test('toOpenAIInput: assistant message with only thinking block emits empty placeholder', () => {
+  const input = toOpenAIInput([
+    {
+      role: 'assistant',
+      content: [
+        {
+          type: 'thinking',
+          thinking: 'some internal thought',
+        },
+      ],
+    },
+  ])
+  expect(input).toHaveLength(1)
+  const item = input[0] as unknown as Record<string, unknown>
+  expect(item.role).toBe('assistant')
+  expect(item.content).toBe('')
+})
+
+test('toOpenAIInput: assistant message with text and tool_use preserves order', () => {
+  const input = toOpenAIInput([
+    {
+      role: 'assistant',
+      content: [
+        { type: 'text', text: 'I will call a tool' },
+        { type: 'tool_use', id: 'call_z', name: 'my_tool', input: { x: 1 } },
+      ],
+    },
+  ])
+  expect(input).toHaveLength(2)
+  const first = input[0] as unknown as Record<string, unknown>
+  const second = input[1] as unknown as Record<string, unknown>
+  expect(first.content).toBe('I will call a tool')
+  expect(second.type).toBe('function_call')
+  expect(second.call_id).toBe('call_z')
+  expect(second.name).toBe('my_tool')
+})
+
+// OpenAI compaction test
+
+test('checkAndCompact compacts messages for OpenAI provider when threshold exceeded', async () => {
+  const { client, calls } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'OpenAI summary' }],
+        },
+      ],
+    },
+  ])
+
+  const store = createAgentStore()
+  store.setState(() => ({
+    executionState: { status: AgentStatus.Idle },
+    messages: [
+      { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'Hi' }] },
+    ],
+  }))
+
+  const agentInstance: AgentInstance = {
+    type: InstanceType.Agent,
+    props: {
+      provider: 'openai' as const,
+      model: OPENAI_TEST_MODEL,
+      maxTokens: 100,
+    },
+    client,
+    engine: null,
+    systemParts: [],
+    tools: [],
+    builtInTools: [],
+    mcpServers: [],
+    children: [],
+    parent: null,
+    store,
+  }
+
+  const engine = new ExecutionEngine({
+    provider: 'openai',
+    client,
+    model: OPENAI_TEST_MODEL,
+    maxTokens: 100,
+    store,
+    agentInstance,
+    compactionControl: {
+      enabled: true,
+      contextTokenThreshold: 10,
+      model: OPENAI_TEST_MODEL,
+    },
+  })
+
+  const engineWithInternals = engine as unknown as {
+    lastMessage: unknown
+    checkAndCompact: () => Promise<boolean>
+  }
+
+  engineWithInternals.lastMessage = {
+    content: [],
+    stop_reason: 'end_turn',
+    usage: {
+      input_tokens: 100,
+      output_tokens: 50,
+    },
+  }
+
+  const didCompact = await engineWithInternals.checkAndCompact()
+
+  expect(didCompact).toBe(true)
+  expect(calls.length).toBe(1)
+
+  const state = store.getState()
+  expect(state.messages).toHaveLength(1)
+  const onlyMessage = state.messages[0]!
+  expect(onlyMessage.role).toBe('user')
+  expect(onlyMessage.content as unknown[]).toEqual([
+    expect.objectContaining({ type: 'text', text: 'OpenAI summary' }),
+  ])
 })

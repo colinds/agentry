@@ -39,7 +39,7 @@ export interface NormalizedTurnRequest {
   system?: string | SystemBlock[]
   messages: AgentMessageParam[]
   tools: InternalTool[]
-  sdkTools: BuiltInTool[]
+  builtInTools: BuiltInTool[]
   mcpServers: MCPServerConfig[]
   stopSequences?: string[]
   temperature?: number

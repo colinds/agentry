@@ -133,17 +133,17 @@ function parseOpenAIResponse(
   }
 
   let stopReason: string
-  if (response.status === 'incomplete') {
-    stopReason = response.incomplete_details?.reason ?? 'length'
-  } else if (content.some((block) => block.type === 'tool_use')) {
+  if (content.some((block) => block.type === 'tool_use')) {
     stopReason = 'tool_use'
+  } else if (response.status === 'incomplete') {
+    stopReason = response.incomplete_details?.reason ?? 'length'
   } else {
     stopReason = 'end_turn'
   }
 
   if (!response.usage) {
-    console.warn(
-      '[agentry] OpenAI response missing usage field; token counts will be reported as 0',
+    throw new Error(
+      '[agentry] OpenAI response missing usage field; cannot track token counts for compaction',
     )
   }
 
@@ -170,7 +170,7 @@ function toOpenAITools(
     strict: tool.strict ?? null,
   }))
 
-  for (const sdkTool of request.sdkTools) {
+  for (const sdkTool of request.builtInTools) {
     if (isCodeExecutionTool(sdkTool)) {
       tools.push({
         type: 'code_interpreter',
@@ -207,8 +207,9 @@ function toOpenAITools(
       continue
     }
 
-    console.warn(
-      `[agentry] OpenAI adapter: built-in tool type "${sdkTool.type}" is not supported on OpenAI and will be skipped.`,
+    throw new Error(
+      `[agentry] Built-in tool "${sdkTool.type}" is not supported on OpenAI. ` +
+        `Remove this component or switch to an Anthropic provider.`,
     )
   }
 

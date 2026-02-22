@@ -351,7 +351,7 @@ function removeChild(parent: Instance, child: Instance): void {
   disposeOnIdle(() => {
     if (isSubagentInstance(child)) {
       child.tools = []
-      child.sdkTools = []
+      child.builtInTools = []
       child.systemParts = []
       child.mcpServers = []
       child.children = []

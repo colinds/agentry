@@ -136,7 +136,7 @@ export const anthropicAdapter: ProviderAdapter<'anthropic'> = {
   ): Promise<NormalizedTurnResponse> {
     const tools: BetaToolUnion[] = [
       ...request.tools.map(toApiTool),
-      ...request.sdkTools.map(toApiSdkTool),
+      ...request.builtInTools.map(toApiSdkTool),
       ...request.mcpServers.map((server) => ({
         type: 'mcp_toolset' as const,
         mcp_server_name: server.name,
@@ -147,10 +147,10 @@ export const anthropicAdapter: ProviderAdapter<'anthropic'> = {
     if (request.mcpServers.length > 0) {
       betas.add(ANTHROPIC_BETAS.MCP_CLIENT)
     }
-    if (request.sdkTools.some(isCodeExecutionTool)) {
+    if (request.builtInTools.some(isCodeExecutionTool)) {
       betas.add(ANTHROPIC_BETAS.CODE_EXECUTION)
     }
-    if (request.sdkTools.some(isMemoryTool)) {
+    if (request.builtInTools.some(isMemoryTool)) {
       betas.add(ANTHROPIC_BETAS.CONTEXT_MANAGEMENT)
     }
     if (request.tools.some((tool) => tool.strict)) {

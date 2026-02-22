@@ -6,6 +6,7 @@ import { Agent, System, Context, Tools, Tool, Message, AgentTool } from '../src'
 import { createStepMockClient, mockText, mockToolUse } from './utils'
 import { ANTHROPIC_TEST_MODEL } from '../src/constants'
 import { resetSharedDefaultClients } from '../src/providers/clientResolver'
+import { toAnthropicMessage } from '../src/providers/anthropic'
 
 beforeEach(() => {
   resetSharedDefaultClients()
@@ -912,4 +913,91 @@ test('missing Anthropic client throws descriptive error when no env var set', as
     if (prev !== undefined) process.env.ANTHROPIC_API_KEY = prev
     resetSharedDefaultClients()
   }
+})
+
+// toAnthropicMessage unit tests
+
+test('toAnthropicMessage: thinking blocks are dropped from replayed history', () => {
+  const converted = toAnthropicMessage({
+    role: 'assistant',
+    content: [
+      { type: 'thinking', thinking: 'internal monologue' },
+      { type: 'text', text: 'visible response' },
+    ],
+  })
+
+  expect(Array.isArray(converted.content)).toBe(true)
+  const blocks = converted.content as Array<{ type: string }>
+  expect(blocks.some((b) => b.type === 'thinking')).toBe(false)
+  expect(blocks.some((b) => b.type === 'text')).toBe(true)
+})
+
+test('toAnthropicMessage: thinking blocks stripped when replaying assistant turn in multi-turn conversation', async () => {
+  // First turn: thinking + tool_use forces a second API call with the first turn in history
+  const { client, controller } = createStepMockClient([
+    {
+      content: [
+        {
+          type: 'thinking',
+          thinking: 'I should use a tool',
+          citations: null,
+        } as never,
+        mockToolUse('echo', { msg: 'hello' }),
+      ],
+      stop_reason: 'tool_use',
+    },
+    {
+      content: [mockText('Done')],
+      stop_reason: 'end_turn',
+    },
+  ])
+
+  const capturedBlocks: Array<{ type: string }>[] = []
+  const rawClient = client as unknown as {
+    beta: {
+      messages: {
+        create: (p: Record<string, unknown>, opts?: unknown) => Promise<unknown>
+      }
+    }
+  }
+  const originalCreate = rawClient.beta.messages.create.bind(
+    rawClient.beta.messages,
+  )
+  rawClient.beta.messages.create = async (
+    params: Record<string, unknown>,
+    opts?: unknown,
+  ) => {
+    const msgs = params.messages as Array<{ role: string; content: unknown }>
+    for (const msg of msgs) {
+      if (Array.isArray(msg.content)) {
+        capturedBlocks.push(msg.content as Array<{ type: string }>)
+      }
+    }
+    return originalCreate(params, opts)
+  }
+
+  const runPromise = run(
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
+      <Tools>
+        <Tool
+          name="echo"
+          description="Echo a message"
+          parameters={z.object({ msg: z.string() })}
+          handler={async ({ msg }) => msg}
+        />
+      </Tools>
+      <Message role="user">Use the echo tool</Message>
+    </Agent>,
+    { clients: { anthropic: client } },
+  )
+
+  await controller.nextTurn() // first turn: thinking + tool_use
+  await controller.waitForNextCall()
+  await controller.nextTurn() // second turn: end_turn
+
+  await runPromise
+
+  // All blocks seen across both API calls must not include thinking blocks
+  const allBlocks = capturedBlocks.flat()
+  expect(allBlocks.some((b) => b.type === 'thinking')).toBe(false)
 })

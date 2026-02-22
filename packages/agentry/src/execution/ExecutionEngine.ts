@@ -129,8 +129,10 @@ function buildToolContext(
       client: client as ProviderClientMap['openai'],
     }
   }
-  // Unreachable with current ProviderName union, included for exhaustiveness
-  return { ...base, provider: undefined, client: undefined }
+  const _exhaustive: never = config.provider
+  throw new Error(
+    `[agentry] buildToolContext: unhandled provider "${String(_exhaustive)}". Add a branch for this provider.`,
+  )
 }
 
 /**
@@ -226,7 +228,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private recollectAll(): void {
     this.agentInstance.tools = []
     this.agentInstance.systemParts = []
-    this.agentInstance.sdkTools = []
+    this.agentInstance.builtInTools = []
     this.agentInstance.mcpServers = []
 
     for (const child of this.agentInstance.children) {
@@ -347,7 +349,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       system,
       messages: this.messages as AgentMessageParam[],
       tools: this.agentInstance.tools,
-      sdkTools: this.agentInstance.sdkTools,
+      builtInTools: this.agentInstance.builtInTools,
       mcpServers: this.agentInstance.mcpServers,
       stopSequences: this.config.stopSequences,
       temperature: this.config.temperature,
@@ -376,7 +378,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const signal = abortController.signal
     const context = buildToolContext(this.config, this.client, signal)
 
-    const { tools: internalTools = [], sdkTools = [] } = this.agentInstance
+    const { tools: internalTools = [], builtInTools = [] } = this.agentInstance
 
     const results = await Promise.all(
       pendingTools.map(async (toolCall) => {
@@ -410,7 +412,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         }
 
         // check if it's an SDK tool
-        const sdkTool = sdkTools.find(
+        const sdkTool = builtInTools.find(
           (t) => hasName(t) && t.name === toolCall.name,
         )
 
@@ -597,7 +599,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           { role: 'user', content: summaryPrompt },
         ],
         tools: [],
-        sdkTools: [],
+        builtInTools: [],
         mcpServers: [],
         betas: this.config.betas,
         stream: false,

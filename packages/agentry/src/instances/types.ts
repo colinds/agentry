@@ -40,7 +40,7 @@ export interface AgentInstance extends BaseInstance {
   engine: ExecutionEngine | null
   systemParts: Array<{ content: string; cache?: 'ephemeral' }>
   tools: InternalTool[]
-  sdkTools: BuiltInTool[]
+  builtInTools: BuiltInTool[]
   mcpServers: MCPServerConfig[]
   children: Instance[]
   store: AgentStore
@@ -91,7 +91,7 @@ export interface SubagentInstance extends BaseInstance {
   children: Instance[]
   systemParts: Array<{ content: string; cache?: 'ephemeral' }>
   tools: InternalTool[]
-  sdkTools: BuiltInTool[]
+  builtInTools: BuiltInTool[]
   mcpServers: MCPServerConfig[]
   agentNode: React.ReactNode | null
 }

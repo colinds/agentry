@@ -91,22 +91,22 @@ export function getRegisteredTools(handle: AgentHandle): string[] {
  */
 export function getAllRegisteredTools(handle: AgentHandle): {
   tools: string[]
-  sdkTools: string[]
+  builtInTools: string[]
 } {
   const containerInfo = handle.__getContainerInfo()
   if (!containerInfo || !containerInfo.container) {
-    return { tools: [], sdkTools: [] }
+    return { tools: [], builtInTools: [] }
   }
 
   const container = containerInfo.container
   const agent = container.children[0]
   if (!agent || !isAgentInstance(agent)) {
-    return { tools: [], sdkTools: [] }
+    return { tools: [], builtInTools: [] }
   }
 
   return {
     tools: agent.tools.map((tool) => tool.name),
-    sdkTools: agent.sdkTools.map((tool) => {
+    builtInTools: agent.builtInTools.map((tool) => {
       if ('name' in tool && typeof tool.name === 'string') {
         return tool.name
       }
