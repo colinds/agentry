@@ -1,4 +1,3 @@
-export { reconciler } from './reconciler'
 export {
   createContainer,
   updateContainer,
@@ -6,4 +5,3 @@ export {
   unmountContainer,
   type ContainerInfo,
 } from './renderer'
-export { diffProps, disposeOnIdle } from './utils'

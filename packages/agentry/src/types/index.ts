@@ -1,13 +1,6 @@
 export {
   type AgentMessage,
   type AgentMessageParam,
-  type AgentContentBlock,
-  type ToolUseContentBlock,
-  type TextContentBlock,
-  type ToolResultContentBlock,
-  type ThinkingContentBlock,
-  isToolUseBlock,
-  isTextBlock,
   extractText,
   extractToolUses,
 } from './messages'
@@ -15,21 +8,14 @@ export {
 export {
   type ToolResult,
   type ToolContext,
-  type RunnableTool,
   type InternalTool,
   type DefineToolOptions,
-  type ToolUnion,
   type PendingToolCall,
-  type ToolExecutionResult,
   type BuiltInTool,
-  type CodeExecutionTool,
   type WebSearchTool,
   type MemoryTool,
   type MemoryHandlers,
-  type RunAgentOptions,
   BuiltInToolType,
-  isCodeExecutionTool,
-  isWebSearchTool,
   isMemoryTool,
 } from './tools'
 
@@ -41,7 +27,6 @@ export {
 
 export {
   type AgentState,
-  type StateTransition,
   AgentStatus,
   TransitionType,
   initialState,
@@ -58,7 +43,6 @@ export {
   type OpenAIModel,
   type AgentProps,
   type BaseAgentProps,
-  type ProviderVariant,
   type ThinkingConfig,
   type AnthropicThinkingEnabled,
   type OpenAIThinkingEnabled,

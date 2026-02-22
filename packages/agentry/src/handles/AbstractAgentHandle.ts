@@ -22,7 +22,7 @@ import { AgentProvider } from '../context'
 import type { ProviderAdapter, ProviderClientMap } from '../providers/types'
 import type { ProviderName } from '../types/provider'
 
-export interface AgentHandleEvents {
+interface AgentHandleEvents {
   stateChange: (state: AgentState) => void
   stream: (event: AgentStreamEvent) => void
   complete: (result: AgentResult) => void

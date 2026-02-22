@@ -184,10 +184,6 @@ export type DefineToolOptions<TSchema extends z.ZodType> = Omit<
 
 export type ToolUnion = InternalTool | BuiltInTool
 
-export function isRunnableTool(tool: ToolUnion): tool is InternalTool {
-  return 'handler' in tool && typeof tool.handler === 'function'
-}
-
 export interface PendingToolCall {
   id: string
   name: string

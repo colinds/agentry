@@ -2,7 +2,6 @@ export {
   defineTool,
   toApiTool,
   parseToolInput,
-  formatValidationError,
   executeTool,
 } from './defineTool'
 

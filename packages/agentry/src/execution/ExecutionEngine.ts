@@ -47,7 +47,7 @@ import { createDefaultAdapters } from '../providers'
 import { isTextBlock } from '../types/messages'
 import type { JsonObject } from '../types/json'
 
-export interface ExecutionEngineEvents {
+interface ExecutionEngineEvents {
   stateChange: (state: AgentState) => void
   stream: (event: AgentStreamEvent) => void
   message: (message: AgentMessage) => void

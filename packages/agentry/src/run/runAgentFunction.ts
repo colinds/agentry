@@ -26,7 +26,7 @@ export interface RunAgentOptions {
 /**
  * Context for creating a spawn agent function
  */
-export interface RunAgentContext {
+interface RunAgentContext {
   clients?: Partial<ProviderClientMap>
   provider?: ProviderName
   model?: Model

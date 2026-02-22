@@ -37,7 +37,7 @@ export interface AgentMessageParam {
   content: string | AgentContentBlock[]
 }
 
-export type StopReason =
+type StopReason =
   | 'end_turn'
   | 'tool_use'
   | 'max_tokens'

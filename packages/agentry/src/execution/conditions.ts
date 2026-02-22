@@ -21,7 +21,7 @@ Return ALL indices of conditions that are TRUE based on the current conversation
 /**
  * Find all condition instances in the tree
  */
-export function findAllConditions(root: Instance): ConditionInstance[] {
+function findAllConditions(root: Instance): ConditionInstance[] {
   const conditions: ConditionInstance[] = []
 
   function traverse(inst: Instance): void {

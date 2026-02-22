@@ -9,14 +9,14 @@ import type {
 } from '../providers/types'
 import type { ProviderName } from '../types/provider'
 
-export interface EngineConfigOptions {
+interface EngineConfigOptions {
   agent: AgentInstance
   clients: Partial<ProviderClientMap>
   adapters: Record<ProviderName, ProviderAdapter<ProviderName>>
   store?: AgentStore
 }
 
-export interface EngineConfigResult {
+interface EngineConfigResult {
   config: ExecutionEngineConfig
   store: AgentStore
 }

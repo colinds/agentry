@@ -28,7 +28,7 @@ export interface MemoryToolInput {
   new_path?: string
 }
 
-export interface MemoryToolResult {
+interface MemoryToolResult {
   result: string
   isError: boolean
 }
