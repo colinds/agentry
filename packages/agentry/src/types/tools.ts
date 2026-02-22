@@ -119,8 +119,8 @@ export interface RunAgentOptions {
 }
 
 type ProviderContextFields =
-  | { provider: 'anthropic'; client?: ProviderClientMap['anthropic'] }
-  | { provider: 'openai'; client?: ProviderClientMap['openai'] }
+  | { provider: 'anthropic'; client: ProviderClientMap['anthropic'] }
+  | { provider: 'openai'; client: ProviderClientMap['openai'] }
   | { provider?: undefined; client?: undefined }
 
 type BaseToolContext = {

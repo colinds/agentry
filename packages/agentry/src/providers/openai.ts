@@ -15,7 +15,7 @@ type OpenAIResponseCreateParamsStreaming =
   OpenAI.Responses.ResponseCreateParamsStreaming
 type OpenAIResponseResult = OpenAI.Responses.Response
 type OpenAIResponseStreamEvent = OpenAI.Responses.ResponseStreamEvent
-export type OpenAIInputItem = OpenAI.Responses.ResponseInputItem
+type OpenAIInputItem = OpenAI.Responses.ResponseInputItem
 
 function stringifyContent(
   content: string | Array<{ type: string; text?: string }> | undefined,
@@ -55,8 +55,14 @@ export function toOpenAIInput(
           call_id: block.tool_use_id,
           output: block.is_error ? `[ERROR] ${output}` : output,
         } as OpenAIInputItem)
+      } else if (block.type === 'thinking') {
+        // Thinking blocks have no OpenAI equivalent — intentionally skipped
+      } else {
+        debug(
+          'openai',
+          `Unrecognized message block type "${(block as { type: string }).type}" skipped during input conversion`,
+        )
       }
-      // thinking blocks intentionally ignored — no OpenAI equivalent
     }
     // If we emitted nothing for an assistant message (e.g. thinking-only turn),
     // insert an empty placeholder to preserve conversation structure.

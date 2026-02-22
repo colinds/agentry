@@ -111,49 +111,27 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     this.engine = new ExecutionEngine(config)
 
     let onStateChange: ((state: AgentState) => void) | undefined
-    let onStream: ((event: AgentStreamEvent) => void) | undefined
-    let onError: ((error: Error) => void) | undefined
-    let onStepFinish: ((result: OnStepFinishResult) => void) | undefined
+    const onStream = (event: AgentStreamEvent) => {
+      if (emitEvents) this.emit('stream', event)
+      agent.props.onMessage?.(event)
+    }
+    const onError = (error: Error) => {
+      if (emitEvents) this.emit('error', error)
+      agent.props.onError?.(error)
+    }
+    const onStepFinish = (result: OnStepFinishResult) => {
+      if (emitEvents) this.emit('stepFinish', result)
+      agent.props.onStepFinish?.(result)
+    }
 
     try {
       if (emitEvents) {
-        onStateChange = (state: AgentState) => {
-          // State is already updated in store by engine
-          this.emit('stateChange', state)
-        }
-        onStream = (event: AgentStreamEvent) => {
-          this.emit('stream', event)
-          agent.props.onMessage?.(event)
-        }
-        onError = (error: Error) => {
-          this.emit('error', error)
-          agent.props.onError?.(error)
-        }
-        onStepFinish = (result: OnStepFinishResult) => {
-          this.emit('stepFinish', result)
-          agent.props.onStepFinish?.(result)
-        }
-
+        onStateChange = (state: AgentState) => this.emit('stateChange', state)
         this.engine.on('stateChange', onStateChange)
-        this.engine.on('stream', onStream)
-        this.engine.on('error', onError)
-        this.engine.on('stepFinish', onStepFinish)
-      } else {
-        // Still wire up agent props callbacks even if not emitting events
-        onStream = (event: AgentStreamEvent) => {
-          agent.props.onMessage?.(event)
-        }
-        onError = (error: Error) => {
-          agent.props.onError?.(error)
-        }
-        onStepFinish = (result: OnStepFinishResult) => {
-          agent.props.onStepFinish?.(result)
-        }
-
-        this.engine.on('stream', onStream)
-        this.engine.on('error', onError)
-        this.engine.on('stepFinish', onStepFinish)
       }
+      this.engine.on('stream', onStream)
+      this.engine.on('error', onError)
+      this.engine.on('stepFinish', onStepFinish)
 
       const result = await this.engine.run()
 

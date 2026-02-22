@@ -24,12 +24,14 @@ Return ALL indices of conditions that are TRUE based on the current conversation
 export function findAllConditions(root: Instance): ConditionInstance[] {
   const conditions: ConditionInstance[] = []
 
-  const traverse = (inst: Instance) => {
+  function traverse(inst: Instance): void {
     if (isConditionInstance(inst)) {
       conditions.push(inst)
     }
     if ('children' in inst && Array.isArray(inst.children)) {
-      inst.children.forEach(traverse)
+      for (const child of inst.children) {
+        traverse(child)
+      }
     }
   }
 
@@ -250,9 +252,18 @@ async function evaluateNLWithAnthropic({
 
   const toolUse = response.content.find((block) => block.type === 'tool_use')
   if (toolUse && toolUse.type === 'tool_use') {
-    const input = toolUse.input as { trueConditionIndices: number[] }
+    const input = toolUse.input as Record<string, unknown>
+    const indices = input.trueConditionIndices
+    if (
+      !Array.isArray(indices) ||
+      !indices.every((i) => typeof i === 'number')
+    ) {
+      throw new Error(
+        `[agentry] NL condition evaluation: unexpected tool input shape from Anthropic: ${JSON.stringify(input)}`,
+      )
+    }
     return mapConditionResults({
-      trueConditionIndices: input.trueConditionIndices || [],
+      trueConditionIndices: indices,
       conditionCount: conditions.length,
       provider: 'anthropic',
       durationMs,
@@ -331,22 +342,30 @@ async function evaluateNLWithOpenAI({
       item.type === 'function_call' && item.name === 'evaluate_conditions',
   )
   if (functionCall && functionCall.type === 'function_call') {
+    let parsed: Record<string, unknown>
     try {
-      const parsed = JSON.parse(functionCall.arguments) as {
-        trueConditionIndices: number[]
-      }
-      return mapConditionResults({
-        trueConditionIndices: parsed.trueConditionIndices ?? [],
-        conditionCount: conditions.length,
-        provider: 'openai',
-        durationMs,
-      })
+      parsed = JSON.parse(functionCall.arguments) as Record<string, unknown>
     } catch (e) {
       throw new Error(
         `[agentry] NL condition evaluation: failed to parse OpenAI function call arguments: "${functionCall.arguments}"`,
         { cause: e },
       )
     }
+    const indices = parsed.trueConditionIndices
+    if (
+      !Array.isArray(indices) ||
+      !indices.every((i) => typeof i === 'number')
+    ) {
+      throw new Error(
+        `[agentry] NL condition evaluation: unexpected tool input shape from OpenAI: ${JSON.stringify(parsed)}`,
+      )
+    }
+    return mapConditionResults({
+      trueConditionIndices: indices,
+      conditionCount: conditions.length,
+      provider: 'openai',
+      durationMs,
+    })
   }
 
   throw new Error(

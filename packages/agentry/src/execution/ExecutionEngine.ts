@@ -94,10 +94,6 @@ export interface ExecutionEngineConfig {
   betas?: string[]
 }
 
-function hasName(t: object | null): t is { name: string } {
-  return t !== null && 'name' in t
-}
-
 function buildToolContext(
   config: ExecutionEngineConfig,
   client: ProviderClientMap[ProviderName],
@@ -416,10 +412,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           })
         }
 
-        // check if it's an SDK tool
-        const sdkTool = builtInTools.find(
-          (t) => hasName(t) && t.name === toolCall.name,
-        )
+        // check if it's a built-in tool
+        const sdkTool = builtInTools.find((t) => t.name === toolCall.name)
 
         if (sdkTool) {
           // Memory tool requires client-side handlers
@@ -625,7 +619,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         .join('')
 
       if (!summaryText) {
-        console.warn('[agentry] Compaction: model returned no text summary')
+        const err = new Error(
+          `[agentry] Compaction: model returned no text summary (agent: ${this.config.agentName ?? 'unknown'})`,
+        )
+        console.warn(err.message)
+        this.emit('error', err)
         return false
       }
 
@@ -646,10 +644,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       const tokenCount =
         (this.lastMessage?.usage.input_tokens ?? 0) +
         (this.lastMessage?.usage.output_tokens ?? 0)
-      debug(
-        'compaction',
-        `API call failed (agent: ${this.config.agentName ?? 'unknown'}, model: ${compactionModel}, tokens: ${tokenCount}), continuing without compaction`,
-        { error: err.message },
+      console.warn(
+        `[agentry] Compaction failed for agent "${this.config.agentName ?? 'unknown'}" ` +
+          `(model: ${compactionModel}, tokens: ${tokenCount}): ${err.message}. ` +
+          `Continuing without compaction.`,
       )
       this.emit('error', err)
       return false

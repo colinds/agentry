@@ -10,13 +10,6 @@ const sharedDefaultClients: Partial<ProviderClientMap> = {}
 const pendingClients: Partial<Record<ProviderName, Promise<ProviderClient>>> =
   {}
 
-export function getProviderClient(
-  clients: Partial<ProviderClientMap>,
-  provider: ProviderName,
-): ProviderClient | undefined {
-  return clients[provider]
-}
-
 async function createDefaultAnthropicClient(): Promise<
   InstanceType<typeof Anthropic>
 > {
@@ -63,13 +56,6 @@ async function getSharedDefaultClient(
   provider: ProviderName,
 ): Promise<ProviderClient> {
   const envVar = envVarNames[provider]
-  if (!envVar) {
-    throw new Error(
-      `[agentry] No default client factory for unknown provider: "${provider as string}". ` +
-        'Pass a client explicitly via createAI({ clients: { ... } }).',
-    )
-  }
-
   if (!process.env[envVar]) {
     throw new Error(
       `No ${providerDisplayNames[provider]} client configured. Provide clients.${provider} or set ${envVar}.`,
@@ -79,9 +65,7 @@ async function getSharedDefaultClient(
   if (!sharedDefaultClients[provider]) {
     pendingClients[provider] ??= clientFactories[provider]().then(
       (client) => {
-        ;(sharedDefaultClients as Record<ProviderName, ProviderClient>)[
-          provider
-        ] = client
+        Object.assign(sharedDefaultClients, { [provider]: client })
         pendingClients[provider] = undefined
         return client
       },
@@ -100,7 +84,7 @@ export async function ensureProviderClient(
   clients: Partial<ProviderClientMap>,
   provider: ProviderName,
 ): Promise<ProviderClient> {
-  const configured = getProviderClient(clients, provider)
+  const configured = clients[provider]
   if (configured) {
     return configured
   }

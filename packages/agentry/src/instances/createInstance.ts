@@ -236,7 +236,7 @@ function createMessageInstance(props: MessageComponentProps): MessageInstance {
     type: InstanceType.Message,
     message: {
       role: props.role,
-      content: content,
+      content,
     },
     parent: null,
   }
@@ -274,7 +274,7 @@ function createConditionInstance(
   return {
     type: InstanceType.Condition,
     when: props.when,
-    isActive: false,
+    isActive: typeof props.when === 'boolean' ? props.when : false,
     children: [],
     parent: null,
   }

@@ -22,7 +22,7 @@ export interface ToolUseContentBlock {
 export interface ToolResultContentBlock {
   type: 'tool_result'
   tool_use_id: string
-  content: string | Array<{ type: 'text'; text: string }>
+  content: string | TextContentArray
   is_error?: boolean
 }
 
@@ -37,9 +37,16 @@ export interface AgentMessageParam {
   content: string | AgentContentBlock[]
 }
 
+export type StopReason =
+  | 'end_turn'
+  | 'tool_use'
+  | 'max_tokens'
+  | 'length'
+  | (string & {})
+
 export interface AgentMessage {
   content: AgentContentBlock[]
-  stop_reason: string | null
+  stop_reason: StopReason | null
   usage: {
     input_tokens: number
     output_tokens: number
@@ -47,12 +54,6 @@ export interface AgentMessage {
     cache_read_input_tokens?: number | null
   }
 }
-
-// Backward-compatible aliases retained for test and migration stability.
-export type BetaMessageParam = AgentMessageParam
-export type BetaMessage = AgentMessage
-export type BetaToolUseBlock = ToolUseContentBlock
-export type BetaTextBlock = TextContentBlock
 
 export function isToolUseBlock(
   block: AgentContentBlock,
@@ -70,12 +71,6 @@ export function isThinkingBlock(
   block: AgentContentBlock,
 ): block is ThinkingContentBlock {
   return block.type === 'thinking'
-}
-
-export function isToolResultBlock(
-  block: AgentContentBlock,
-): block is ToolResultContentBlock {
-  return block.type === 'tool_result'
 }
 
 export function extractText(message: AgentMessage): string {

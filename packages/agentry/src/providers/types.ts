@@ -10,11 +10,10 @@ export interface ProviderClientMap {
   openai: OpenAI
 }
 
-// Compile-time sync checks: ensure ProviderName and ProviderClientMap keys stay in sync
-type _AssertKeysMatch = ProviderClientMap[ProviderName]
-type _AssertNoExtraKeys = keyof ProviderClientMap extends ProviderName
-  ? true
-  : never
+// Compile-time check: ProviderClientMap keys must exactly match ProviderName
+const _assertProviderClientMapKeys: Record<ProviderName, unknown> =
+  {} as ProviderClientMap
+void _assertProviderClientMapKeys
 
 export interface SystemBlock {
   type: 'text'

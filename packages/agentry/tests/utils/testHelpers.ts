@@ -1,5 +1,5 @@
 import { useExecutionState, useMessages } from '../../src'
-import { type AgentState, type BetaMessageParam } from '../../src/types'
+import { type AgentState, type AgentMessageParam } from '../../src/types'
 import {
   isAgentInstance,
   isConditionInstance,
@@ -31,7 +31,7 @@ export function createStateWatcher() {
  * Returns message history snapshots for assertions
  */
 export function createMessageCollector() {
-  const snapshots: BetaMessageParam[][] = []
+  const snapshots: AgentMessageParam[][] = []
 
   const Component = () => {
     const messages = useMessages()

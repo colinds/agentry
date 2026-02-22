@@ -35,36 +35,35 @@ export function toAnthropicMessage(
   }
   const content: BetaContentBlockParam[] = []
   for (const block of message.content) {
-    if (block.type === 'text') {
-      content.push({ type: 'text', text: block.text })
-      continue
-    }
-    if (block.type === 'thinking') {
-      // Anthropic thinking blocks in request history require provider-generated signatures.
-      // We keep only user/assistant text and tool blocks when replaying history.
-      continue
-    }
-    if (block.type === 'tool_use') {
-      content.push({
-        type: 'tool_use',
-        id: block.id,
-        name: block.name,
-        input: block.input,
-      })
-      continue
-    }
-    if (block.type === 'tool_result') {
-      content.push({
-        type: 'tool_result',
-        tool_use_id: block.tool_use_id,
-        content: block.content,
-        is_error: block.is_error,
-      })
-    } else {
-      debug(
-        'anthropic',
-        `Dropping unrecognized message block type: ${(block as { type: string }).type}`,
-      )
+    switch (block.type) {
+      case 'text':
+        content.push({ type: 'text', text: block.text })
+        break
+      case 'thinking':
+        // Anthropic thinking blocks in request history require provider-generated signatures.
+        // We keep only user/assistant text and tool blocks when replaying history.
+        break
+      case 'tool_use':
+        content.push({
+          type: 'tool_use',
+          id: block.id,
+          name: block.name,
+          input: block.input,
+        })
+        break
+      case 'tool_result':
+        content.push({
+          type: 'tool_result',
+          tool_use_id: block.tool_use_id,
+          content: block.content,
+          is_error: block.is_error,
+        })
+        break
+      default:
+        debug(
+          'anthropic',
+          `Dropping unrecognized message block type: ${(block as { type: string }).type}`,
+        )
     }
   }
   return { role: message.role, content }
@@ -73,37 +72,38 @@ export function toAnthropicMessage(
 function toAgentBlocks(content: BetaContentBlock[]): AgentContentBlock[] {
   const blocks: AgentContentBlock[] = []
   for (const block of content) {
-    if (block.type === 'text') {
-      blocks.push({ type: 'text', text: block.text })
-      continue
-    }
-    if (block.type === 'thinking') {
-      blocks.push({ type: 'thinking', thinking: block.thinking })
-      continue
-    }
-    if (block.type === 'tool_use') {
-      let input: JsonObject
-      if (typeof block.input === 'object' && block.input !== null) {
-        input = block.input as JsonObject
-      } else {
+    switch (block.type) {
+      case 'text':
+        blocks.push({ type: 'text', text: block.text })
+        break
+      case 'thinking':
+        blocks.push({ type: 'thinking', thinking: block.thinking })
+        break
+      case 'tool_use': {
+        let input: JsonObject
+        if (typeof block.input === 'object' && block.input !== null) {
+          input = block.input as JsonObject
+        } else {
+          debug(
+            'anthropic',
+            `Tool "${block.name}": non-object input coerced to {}`,
+            { input: block.input },
+          )
+          input = {}
+        }
+        blocks.push({
+          type: 'tool_use',
+          id: block.id,
+          name: block.name,
+          input,
+        })
+        break
+      }
+      default:
         debug(
           'anthropic',
-          `Tool "${block.name}": non-object input coerced to {}`,
-          { input: block.input },
+          `Unrecognized content block type: "${(block as { type: string }).type}" — block dropped`,
         )
-        input = {}
-      }
-      blocks.push({
-        type: 'tool_use',
-        id: block.id,
-        name: block.name,
-        input,
-      })
-    } else {
-      debug(
-        'anthropic',
-        `Unrecognized content block type: "${(block as { type: string }).type}" — block dropped`,
-      )
     }
   }
   return blocks
