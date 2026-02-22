@@ -25,6 +25,7 @@ import {
 import { toApiTool } from '../tools'
 import type { BuiltInTool } from '../types/tools'
 import type { JsonObject } from '../types/json'
+import { debug } from '../debug'
 
 export function toAnthropicMessage(
   message: AgentMessageParam,
@@ -60,8 +61,9 @@ export function toAnthropicMessage(
         is_error: block.is_error,
       })
     } else {
-      console.warn(
-        `[agentry] Anthropic: dropping unrecognized message block type: ${(block as { type: string }).type}`,
+      debug(
+        'anthropic',
+        `Dropping unrecognized message block type: ${(block as { type: string }).type}`,
       )
     }
   }
@@ -80,10 +82,17 @@ function toAgentBlocks(content: BetaContentBlock[]): AgentContentBlock[] {
       continue
     }
     if (block.type === 'tool_use') {
-      const input =
-        typeof block.input === 'object' && block.input !== null
-          ? (block.input as JsonObject)
-          : {}
+      let input: JsonObject
+      if (typeof block.input === 'object' && block.input !== null) {
+        input = block.input as JsonObject
+      } else {
+        debug(
+          'anthropic',
+          `Tool "${block.name}": non-object input coerced to {}`,
+          { input: block.input },
+        )
+        input = {}
+      }
       blocks.push({
         type: 'tool_use',
         id: block.id,
@@ -91,8 +100,9 @@ function toAgentBlocks(content: BetaContentBlock[]): AgentContentBlock[] {
         input,
       })
     } else {
-      console.warn(
-        `[agentry] Anthropic: unrecognized content block type: "${(block as { type: string }).type}" — block dropped`,
+      debug(
+        'anthropic',
+        `Unrecognized content block type: "${(block as { type: string }).type}" — block dropped`,
       )
     }
   }

@@ -6,9 +6,9 @@ import { runSubagent } from '../run/subagent'
 import { createSubagentInstance } from '../instances/createInstance'
 import { debug } from '../debug'
 
-export const createAgentSyntheticTool = (
+export function createAgentSyntheticTool(
   agentTool: AgentToolInstance,
-): InternalTool => {
+): InternalTool {
   return {
     name: agentTool.name,
     description: agentTool.description,

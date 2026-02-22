@@ -83,21 +83,21 @@ export type BuiltInTool = CodeExecutionTool | WebSearchTool | MemoryTool
 export function isCodeExecutionTool(
   tool: BuiltInTool,
 ): tool is CodeExecutionTool {
-  return 'type' in tool && tool.type === BuiltInToolType.CodeExecution
+  return tool.type === BuiltInToolType.CodeExecution
 }
 
 /**
  * Type guard for web search tool
  */
 export function isWebSearchTool(tool: BuiltInTool): tool is WebSearchTool {
-  return 'type' in tool && tool.type === BuiltInToolType.WebSearch
+  return tool.type === BuiltInToolType.WebSearch
 }
 
 /**
  * Type guard for memory tool
  */
 export function isMemoryTool(tool: BuiltInTool): tool is MemoryTool {
-  return 'type' in tool && tool.type === BuiltInToolType.Memory
+  return tool.type === BuiltInToolType.Memory
 }
 
 /**

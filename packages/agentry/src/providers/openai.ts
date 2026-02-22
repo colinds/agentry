@@ -7,6 +7,7 @@ import type {
 import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
 import type { JsonObject } from '../types/json'
 import { isCodeExecutionTool, isWebSearchTool } from '../types/tools'
+import { debug } from '../debug'
 
 type OpenAIResponseCreateParams =
   OpenAI.Responses.ResponseCreateParamsNonStreaming
@@ -38,7 +39,7 @@ export function toOpenAIInput(
     }
     const itemCountBefore = input.length
     for (const block of message.content) {
-      if (block.type === 'text' && block.text) {
+      if (block.type === 'text' && block.text !== undefined) {
         input.push({ role: message.role, content: block.text })
       } else if (block.type === 'tool_use') {
         input.push({
@@ -125,10 +126,10 @@ function parseOpenAIResponse(
         .map((s) => s.text ?? '')
         .join('\n')
       if (text) content.push({ type: 'thinking', thinking: text })
+    } else if (item.type === 'web_search_call') {
+      // Web search results are embedded in the subsequent message item — skip
     } else {
-      console.warn(
-        `[agentry] OpenAI: unrecognized output item type: ${item.type}`,
-      )
+      debug('openai', `Unrecognized output item type: ${item.type}`)
     }
   }
 
@@ -152,8 +153,8 @@ function parseOpenAIResponse(
       content,
       stop_reason: stopReason,
       usage: {
-        input_tokens: response.usage?.input_tokens ?? 0,
-        output_tokens: response.usage?.output_tokens ?? 0,
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens,
       },
     },
   }

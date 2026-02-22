@@ -47,19 +47,10 @@ type MemoryProps = MemoryHandlers
  * ```
  */
 export function Memory(props: MemoryProps): ReactNode {
-  const handlers: MemoryHandlers = {
-    onView: props.onView,
-    onCreate: props.onCreate,
-    onStrReplace: props.onStrReplace,
-    onInsert: props.onInsert,
-    onDelete: props.onDelete,
-    onRename: props.onRename,
-  }
-
   const tool: MemoryTool = {
     type: BuiltInToolType.Memory,
     name: 'memory',
-    memoryHandlers: handlers,
+    memoryHandlers: props,
   }
 
   return <built_in_tool tool={tool} key="memory" />

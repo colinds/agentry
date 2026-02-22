@@ -213,6 +213,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
       if (err.name === 'AbortError') throw err
+      debug(
+        'conditions',
+        `NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}), conditions unchanged`,
+        { error: err.message },
+      )
       console.error(
         `[agentry] NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}), conditions unchanged:`,
         err,
@@ -441,6 +446,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           }
 
           // Non-memory SDK tools (web_search, code_interpreter) are dispatched to the provider and handled server-side
+          debug(
+            'tool',
+            `Server-side tool "${toolCall.name}" cannot be executed locally`,
+          )
           return this.buildToolResult({
             toolCall,
             startTime,
@@ -449,6 +458,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           })
         }
 
+        debug('tool', `Tool "${toolCall.name}" not found`, {
+          available: internalTools.map((t) => t.name),
+        })
         return this.buildToolResult({
           toolCall,
           startTime,
@@ -625,13 +637,19 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       return true
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
+      // Re-throw fatal errors (auth failures, invalid model) — these won't resolve on retry
+      const status = (err as { status?: number }).status
+      if (status === 401 || status === 403 || status === 404) {
+        throw err
+      }
       const compactionModel = compactionControl.model ?? this.config.model
       const tokenCount =
         (this.lastMessage?.usage.input_tokens ?? 0) +
         (this.lastMessage?.usage.output_tokens ?? 0)
-      console.error(
-        `[agentry] Compaction API call failed (agent: ${this.config.agentName ?? 'unknown'}, model: ${compactionModel}, tokens: ${tokenCount}), continuing without compaction:`,
-        err,
+      debug(
+        'compaction',
+        `API call failed (agent: ${this.config.agentName ?? 'unknown'}, model: ${compactionModel}, tokens: ${tokenCount}), continuing without compaction`,
+        { error: err.message },
       )
       this.emit('error', err)
       return false

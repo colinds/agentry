@@ -154,12 +154,7 @@ function createAgentInstance(
     store,
   }
 
-  if (
-    rootContainer &&
-    isInstance(rootContainer) &&
-    isAgentInstance(rootContainer) &&
-    props.model
-  ) {
+  if (props.model) {
     rootContainer.props.model = props.model
   }
 

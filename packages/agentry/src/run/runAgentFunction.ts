@@ -96,8 +96,7 @@ export function createRunAgent(context: RunAgentContext) {
     })
 
     try {
-      const result = await handle.run()
-      return result
+      return await handle.run()
     } finally {
       handle.close()
     }
