@@ -419,12 +419,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           // Memory tool requires client-side handlers
           if (isMemoryTool(sdkTool) && sdkTool.memoryHandlers) {
             if (!isMemoryToolInput(toolCall.input)) {
-              return {
-                type: 'tool_result' as const,
-                tool_use_id: toolCall.id,
-                content: 'Error: Invalid memory tool input payload',
-                is_error: true,
-              }
+              return this.buildToolResult({
+                toolCall,
+                startTime,
+                result: 'Error: Invalid memory tool input payload',
+                isError: true,
+              })
             }
             const { result, isError } = await executeMemoryTool(
               sdkTool,

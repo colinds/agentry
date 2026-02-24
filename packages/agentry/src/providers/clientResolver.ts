@@ -39,7 +39,7 @@ async function createDefaultOpenAIClient(): Promise<
       { cause: err },
     )
   }
-  return new OpenAIClass({ apiKey: process.env[envVarNames.openai] })
+  return new OpenAIClass()
 }
 
 const envVarNames: Record<ProviderName, string> = {
