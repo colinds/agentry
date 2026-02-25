@@ -32,3 +32,4 @@ export {
   useAgentState,
 }
 export type { AgentResult } from './types'
+export { createOpenAIAdapter } from './providers/openai'

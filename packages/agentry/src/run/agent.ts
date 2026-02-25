@@ -1,18 +1,18 @@
 import type { ReactNode } from 'react'
 import { AgentHandle } from '../handles'
 import type { AgentResult } from '../types'
-import type { ProviderClientMap } from '../providers/types'
+import type { ProvidersConfig } from '../providers/types'
 
 export interface RunOptions {
-  /** provider clients */
-  clients?: Partial<ProviderClientMap>
+  /** per-provider client and options */
+  providers?: ProvidersConfig
   /** execution mode */
   mode?: 'batch' | 'interactive'
 }
 
 export interface CreateAgentOptions {
-  /** provider clients */
-  clients?: Partial<ProviderClientMap>
+  /** per-provider client and options */
+  providers?: ProvidersConfig
 }
 
 /**
@@ -66,7 +66,11 @@ export async function run(
 ): Promise<AgentResult | AgentHandle> {
   const { mode = 'batch' } = options
 
-  const handle = new AgentHandle(element, { clients: options.clients }, mode)
+  const handle = new AgentHandle(
+    element,
+    { providers: options.providers },
+    mode,
+  )
 
   if (mode === 'interactive') {
     return handle
@@ -88,5 +92,5 @@ export function createAgent(
   element: ReactNode,
   options?: CreateAgentOptions,
 ): AgentHandle {
-  return new AgentHandle(element, options)
+  return new AgentHandle(element, { providers: options?.providers })
 }

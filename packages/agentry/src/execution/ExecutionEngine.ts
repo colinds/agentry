@@ -632,6 +632,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         .actions.setMessages([
           { role: 'user', content: [{ type: 'text', text: summaryText }] },
         ])
+      this.adapter.resetChain?.()
       return true
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))

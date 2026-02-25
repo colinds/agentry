@@ -47,7 +47,7 @@ test('runAgent executes subagent and returns result', async () => {
       </Tools>
       <Message role="user">Research AI technologies</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn() // Parent tool use
@@ -110,7 +110,7 @@ test('runAgent supports parallel spawning', async () => {
       </Tools>
       <Message role="user">Analyze this content</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn() // Parent tool use
@@ -191,7 +191,7 @@ test('runAgent respects custom model option', async () => {
       </Tools>
       <Message role="user">Test</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -263,7 +263,7 @@ test('runAgent respects custom maxTokens option', async () => {
       </Tools>
       <Message role="user">Test</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -326,7 +326,7 @@ test('runAgent handles errors gracefully', async () => {
       </Tools>
       <Message role="user">Test error handling</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn() // Parent tool use
@@ -381,7 +381,7 @@ test('runAgent returns full AgentResult', async () => {
       </Tools>
       <Message role="user">Test</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -447,7 +447,7 @@ test('runAgent with conditional agent selection', async () => {
       </Tools>
       <Message role="user">Analyze with high complexity</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -509,7 +509,7 @@ test('context.runAgent with provider and clients override', async () => {
       </Tools>
       <Message role="user">Run cross-provider task</Message>
     </Agent>,
-    { clients: { anthropic: anthropicClient } },
+    { providers: { anthropic: { client: anthropicClient } } },
   )
 
   await controller.nextTurn()

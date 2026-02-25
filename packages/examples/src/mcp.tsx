@@ -21,9 +21,9 @@ const MCP = EXAMPLE_PROVIDER === 'openai' ? OpenAIMCP : AnthropicMCP
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
 const ai =
   EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ clients: { openai: new OpenAI() } })
+    ? createAI({ providers: { openai: { client: new OpenAI() } } })
     : createAI({
-        clients: { anthropic: new Anthropic() },
+        providers: { anthropic: { client: new Anthropic() } },
       })
 
 const MCP_SERVER_URL = 'https://demo-day.mcp.cloudflare.com/sse'

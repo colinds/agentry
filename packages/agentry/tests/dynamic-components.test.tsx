@@ -42,7 +42,7 @@ test('state changes trigger reconciler updates', async () => {
   ])
 
   const runPromise = run(<StateUpdateAgent />, {
-    clients: { anthropic: client },
+    providers: { anthropic: { client } },
   })
 
   await controller.nextTurn()

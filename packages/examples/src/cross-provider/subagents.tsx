@@ -18,9 +18,9 @@ import {
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? EXAMPLE_OPENAI_MODEL
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? EXAMPLE_ANTHROPIC_MODEL
 const ai = createAI({
-  clients: {
-    openai: new OpenAI(),
-    anthropic: new Anthropic(),
+  providers: {
+    openai: { client: new OpenAI() },
+    anthropic: { client: new Anthropic() },
   },
 })
 

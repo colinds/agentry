@@ -128,7 +128,7 @@ export function mockText(text: string): BetaContentBlock {
  *   { content: [mockText('Results found')] },
  * ]);
  *
- * const agent = createAgent(<Agent>...</Agent>, { clients: { anthropic: client } });
+ * const agent = createAgent(<Agent>...</Agent>, { providers: { anthropic: { client } } });
  * const runPromise = agent.run();
  *
  * // Wait for first turn to be ready

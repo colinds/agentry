@@ -42,8 +42,8 @@ const result = await run(
     </Message>
   </Agent>,
   {
-    clients: {
-      openai: new OpenAI(),
+    providers: {
+      openai: { client: new OpenAI(), websocket: true },
     },
   },
 )

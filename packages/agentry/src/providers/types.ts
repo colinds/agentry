@@ -4,16 +4,48 @@ import type { AgentStreamEvent, Model, ThinkingConfig } from '../types'
 import type { AgentMessage, AgentMessageParam } from '../types/messages'
 import type { InternalTool, BuiltInTool } from '../types/tools'
 import type { ProviderName } from '../types/provider'
+import type { ResponsesWSLike } from '../providers/openai'
 
 export interface ProviderClientMap {
   anthropic: Anthropic
   openai: OpenAI
 }
 
+export interface OpenAIProviderConfig {
+  client?: OpenAI
+  /** Use persistent WebSocket for ~40% lower per-turn latency */
+  websocket?: boolean
+}
+
+/** @internal Test-only key for injecting a mock ResponsesWS factory through provider config. */
+export const OPENAI_INTERNAL_WS_FACTORY: unique symbol = Symbol(
+  'agentry.openai.internal_ws_factory',
+)
+
+/** @internal */
+export type OpenAIProviderConfigInternal = OpenAIProviderConfig & {
+  [OPENAI_INTERNAL_WS_FACTORY]?: (client: OpenAI) => ResponsesWSLike
+}
+
+export interface AnthropicProviderConfig {
+  client?: Anthropic
+}
+
+/** Per-provider config: client instance + provider-specific options */
+export interface ProvidersConfig {
+  openai?: OpenAIProviderConfig
+  anthropic?: AnthropicProviderConfig
+}
+
 // Compile-time check: ProviderClientMap keys must exactly match ProviderName
 const _assertProviderClientMapKeys: Record<ProviderName, unknown> =
   {} as ProviderClientMap
 void _assertProviderClientMapKeys
+
+// Compile-time check: ProvidersConfig keys must exactly match ProviderName
+const _assertProvidersConfigKeys: Record<ProviderName, unknown> =
+  {} as Required<ProvidersConfig>
+void _assertProvidersConfigKeys
 
 export interface SystemBlock {
   type: 'text'
@@ -60,4 +92,8 @@ export interface ProviderAdapter<TName extends ProviderName = ProviderName> {
     client: ProviderClientMap[TName],
     request: NormalizedTurnRequest,
   ): Promise<NormalizedTurnResponse>
+  /** Optional lifecycle hook — called when the owning agent handle is closed */
+  close?(): void
+  /** Optional state hook — called when message history is replaced (e.g. compaction) */
+  resetChain?(): void
 }

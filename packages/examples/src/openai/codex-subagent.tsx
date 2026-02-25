@@ -3,7 +3,7 @@ import { run, Agent, AgentTool, Message, System, Tools } from 'agentry'
 import OpenAI from 'openai'
 
 const ORCHESTRATOR_MODEL = 'gpt-5.2'
-const CODEX_MODEL = 'gpt-5.2-codex'
+const CODEX_MODEL = 'gpt-5.3-codex'
 
 const result = await run(
   <Agent provider="openai" model={ORCHESTRATOR_MODEL} maxTokens={4096}>
@@ -56,8 +56,8 @@ const result = await run(
     </Message>
   </Agent>,
   {
-    clients: {
-      openai: new OpenAI(),
+    providers: {
+      openai: { client: new OpenAI(), websocket: true },
     },
   },
 )

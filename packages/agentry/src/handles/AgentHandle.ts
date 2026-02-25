@@ -7,8 +7,16 @@ import { isAgentInstance } from '../instances'
 import { AgentProvider } from '../context'
 import { AbstractAgentHandle } from './AbstractAgentHandle'
 import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
-import type { ProviderClientMap } from '../providers/types'
+import type {
+  OpenAIProviderConfigInternal,
+  ProviderAdapter,
+  ProviderClientMap,
+  ProvidersConfig,
+} from '../providers/types'
+import { OPENAI_INTERNAL_WS_FACTORY } from '../providers/types'
+import type { ProviderName } from '../types/provider'
 import { createDefaultAdapters } from '../providers'
+import { createOpenAIAdapter } from '../providers/openai'
 import { ensureProviderClient } from '../providers/clientResolver'
 
 /**
@@ -21,12 +29,32 @@ export class AgentHandle extends AbstractAgentHandle {
   private mode: 'batch' | 'interactive'
   constructor(
     element: ReactNode,
-    options: {
-      clients?: Partial<ProviderClientMap>
-    } = {},
+    options: { providers?: ProvidersConfig } = {},
     mode: 'batch' | 'interactive' = 'batch',
   ) {
-    const clients: Partial<ProviderClientMap> = { ...options.clients }
+    const openaiConfig = options.providers?.openai as
+      | OpenAIProviderConfigInternal
+      | undefined
+    const responsesWSFactory = openaiConfig?.[OPENAI_INTERNAL_WS_FACTORY]
+
+    // Extract clients from providers config
+    const clients: Partial<ProviderClientMap> = {}
+    if (options.providers?.openai?.client)
+      clients.openai = options.providers.openai.client
+    if (options.providers?.anthropic?.client)
+      clients.anthropic = options.providers.anthropic.client
+
+    // Build adapters — WS adapter if websocket option enabled
+    const adapters: Record<string, ProviderAdapter<ProviderName>> = {
+      ...createDefaultAdapters(),
+    }
+    if (openaiConfig?.websocket || responsesWSFactory) {
+      adapters.openai = createOpenAIAdapter({
+        websocket: openaiConfig.websocket,
+        _responsesWSFactory: responsesWSFactory,
+      })
+    }
+
     const store = createAgentStore()
 
     const rootAgent: AgentInstance = {
@@ -52,7 +80,7 @@ export class AgentHandle extends AbstractAgentHandle {
 
     super({
       clients,
-      adapters: createDefaultAdapters(),
+      adapters,
       containerInfo,
       store,
     })

@@ -4,9 +4,9 @@
   "devDependencies": {
     "@types/bun": "1.3.9",
     "@types/react": "catalog:",
-    "@typescript/native-preview": "^7.0.0-dev.20260219.1",
-    "oxfmt": "^0.34.0",
-    "oxlint": "^1.49.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260224.1",
+    "oxfmt": "^0.35.0",
+    "oxlint": "^1.50.0",
     "typescript": "^5"
   },
   "license": "MIT",
@@ -37,6 +37,8 @@
     "example:openai:basic": "bun run packages/examples/src/openai/basic.tsx",
     "example:openai:subtools": "bun run packages/examples/src/openai/subtools-smoke.tsx",
     "example:openai:codex-subagent": "bun run packages/examples/src/openai/codex-subagent.tsx",
+    "example:openai:websocket": "bun run packages/examples/src/openai/websocket.tsx",
+    "example:openai:built-ins": "bun run packages/examples/src/openai/built-ins.tsx",
     "example:cross-provider:subagents": "bun run packages/examples/src/cross-provider/subagents.tsx",
     "example:anthropic:cache-ephemeral": "bun run packages/examples/src/anthropic/cache-ephemeral.tsx",
     "example:compaction": "bun run packages/examples/src/compaction.tsx",
@@ -49,11 +51,13 @@
   },
   "type": "module",
   "workspaces": {
-    "packages": ["packages/*"],
+    "packages": [
+      "packages/*"
+    ],
     "catalog": {
       "@anthropic-ai/sdk": "^0.71.2",
       "@types/react": "^19.2.14",
-      "openai": "^6.22.0",
+      "openai": "^6.23.0",
       "react": "^19.0.0",
       "zod": "^4.1.13"
     }

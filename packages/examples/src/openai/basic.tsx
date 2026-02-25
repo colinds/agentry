@@ -25,8 +25,8 @@ const result = await run(
     <Message role="user">What is 12 + 30?</Message>
   </Agent>,
   {
-    clients: {
-      openai: new OpenAI(),
+    providers: {
+      openai: { client: new OpenAI(), websocket: true },
     },
   },
 )

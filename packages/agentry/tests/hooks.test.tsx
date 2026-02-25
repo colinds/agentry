@@ -39,7 +39,7 @@ test('useExecutionState tracks status transitions', async () => {
       <StateTracker />
       <Message role="user">Test</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -69,7 +69,7 @@ test('useExecutionState with createStateWatcher helper', async () => {
       <watcher.Component />
       <Message role="user">Test</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -101,7 +101,7 @@ test('useMessages accumulates conversation history', async () => {
       <MessageTracker />
       <Message role="user">Hello</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -125,7 +125,7 @@ test('useMessages with createMessageCollector helper', async () => {
       <collector.Component />
       <Message role="user">Test message</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -160,7 +160,7 @@ test('useAgentState provides full state access', async () => {
       <FullStateTracker />
       <Message role="user">Test</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -205,7 +205,7 @@ test('multiple components can subscribe to same state', async () => {
       <watcher2.Component />
       <Message role="user">Test</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -258,7 +258,7 @@ test('state updates during tool execution', async () => {
       </Tools>
       <Message role="user">Use the tool</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()

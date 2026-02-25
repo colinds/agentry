@@ -28,7 +28,7 @@ describe('Anthropic', () => {
         </Tools>
         <Message role="user">run some code</Message>
       </Agent>,
-      { clients: { anthropic: client } },
+      { providers: { anthropic: { client } } },
     )
 
     await controller.waitForNextCall()
@@ -52,7 +52,7 @@ describe('Anthropic', () => {
         </Tools>
         <Message role="user">search something</Message>
       </Agent>,
-      { clients: { anthropic: client } },
+      { providers: { anthropic: { client } } },
     )
 
     await controller.waitForNextCall()
@@ -83,7 +83,7 @@ describe('Anthropic', () => {
         </Tools>
         <Message role="user">remember something</Message>
       </Agent>,
-      { clients: { anthropic: client } },
+      { providers: { anthropic: { client } } },
     )
 
     await controller.waitForNextCall()
@@ -111,7 +111,7 @@ describe('Anthropic beta headers', () => {
         </Tools>
         <Message role="user">run code</Message>
       </Agent>,
-      { clients: { anthropic: client } },
+      { providers: { anthropic: { client } } },
     )
 
     await controller.waitForNextCall()
@@ -135,7 +135,7 @@ describe('Anthropic beta headers', () => {
         </Tools>
         <Message role="user">remember something</Message>
       </Agent>,
-      { clients: { anthropic: client } },
+      { providers: { anthropic: { client } } },
     )
 
     await controller.waitForNextCall()
@@ -157,7 +157,7 @@ describe('Anthropic beta headers', () => {
         <MCP name="filesystem" url="https://mcp.example.com/sse" />
         <Message role="user">use mcp</Message>
       </Agent>,
-      { clients: { anthropic: client } },
+      { providers: { anthropic: { client } } },
     )
 
     await controller.waitForNextCall()
@@ -193,7 +193,7 @@ describe('OpenAI', () => {
         <OpenAIMCP name="filesystem" url="https://mcp.example.com/sse" />
         <Message role="user">use mcp</Message>
       </Agent>,
-      { clients: { openai: client } },
+      { providers: { openai: { client } } },
     )
 
     const tools = calls[0]!['tools'] as Array<{
@@ -226,7 +226,7 @@ describe('OpenAI', () => {
         </Tools>
         <Message role="user">run some code</Message>
       </Agent>,
-      { clients: { openai: client } },
+      { providers: { openai: { client } } },
     )
 
     const tools = calls[0]!['tools'] as Array<{ type: string }>
@@ -252,7 +252,7 @@ describe('OpenAI', () => {
         </Tools>
         <Message role="user">search something</Message>
       </Agent>,
-      { clients: { openai: client } },
+      { providers: { openai: { client } } },
     )
 
     const tools = calls[0]!['tools'] as Array<{

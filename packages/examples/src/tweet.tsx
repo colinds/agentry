@@ -22,9 +22,9 @@ const CodeExecution =
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
 const ai =
   EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ clients: { openai: new OpenAI() } })
+    ? createAI({ providers: { openai: { client: new OpenAI() } } })
     : createAI({
-        clients: { anthropic: new Anthropic() },
+        providers: { anthropic: { client: new Anthropic() } },
       })
 
 function Calculator() {

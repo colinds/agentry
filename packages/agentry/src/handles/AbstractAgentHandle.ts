@@ -330,9 +330,14 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   }
 
   /**
-   * Subclasses can override for additional cleanup
+   * Subclasses can override for additional cleanup.
+   * Base implementation calls close() on any adapters that support it.
    */
-  protected cleanup(): void {}
+  protected cleanup(): void {
+    for (const adapter of Object.values(this.adapters)) {
+      adapter.close?.()
+    }
+  }
 
   /**
    * Test-only method to access containerInfo for testing purposes

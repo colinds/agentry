@@ -57,7 +57,7 @@ test('subagent has isolated message context', async () => {
       </Tools>
       <Message role="user">Call the isolated agent</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -112,7 +112,7 @@ test('onStepFinish callback fires for subagent calls', async () => {
       </Tools>
       <Message role="user">Call subagent</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -170,7 +170,7 @@ test('onComplete callback fires when agent finishes', async () => {
       </Tools>
       <Message role="user">Run the completable agent</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -219,7 +219,7 @@ test('conditionally hidden subagents are not available as tools', async () => {
   ])
 
   const runPromise = run(<OptionalSubagentTest />, {
-    clients: { anthropic: client },
+    providers: { anthropic: { client } },
   })
 
   await controller.nextTurn()
@@ -303,7 +303,7 @@ test('tools can be mounted during execution via state change', async () => {
   ])
 
   const agent = createAgent(<MountingToolTest />, {
-    clients: { anthropic: client },
+    providers: { anthropic: { client } },
   })
 
   try {
@@ -416,7 +416,7 @@ test('subagents can be mounted during execution via state change', async () => {
   ])
 
   const agent = createAgent(<MountingSubagentTest />, {
-    clients: { anthropic: client },
+    providers: { anthropic: { client } },
   })
 
   try {
@@ -495,7 +495,7 @@ test('subagent sees pre-loaded JSX messages', async () => {
       </Tools>
       <Message role="user">Call preloaded agent</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   // parent turn - calls preloaded
@@ -577,7 +577,7 @@ test('useMessages works inside subagent children', async () => {
       </Tools>
       <Message role="user">Call the hooked agent</Message>
     </Agent>,
-    { clients: { anthropic: client } },
+    { providers: { anthropic: { client } } },
   )
 
   // parent turn
@@ -660,7 +660,7 @@ test('tools can be unmounted during execution via state change', async () => {
   ])
 
   const agent = createAgent(<UnmountingToolTest />, {
-    clients: { anthropic: client },
+    providers: { anthropic: { client } },
   })
 
   try {

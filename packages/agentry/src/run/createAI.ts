@@ -2,21 +2,21 @@ import type { ReactNode } from 'react'
 import { run as runBase, createAgent as createAgentBase } from './agent'
 import { AgentHandle } from '../handles'
 import type { AgentResult } from '../types'
-import type { ProviderClientMap } from '../providers/types'
+import type { ProvidersConfig } from '../providers/types'
 import type { CreateAgentOptions, RunOptions } from './agent'
 
 export interface AIDefaults {
-  clients?: Partial<ProviderClientMap>
+  providers?: ProvidersConfig
   mode?: 'batch' | 'interactive'
 }
 
 export interface AIBoundRunOptions {
-  clients?: Partial<ProviderClientMap>
+  providers?: ProvidersConfig
   mode?: 'batch' | 'interactive'
 }
 
 export interface AIBoundCreateAgentOptions {
-  clients?: Partial<ProviderClientMap>
+  providers?: ProvidersConfig
 }
 
 export interface AI {
@@ -39,9 +39,12 @@ function mergeRunOptions(
   options?: AIBoundRunOptions,
 ): RunOptions {
   return {
-    clients: {
-      ...defaults.clients,
-      ...options?.clients,
+    providers: {
+      openai: { ...defaults.providers?.openai, ...options?.providers?.openai },
+      anthropic: {
+        ...defaults.providers?.anthropic,
+        ...options?.providers?.anthropic,
+      },
     },
     mode: options?.mode ?? defaults.mode,
   }
@@ -52,22 +55,25 @@ function mergeCreateAgentOptions(
   options?: AIBoundCreateAgentOptions,
 ): CreateAgentOptions {
   return {
-    clients: {
-      ...defaults.clients,
-      ...options?.clients,
+    providers: {
+      openai: { ...defaults.providers?.openai, ...options?.providers?.openai },
+      anthropic: {
+        ...defaults.providers?.anthropic,
+        ...options?.providers?.anthropic,
+      },
     },
   }
 }
 
 /**
- * Create a pre-configured AI instance with bound default clients and mode.
+ * Create a pre-configured AI instance with bound default providers and mode.
  * All calls to `ai.run()` and `ai.createAgent()` inherit the defaults, with
  * per-call options merged on top.
  *
  * @example basic usage — shared clients across multiple runs
  * ```ts
  * const ai = createAI({
- *   clients: { anthropic: new Anthropic() },
+ *   providers: { anthropic: { client: new Anthropic() } },
  * })
  *
  * const result = await ai.run(
@@ -78,25 +84,20 @@ function mergeCreateAgentOptions(
  * console.log(result.content)
  * ```
  *
- * @example multi-provider setup — override clients per call
+ * @example multi-provider setup with WebSocket enabled for OpenAI
  * ```ts
  * const ai = createAI({
- *   clients: { anthropic: new Anthropic(), openai: new OpenAI() },
+ *   providers: {
+ *     openai: { client: new OpenAI(), websocket: true },
+ *     anthropic: { client: new Anthropic() },
+ *   },
  * })
- *
- * // per-call override — uses only the openai client for this run
- * const result = await ai.run(
- *   <Agent provider="openai" model="gpt-5-mini">
- *     <Message role="user">Hello!</Message>
- *   </Agent>,
- *   { clients: { openai: customOpenAIClient } }
- * )
  * ```
  *
  * @example interactive mode default
  * ```ts
  * const ai = createAI({
- *   clients: { anthropic: new Anthropic() },
+ *   providers: { anthropic: { client: new Anthropic() } },
  *   mode: 'interactive',
  * })
  *
