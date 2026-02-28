@@ -38,6 +38,7 @@ type AgentPropsAllKeys = {
   provider: AgentProps['provider']
   model: AgentProps['model']
   thinking: AgentProps['thinking']
+  betas?: string[]
 }
 
 interface SubagentCreationProps extends Omit<
@@ -137,7 +138,7 @@ function createAgentInstance(
       stream: props.stream ?? true,
       compactionControl: props.compactionControl,
       thinking: props.thinking,
-      betas: props.betas,
+      betas: (props as { betas?: string[] }).betas,
       onMessage: props.onMessage,
       onComplete: props.onComplete,
       onError: props.onError,
@@ -318,7 +319,7 @@ export function createSubagentInstance(
       stream: props.stream ?? inherited.stream ?? true,
       compactionControl: props.compactionControl ?? inherited.compactionControl,
       thinking: props.thinking ?? inherited.thinking,
-      betas: props.betas ?? inherited.betas,
+      betas: (props as { betas?: string[] }).betas ?? inherited.betas,
       // callbacks never inherited
       onMessage: props.onMessage,
       onComplete: props.onComplete,

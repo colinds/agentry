@@ -34,18 +34,22 @@ export interface AI {
   ): AgentHandle
 }
 
+function mergeProviders(
+  base?: ProvidersConfig,
+  override?: ProvidersConfig,
+): ProvidersConfig {
+  return {
+    openai: { ...base?.openai, ...override?.openai },
+    anthropic: { ...base?.anthropic, ...override?.anthropic },
+  }
+}
+
 function mergeRunOptions(
   defaults: AIDefaults,
   options?: AIBoundRunOptions,
 ): RunOptions {
   return {
-    providers: {
-      openai: { ...defaults.providers?.openai, ...options?.providers?.openai },
-      anthropic: {
-        ...defaults.providers?.anthropic,
-        ...options?.providers?.anthropic,
-      },
-    },
+    providers: mergeProviders(defaults.providers, options?.providers),
     mode: options?.mode ?? defaults.mode,
   }
 }
@@ -55,13 +59,7 @@ function mergeCreateAgentOptions(
   options?: AIBoundCreateAgentOptions,
 ): CreateAgentOptions {
   return {
-    providers: {
-      openai: { ...defaults.providers?.openai, ...options?.providers?.openai },
-      anthropic: {
-        ...defaults.providers?.anthropic,
-        ...options?.providers?.anthropic,
-      },
-    },
+    providers: mergeProviders(defaults.providers, options?.providers),
   }
 }
 

@@ -50,7 +50,7 @@ export class AgentHandle extends AbstractAgentHandle {
     }
     if (openaiConfig?.websocket || responsesWSFactory) {
       adapters.openai = createOpenAIAdapter({
-        websocket: openaiConfig.websocket,
+        websocket: openaiConfig?.websocket,
         _responsesWSFactory: responsesWSFactory,
       })
     }

@@ -142,6 +142,23 @@ function mapConditionResults({
 }
 
 /**
+ * Validate and extract the `trueConditionIndices` array from a provider tool call result.
+ * Shared by both Anthropic and OpenAI evaluation paths.
+ */
+function parseConditionIndices(
+  input: Record<string, unknown>,
+  provider: ProviderName,
+): number[] {
+  const indices = input.trueConditionIndices
+  if (!Array.isArray(indices) || !indices.every((i) => typeof i === 'number')) {
+    throw new Error(
+      `[agentry] NL condition evaluation: unexpected tool input shape from ${provider}: ${JSON.stringify(input)}`,
+    )
+  }
+  return indices
+}
+
+/**
  * Dispatch NL condition evaluation to the appropriate provider implementation.
  */
 async function evaluateNaturalLanguageConditions({
@@ -253,15 +270,7 @@ async function evaluateNLWithAnthropic({
   const toolUse = response.content.find((block) => block.type === 'tool_use')
   if (toolUse && toolUse.type === 'tool_use') {
     const input = toolUse.input as Record<string, unknown>
-    const indices = input.trueConditionIndices
-    if (
-      !Array.isArray(indices) ||
-      !indices.every((i) => typeof i === 'number')
-    ) {
-      throw new Error(
-        `[agentry] NL condition evaluation: unexpected tool input shape from Anthropic: ${JSON.stringify(input)}`,
-      )
-    }
+    const indices = parseConditionIndices(input, 'anthropic')
     return mapConditionResults({
       trueConditionIndices: indices,
       conditionCount: conditions.length,
@@ -351,15 +360,7 @@ async function evaluateNLWithOpenAI({
         { cause: e },
       )
     }
-    const indices = parsed.trueConditionIndices
-    if (
-      !Array.isArray(indices) ||
-      !indices.every((i) => typeof i === 'number')
-    ) {
-      throw new Error(
-        `[agentry] NL condition evaluation: unexpected tool input shape from OpenAI: ${JSON.stringify(parsed)}`,
-      )
-    }
+    const indices = parseConditionIndices(parsed, 'openai')
     return mapConditionResults({
       trueConditionIndices: indices,
       conditionCount: conditions.length,

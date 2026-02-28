@@ -125,6 +125,12 @@ type ProviderContextFields =
 
 type BaseToolContext = {
   agentName: string
+  /**
+   * Map of all available provider clients. Unlike the narrowed `client` field
+   * from `ProviderContextFields` (which is typed to the current provider),
+   * `clients` gives access to every configured provider client — useful for
+   * cross-provider subagent spawning via `context.runAgent()`.
+   */
   clients?: Partial<ProviderClientMap>
   model?: Model
   signal?: AbortSignal

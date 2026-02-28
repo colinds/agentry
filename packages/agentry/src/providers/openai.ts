@@ -103,7 +103,7 @@ export function getErrorEventDetails(event: {
 
   return {
     message,
-    ...(codeValue ? { code: codeValue } : {}),
+    code: codeValue,
   }
 }
 
@@ -137,9 +137,8 @@ export function toOpenAIInput(
       } else if (block.type === 'thinking') {
         // Thinking blocks have no OpenAI equivalent — intentionally skipped
       } else {
-        debug(
-          'openai',
-          `Unrecognized message block type "${(block as { type: string }).type}" skipped during input conversion`,
+        console.warn(
+          `[agentry] Unrecognized message block type "${(block as { type: string }).type}" skipped during input conversion`,
         )
       }
     }
@@ -241,9 +240,8 @@ function parseOpenAIResponse(
       }
       default: {
         const unhandled: never = item
-        debug(
-          'openai',
-          `Unrecognized output item type: ${(unhandled as { type: string }).type}`,
+        console.warn(
+          `[agentry] Unrecognized output item type "${(unhandled as { type: string }).type}"`,
         )
       }
     }
@@ -783,6 +781,9 @@ export function createOpenAIAdapter(options?: {
         await waitForOpen(ws)
       } catch (err) {
         // WS failed to open — fall back to HTTP for this turn
+        console.warn(
+          `[agentry] WebSocket connection failed, falling back to HTTP: ${err instanceof Error ? err.message : String(err)}`,
+        )
         debug(
           'openai',
           `WebSocket connection failed, falling back to HTTP: ${err instanceof Error ? err.message : String(err)}`,
@@ -824,7 +825,12 @@ export function createOpenAIAdapter(options?: {
         previousResponseId = responseId
         return result
       } catch (err) {
+        // Abort errors should propagate immediately — not be retried
+        if (err instanceof Error && err.name === 'AbortError') throw err
         if (isRetryableWSError(err)) {
+          console.warn(
+            `[agentry] Retryable WebSocket error (${err instanceof OpenAITurnError ? err.code : 'unknown'}), falling back to HTTP`,
+          )
           debug(
             'openai',
             `Retryable WebSocket error (${err instanceof OpenAITurnError ? err.code : 'unknown'}), falling back to HTTP`,

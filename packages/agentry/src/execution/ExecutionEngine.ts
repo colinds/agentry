@@ -211,11 +211,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       if (err.name === 'AbortError') throw err
       debug(
         'conditions',
-        `NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}), conditions unchanged`,
+        `NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}), conditions may be stale due to evaluation failure`,
         { error: err.message },
       )
       console.error(
-        `[agentry] NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}), conditions unchanged:`,
+        `[agentry] NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}), conditions may be stale due to evaluation failure:`,
         err,
       )
       this.emit('error', err)
@@ -639,6 +639,14 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       // Re-throw fatal errors (auth failures, invalid model) — these won't resolve on retry
       const status = (err as { status?: number }).status
       if (status === 401 || status === 403 || status === 404) {
+        throw err
+      }
+      // Re-throw programming errors — these indicate bugs, not transient failures
+      if (
+        err instanceof TypeError ||
+        err instanceof ReferenceError ||
+        err instanceof SyntaxError
+      ) {
         throw err
       }
       const compactionModel = compactionControl.model ?? this.config.model

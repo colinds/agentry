@@ -25,7 +25,6 @@ import {
 import { toApiTool } from '../tools'
 import type { BuiltInTool } from '../types/tools'
 import type { JsonObject } from '../types/json'
-import { debug } from '../debug'
 
 export function toAnthropicMessage(
   message: AgentMessageParam,
@@ -60,9 +59,8 @@ export function toAnthropicMessage(
         })
         break
       default:
-        debug(
-          'anthropic',
-          `Dropping unrecognized message block type: ${(block as { type: string }).type}`,
+        console.warn(
+          `[agentry] Dropping unrecognized message block type "${(block as { type: string }).type}" during Anthropic message conversion`,
         )
     }
   }
@@ -89,10 +87,8 @@ function toAgentBlocks(content: BetaContentBlock[]): AgentContentBlock[] {
         if (typeof block.input === 'object' && block.input !== null) {
           input = block.input as JsonObject
         } else {
-          debug(
-            'anthropic',
-            `Tool "${block.name}": non-object input coerced to {}`,
-            { input: block.input },
+          console.warn(
+            `[agentry] Anthropic tool "${block.name}": non-object input coerced to {} (received ${typeof block.input})`,
           )
           input = {}
         }
@@ -105,9 +101,8 @@ function toAgentBlocks(content: BetaContentBlock[]): AgentContentBlock[] {
         break
       }
       default:
-        debug(
-          'anthropic',
-          `Unrecognized content block type: "${(block as { type: string }).type}" — block dropped`,
+        console.warn(
+          `[agentry] Unrecognized content block type "${(block as { type: string }).type}" — block dropped`,
         )
     }
   }

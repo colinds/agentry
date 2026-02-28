@@ -36,7 +36,6 @@ export interface BaseAgentProps {
   stopSequences?: string[]
   temperature?: number
   stream?: boolean
-  betas?: string[]
   onMessage?: (message: AgentStreamEvent) => void
   onComplete?: (result: AgentResult) => void
   onError?: (error: Error) => void
@@ -49,6 +48,7 @@ export type ProviderVariant =
       provider: 'anthropic'
       model?: AnthropicModel
       thinking?: AnthropicThinkingEnabled | { type: 'disabled' }
+      betas?: string[]
     }
   | {
       provider: 'openai'
