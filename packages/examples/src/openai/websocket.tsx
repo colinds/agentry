@@ -5,8 +5,8 @@
  * only incremental input on continuation turns via `previous_response_id`,
  * cutting per-turn latency ~40% in multi-tool-call loops.
  *
- * Enable it with a single flag:
- *   providers: { openai: { client, websocket: true } }
+ * Enable it per agent with the `websocket` prop:
+ *   <Agent provider="openai" model={MODEL} websocket={true}>
  *
  * Run:
  *   bun run example:openai:websocket
@@ -45,6 +45,7 @@ const result = await run(
     model={MODEL}
     maxTokens={1024}
     stream={true}
+    websocket={true}
     onMessage={(event) => {
       if (event.type === 'tool_use_start') {
         toolCallCount++
@@ -105,7 +106,7 @@ const result = await run(
     </Message>
   </Agent>,
   {
-    providers: { openai: { client, websocket: true } },
+    providers: { openai: { client } },
   },
 )
 

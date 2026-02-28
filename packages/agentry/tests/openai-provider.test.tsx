@@ -1064,14 +1064,18 @@ test('createOpenAIAdapter({ websocket: true }) uses WebSocket for streaming', as
   const { client } = createOpenAIMockClient([])
 
   const result = await run(
-    <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={true}>
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={true}
+      websocket={true}
+    >
       <Message role="user">Hello via WS</Message>
     </Agent>,
     {
       providers: {
         openai: {
           client,
-          websocket: true,
           [OPENAI_INTERNAL_WS_FACTORY]: () => {
             wsMock = new MockResponsesWS([
               makeWsResponse(1, [
@@ -1099,7 +1103,12 @@ test('createOpenAIAdapter WS: subsequent turns send incremental input + previous
   const { client } = createOpenAIMockClient([])
 
   const result = await run(
-    <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={true}>
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={true}
+      websocket={true}
+    >
       <Tools>
         <Tool
           name="get_info"
@@ -1114,7 +1123,6 @@ test('createOpenAIAdapter WS: subsequent turns send incremental input + previous
       providers: {
         openai: {
           client,
-          websocket: true,
           [OPENAI_INTERNAL_WS_FACTORY]: () => {
             wsMock = new MockResponsesWS([
               // Turn 1: function_call
@@ -1226,7 +1234,12 @@ test('createOpenAIAdapter WS: previous_response_not_found retries with HTTP', as
   }
 
   const result = await run(
-    <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={false}
+      websocket={true}
+    >
       <Tools>
         <Tool
           name="noop"
@@ -1241,7 +1254,6 @@ test('createOpenAIAdapter WS: previous_response_not_found retries with HTTP', as
       providers: {
         openai: {
           client,
-          websocket: true,
           [OPENAI_INTERNAL_WS_FACTORY]: () => {
             wsMock = new MockResponsesWS([
               // Turn 1 via WS: function_call to trigger a tool use
@@ -1418,14 +1430,18 @@ test('createOpenAIAdapter WS: adapter.close() called automatically on handle.clo
   const { client } = createOpenAIMockClient([])
 
   await run(
-    <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={true}>
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={true}
+      websocket={true}
+    >
       <Message role="user">Hello</Message>
     </Agent>,
     {
       providers: {
         openai: {
           client,
-          websocket: true,
           [OPENAI_INTERNAL_WS_FACTORY]: () => {
             wsMock = new MockResponsesWS([
               makeWsResponse(1, [

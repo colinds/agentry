@@ -39,14 +39,16 @@ type AgentPropsAllKeys = {
   model: AgentProps['model']
   thinking: AgentProps['thinking']
   betas?: string[]
+  websocket?: boolean
 }
 
 interface SubagentCreationProps extends Omit<
   AgentComponentProps,
-  'children' | 'model'
+  'children' | 'model' | 'websocket'
 > {
   model?: AgentComponentProps['model']
   agentNode?: React.ReactNode
+  websocket?: boolean
 }
 
 interface PropagatedSettings {
@@ -60,6 +62,7 @@ interface PropagatedSettings {
   model?: Model
   thinking?: AgentProps['thinking']
   betas?: string[]
+  websocket?: boolean
 }
 
 export type ElementProps =
@@ -139,6 +142,7 @@ function createAgentInstance(
       compactionControl: props.compactionControl,
       thinking: props.thinking,
       betas: (props as { betas?: string[] }).betas,
+      websocket: props.provider === 'openai' ? props.websocket : undefined,
       onMessage: props.onMessage,
       onComplete: props.onComplete,
       onError: props.onError,
@@ -320,6 +324,7 @@ export function createSubagentInstance(
       compactionControl: props.compactionControl ?? inherited.compactionControl,
       thinking: props.thinking ?? inherited.thinking,
       betas: (props as { betas?: string[] }).betas ?? inherited.betas,
+      websocket: props.websocket ?? inherited.websocket,
       // callbacks never inherited
       onMessage: props.onMessage,
       onComplete: props.onComplete,

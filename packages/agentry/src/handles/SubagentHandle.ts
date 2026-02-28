@@ -12,6 +12,7 @@ import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
 import type { ProviderClientMap } from '../providers/types'
 import type { ProviderName } from '../types/provider'
 import { createDefaultAdapters } from '../providers'
+import { createOpenAIAdapter } from '../providers/openai'
 import { ensureProviderClient } from '../providers/clientResolver'
 
 export class SubagentHandle extends AbstractAgentHandle {
@@ -126,6 +127,13 @@ export class SubagentHandle extends AbstractAgentHandle {
       throw new Error('Provider is required on the subagent instance.')
     }
     agentInstance.client = await ensureProviderClient(this.clients, provider)
+
+    if (
+      agentInstance.props.provider === 'openai' &&
+      agentInstance.props.websocket
+    ) {
+      this.adapters.openai = createOpenAIAdapter({ websocket: true })
+    }
 
     return agentInstance
   }

@@ -6,7 +6,7 @@ import { OPENAI_MODEL as EXAMPLE_OPENAI_MODEL } from '../constants'
 const MODEL = process.env.OPENAI_MODEL ?? EXAMPLE_OPENAI_MODEL
 
 const result = await run(
-  <Agent provider="openai" model={MODEL} maxTokens={1024}>
+  <Agent provider="openai" model={MODEL} maxTokens={1024} websocket={true}>
     <System>
       You are a coordinator. Use subagents when you need focused help.
     </System>
@@ -43,7 +43,7 @@ const result = await run(
   </Agent>,
   {
     providers: {
-      openai: { client: new OpenAI(), websocket: true },
+      openai: { client: new OpenAI() },
     },
   },
 )

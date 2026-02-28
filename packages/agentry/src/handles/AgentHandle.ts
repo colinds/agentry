@@ -16,8 +16,9 @@ import type {
 import { OPENAI_INTERNAL_WS_FACTORY } from '../providers/types'
 import type { ProviderName } from '../types/provider'
 import { createDefaultAdapters } from '../providers'
-import { createOpenAIAdapter } from '../providers/openai'
+import { createOpenAIAdapter, type ResponsesWSLike } from '../providers/openai'
 import { ensureProviderClient } from '../providers/clientResolver'
+import type OpenAI from 'openai'
 
 /**
  * Handle for controlling a regular agent at runtime
@@ -27,6 +28,14 @@ import { ensureProviderClient } from '../providers/clientResolver'
 export class AgentHandle extends AbstractAgentHandle {
   private element: ReactNode
   private mode: 'batch' | 'interactive'
+  private wsFactory: ((client: OpenAI) => ResponsesWSLike) | undefined
+  private wsReady = false
+  private initialProps: {
+    provider: string
+    model: string
+    websocket: boolean
+  } | null = null
+
   constructor(
     element: ReactNode,
     options: { providers?: ProvidersConfig } = {},
@@ -44,15 +53,8 @@ export class AgentHandle extends AbstractAgentHandle {
     if (options.providers?.anthropic?.client)
       clients.anthropic = options.providers.anthropic.client
 
-    // Build adapters — WS adapter if websocket option enabled
     const adapters: Record<string, ProviderAdapter<ProviderName>> = {
       ...createDefaultAdapters(),
-    }
-    if (openaiConfig?.websocket || responsesWSFactory) {
-      adapters.openai = createOpenAIAdapter({
-        websocket: openaiConfig?.websocket,
-        _responsesWSFactory: responsesWSFactory,
-      })
     }
 
     const store = createAgentStore()
@@ -86,6 +88,7 @@ export class AgentHandle extends AbstractAgentHandle {
     })
     this.element = element
     this.mode = mode
+    this.wsFactory = responsesWSFactory
   }
 
   update(element: ReactNode): void {
@@ -135,10 +138,51 @@ export class AgentHandle extends AbstractAgentHandle {
     if (!provider) {
       throw new Error('Provider is required on the rendered agent.')
     }
-    if (!agent.props.model) {
+    const model = agent.props.model
+    if (!model) {
       throw new Error('Model is required on the rendered agent.')
     }
+    const websocket =
+      agent.props.provider === 'openai'
+        ? (agent.props.websocket ?? false)
+        : false
+
+    if (this.initialProps === null) {
+      this.initialProps = { provider, model, websocket }
+    } else {
+      if (this.initialProps.provider !== provider) {
+        throw new Error(
+          `Agent provider cannot change between runs (was "${this.initialProps.provider}", got "${provider}"). ` +
+            `Create a new agent handle instead.`,
+        )
+      }
+      if (this.initialProps.model !== model) {
+        throw new Error(
+          `Agent model cannot change between runs (was "${this.initialProps.model}", got "${model}"). ` +
+            `Create a new agent handle instead.`,
+        )
+      }
+      if (this.initialProps.websocket !== websocket) {
+        throw new Error(
+          `Agent websocket mode cannot change between runs (was ${this.initialProps.websocket}, got ${websocket}). ` +
+            `Create a new agent handle instead.`,
+        )
+      }
+    }
+
     agent.client = await ensureProviderClient(this.clients, provider)
+
+    if (
+      !this.wsReady &&
+      agent.props.provider === 'openai' &&
+      agent.props.websocket
+    ) {
+      this.adapters.openai = createOpenAIAdapter({
+        websocket: true,
+        _responsesWSFactory: this.wsFactory,
+      })
+      this.wsReady = true
+    }
 
     return agent
   }

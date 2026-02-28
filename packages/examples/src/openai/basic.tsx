@@ -17,7 +17,12 @@ const calculatorTool = defineTool({
 })
 
 const result = await run(
-  <Agent provider="openai" model={OPENAI_MODEL} maxTokens={1024}>
+  <Agent
+    provider="openai"
+    model={OPENAI_MODEL}
+    maxTokens={1024}
+    websocket={true}
+  >
     <System>You are a helpful math assistant.</System>
     <Tools>
       <Tool {...calculatorTool} />
@@ -26,7 +31,7 @@ const result = await run(
   </Agent>,
   {
     providers: {
-      openai: { client: new OpenAI(), websocket: true },
+      openai: { client: new OpenAI() },
     },
   },
 )

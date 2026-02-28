@@ -8,12 +8,17 @@ const MCP_SERVER_URL = 'https://demo-day.mcp.cloudflare.com/sse'
 
 const ai = createAI({
   providers: {
-    openai: { client: new OpenAI(), websocket: true },
+    openai: { client: new OpenAI() },
   },
 })
 
 const result = await ai.run(
-  <Agent provider="openai" model={OPENAI_MODEL} maxTokens={4096}>
+  <Agent
+    provider="openai"
+    model={OPENAI_MODEL}
+    maxTokens={4096}
+    websocket={true}
+  >
     <System>
       You can use web_search, code execution, and MCP tools. First, find one
       recent data point about renewable energy adoption in 2025, then use code

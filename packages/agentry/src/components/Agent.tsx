@@ -23,6 +23,7 @@ type PublicProviderVariant =
       provider: 'openai'
       model: OpenAIModel
       thinking?: OpenAIThinkingEnabled | { type: 'disabled' }
+      websocket?: boolean
     }
   | { provider?: undefined; model?: undefined; thinking?: ThinkingConfig }
 

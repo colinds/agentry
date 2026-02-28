@@ -13,8 +13,6 @@ export interface ProviderClientMap {
 
 export interface OpenAIProviderConfig {
   client?: OpenAI
-  /** Use persistent WebSocket for ~40% lower per-turn latency */
-  websocket?: boolean
 }
 
 /** @internal Test-only key for injecting a mock ResponsesWS factory through provider config. */

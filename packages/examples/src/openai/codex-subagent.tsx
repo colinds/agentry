@@ -6,7 +6,12 @@ const ORCHESTRATOR_MODEL = 'gpt-5.2'
 const CODEX_MODEL = 'gpt-5.3-codex'
 
 const result = await run(
-  <Agent provider="openai" model={ORCHESTRATOR_MODEL} maxTokens={4096}>
+  <Agent
+    provider="openai"
+    model={ORCHESTRATOR_MODEL}
+    maxTokens={4096}
+    websocket={true}
+  >
     <System>
       You are a senior engineering lead. When you need code written or reviewed,
       delegate to the codex subagent. Synthesize its output into a final answer.
@@ -57,7 +62,7 @@ const result = await run(
   </Agent>,
   {
     providers: {
-      openai: { client: new OpenAI(), websocket: true },
+      openai: { client: new OpenAI() },
     },
   },
 )

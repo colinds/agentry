@@ -54,6 +54,7 @@ export type ProviderVariant =
       provider: 'openai'
       model?: OpenAIModel
       thinking?: OpenAIThinkingEnabled | { type: 'disabled' }
+      websocket?: boolean
     }
   | { provider?: undefined; model?: Model; thinking?: ThinkingConfig }
 
