@@ -5,6 +5,7 @@ import type { AgentMessage, AgentMessageParam } from '../types/messages'
 import type { InternalTool, BuiltInTool } from '../types/tools'
 import type { ProviderName } from '../types/provider'
 import type { ResponsesWSLike } from '../providers/openai'
+import type { Beta } from '@anthropic-ai/sdk/resources/beta'
 
 export interface ProviderClientMap {
   anthropic: Anthropic
@@ -61,6 +62,22 @@ export interface MCPServerConfig {
     allowed_tools?: string[]
   }
 }
+
+// Compile-time check: MCPServerConfig must stay compatible with the Anthropic SDK
+const _assertMCPAnthropicCompat: Beta.Messages.BetaRequestMCPServerURLDefinition =
+  {} as MCPServerConfig
+void _assertMCPAnthropicCompat
+
+// Compile-time check: MCPServerConfig fields must stay compatible with the OpenAI SDK
+const _assertMCPOpenAICompat: Pick<
+  OpenAI.Responses.Tool.Mcp,
+  'server_label' | 'server_url' | 'authorization'
+> = {} as {
+  server_label: MCPServerConfig['name']
+  server_url: MCPServerConfig['url']
+  authorization: MCPServerConfig['authorization_token']
+}
+void _assertMCPOpenAICompat
 
 export interface NormalizedTurnRequest {
   model: Model

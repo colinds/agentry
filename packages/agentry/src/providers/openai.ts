@@ -5,7 +5,7 @@ import type {
   NormalizedTurnResponse,
 } from './types'
 import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
-import type { JsonObject } from '../types/json'
+import type { JsonObject, JsonValue } from '../types/json'
 import { isCodeExecutionTool, isWebSearchTool } from '../types/tools'
 import { debug } from '../debug'
 
@@ -70,10 +70,10 @@ function stringifyContent(
 
 function toProviderOutputEventItem(
   item: OpenAIResponseResult['output'][number],
-): { itemType: string; item: Record<string, unknown> } {
+): { itemType: string; item: Record<string, JsonValue> } {
   return {
     itemType: item.type,
-    item: item as unknown as Record<string, unknown>,
+    item: item as unknown as Record<string, JsonValue>,
   }
 }
 
@@ -333,7 +333,7 @@ function toOpenAITools(
       type: 'mcp',
       server_label: server.name,
       server_url: server.url,
-      authorization: server.authorization_token,
+      authorization: server.authorization_token ?? undefined,
       allowed_tools: server.tool_configuration?.allowed_tools,
       require_approval: 'never',
     } satisfies OpenAI.Responses.Tool.Mcp)
@@ -584,6 +584,10 @@ async function* createWSEventStream(
   ws.on('event', onEvent)
   ws.on('error', onError)
   signal.addEventListener('abort', onAbort)
+
+  if (signal.aborted) {
+    onAbort()
+  }
 
   try {
     ws.send(wsEvent)

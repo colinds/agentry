@@ -48,7 +48,7 @@ export function buildSystemPrompt(
  * Shared factory for ExecutionEngine configuration
  * Used by both root agents (AgentHandle) and subagents (renderSubagent)
  *
- * Unified defaults: maxTokens=4096, stream=true
+ * Unified defaults: maxTokens=4096
  * These apply when agent.props doesn't specify a value
  */
 export function createEngineConfig(
@@ -90,7 +90,7 @@ export function createEngineConfig(
     temperature: agent.props.temperature,
     agentName: agent.props.name,
     thinking: agent.props.thinking,
-    betas: (agent.props as { betas?: string[] }).betas,
+    betas: agent.props.provider === 'anthropic' ? agent.props.betas : undefined,
     agentInstance: agent,
     store,
   }

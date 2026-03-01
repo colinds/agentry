@@ -48,6 +48,7 @@ interface SubagentCreationProps extends Omit<
 > {
   model?: AgentComponentProps['model']
   agentNode?: React.ReactNode
+  betas?: string[]
   websocket?: boolean
 }
 
@@ -141,7 +142,7 @@ function createAgentInstance(
       stream: props.stream ?? true,
       compactionControl: props.compactionControl,
       thinking: props.thinking,
-      betas: (props as { betas?: string[] }).betas,
+      betas: props.provider === 'anthropic' ? props.betas : undefined,
       websocket: props.provider === 'openai' ? props.websocket : undefined,
       onMessage: props.onMessage,
       onComplete: props.onComplete,
@@ -323,7 +324,7 @@ export function createSubagentInstance(
       stream: props.stream ?? inherited.stream ?? true,
       compactionControl: props.compactionControl ?? inherited.compactionControl,
       thinking: props.thinking ?? inherited.thinking,
-      betas: (props as { betas?: string[] }).betas ?? inherited.betas,
+      betas: props.betas ?? inherited.betas,
       websocket: props.websocket ?? inherited.websocket,
       // callbacks never inherited
       onMessage: props.onMessage,

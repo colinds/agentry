@@ -139,6 +139,7 @@ export class SubagentHandle extends AbstractAgentHandle {
   }
 
   protected override cleanup(): void {
+    super.cleanup()
     if (this.abortSignal && this.abortHandler) {
       this.abortSignal.removeEventListener('abort', this.abortHandler)
     }

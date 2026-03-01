@@ -86,7 +86,7 @@ function mergeCreateAgentOptions(
  * ```ts
  * const ai = createAI({
  *   providers: {
- *     openai: { client: new OpenAI(), websocket: true },
+ *     openai: { client: new OpenAI() },
  *     anthropic: { client: new Anthropic() },
  *   },
  * })
