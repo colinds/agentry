@@ -1,10 +1,9 @@
-import { createElement, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { InstanceType, type AgentInstance } from '../instances/types'
 import type { AgentMessageParam } from '../types/messages'
-import { createContainer, updateContainer } from '../reconciler/renderer'
+import { createContainer } from '../reconciler/renderer'
 import { createAgentStore } from '../store'
 import { isAgentInstance } from '../instances'
-import { AgentProvider } from '../context'
 import { AbstractAgentHandle } from './AbstractAgentHandle'
 import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
 import type {
@@ -29,7 +28,7 @@ export class AgentHandle extends AbstractAgentHandle {
   private element: ReactNode
   private mode: 'batch' | 'interactive'
   private wsFactory: ((client: OpenAI) => ResponsesWSLike) | undefined
-  private wsReady = false
+  private isDirty = true
   private initialProps: {
     provider: string
     model: string
@@ -93,15 +92,7 @@ export class AgentHandle extends AbstractAgentHandle {
 
   update(element: ReactNode): void {
     this.element = element
-    const wrappedElement = this.wrapWithProvider(element)
-    updateContainer(wrappedElement, this.containerInfo)
-  }
-
-  private wrapWithProvider(element: ReactNode): ReactNode {
-    return createElement(AgentProvider, {
-      store: this.store,
-      children: element,
-    })
+    this.isDirty = true
   }
 
   protected shouldEmitEvents(): boolean {
@@ -122,8 +113,43 @@ export class AgentHandle extends AbstractAgentHandle {
   }
 
   protected async prepareAgent(): Promise<AgentInstance> {
-    await this.renderWithProvider(this.element)
+    if (this.isDirty) {
+      await this.renderWithProvider(this.element)
+      this.isDirty = false
+    }
 
+    if (this.instance !== null) {
+      const agent = this.instance
+      const provider = agent.props.provider
+      const model = agent.props.model
+      const websocket =
+        agent.props.provider === 'openai'
+          ? (agent.props.websocket ?? false)
+          : false
+
+      if (this.initialProps!.provider !== provider) {
+        throw new Error(
+          `Agent provider cannot change between runs (was "${this.initialProps!.provider}", got "${provider}"). ` +
+            `Create a new agent handle instead.`,
+        )
+      }
+      if (this.initialProps!.model !== model) {
+        throw new Error(
+          `Agent model cannot change between runs (was "${this.initialProps!.model}", got "${model}"). ` +
+            `Create a new agent handle instead.`,
+        )
+      }
+      if (this.initialProps!.websocket !== websocket) {
+        throw new Error(
+          `Agent websocket mode cannot change between runs (was ${this.initialProps!.websocket}, got ${websocket}). ` +
+            `Create a new agent handle instead.`,
+        )
+      }
+
+      return agent
+    }
+
+    // First run only: full setup
     const container = this.containerInfo.container
     if (!isAgentInstance(container)) {
       throw new Error('Root container is not an agent instance')
@@ -147,41 +173,15 @@ export class AgentHandle extends AbstractAgentHandle {
         ? (agent.props.websocket ?? false)
         : false
 
-    if (this.initialProps === null) {
-      this.initialProps = { provider, model, websocket }
-    } else {
-      if (this.initialProps.provider !== provider) {
-        throw new Error(
-          `Agent provider cannot change between runs (was "${this.initialProps.provider}", got "${provider}"). ` +
-            `Create a new agent handle instead.`,
-        )
-      }
-      if (this.initialProps.model !== model) {
-        throw new Error(
-          `Agent model cannot change between runs (was "${this.initialProps.model}", got "${model}"). ` +
-            `Create a new agent handle instead.`,
-        )
-      }
-      if (this.initialProps.websocket !== websocket) {
-        throw new Error(
-          `Agent websocket mode cannot change between runs (was ${this.initialProps.websocket}, got ${websocket}). ` +
-            `Create a new agent handle instead.`,
-        )
-      }
-    }
+    this.initialProps = { provider, model, websocket }
 
     agent.client = await ensureProviderClient(this.clients, provider)
 
-    if (
-      !this.wsReady &&
-      agent.props.provider === 'openai' &&
-      agent.props.websocket
-    ) {
+    if (agent.props.provider === 'openai' && agent.props.websocket) {
       this.adapters.openai = createOpenAIAdapter({
         websocket: true,
         _responsesWSFactory: this.wsFactory,
       })
-      this.wsReady = true
     }
 
     return agent
