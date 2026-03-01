@@ -1218,7 +1218,7 @@ test('async onStepFinish is awaited before next iteration', async () => {
       stream={false}
       onStepFinish={async () => {
         order.push('stepFinish:start')
-        await new Promise((r) => setTimeout(r, 50))
+        await new Promise((r) => setTimeout(r, 10))
         order.push('stepFinish:end')
       }}
     >
