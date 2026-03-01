@@ -110,6 +110,12 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
     this.engine = new ExecutionEngine(config)
 
+    // Wire up async-aware onStepFinish so the engine awaits it before
+    // proceeding to the next iteration.
+    this.engine.onStepFinish = async (result: OnStepFinishResult) => {
+      await agent.props.onStepFinish?.(result)
+    }
+
     let onStateChange: ((state: AgentState) => void) | undefined
     const onStream = (event: AgentStreamEvent) => {
       if (emitEvents) this.emit('stream', event)
@@ -121,7 +127,6 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     }
     const onStepFinish = (result: OnStepFinishResult) => {
       if (emitEvents) this.emit('stepFinish', result)
-      agent.props.onStepFinish?.(result)
     }
 
     try {

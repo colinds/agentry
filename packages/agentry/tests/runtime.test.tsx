@@ -1014,3 +1014,239 @@ test('toAnthropicMessage: thinking blocks stripped when replaying assistant turn
   const allBlocks = capturedBlocks.flat()
   expect(allBlocks.some((b) => b.type === 'thinking')).toBe(false)
 })
+
+test('non-streaming: onMessage fires text and message_complete events', async () => {
+  const eventTypes: string[] = []
+
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Hello from Anthropic')] },
+  ])
+
+  const runPromise = run(
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+      onMessage={(event) => {
+        eventTypes.push(event.type)
+      }}
+    >
+      <Message role="user">Hello</Message>
+    </Agent>,
+    { providers: { anthropic: { client } } },
+  )
+
+  await controller.nextTurn()
+  const result = await runPromise
+
+  expect(result.content).toBe('Hello from Anthropic')
+  expect(eventTypes).toContain('text')
+  expect(eventTypes).toContain('message_complete')
+  expect(eventTypes[eventTypes.length - 1]).toBe('message_complete')
+})
+
+test('non-streaming: multiple text blocks accumulate correctly', async () => {
+  const events: Array<{ type: string; text?: string; accumulated?: string }> =
+    []
+
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Hello '), mockText('world')] },
+  ])
+
+  const runPromise = run(
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+      onMessage={(event) => {
+        if (event.type === 'text') {
+          events.push({
+            type: 'text',
+            text: event.text,
+            accumulated: event.accumulated,
+          })
+        }
+      }}
+    >
+      <Message role="user">Hello</Message>
+    </Agent>,
+    { providers: { anthropic: { client } } },
+  )
+
+  await controller.nextTurn()
+  await runPromise
+
+  expect(events).toHaveLength(2)
+  expect(events[0]!.accumulated).toBe('Hello ')
+  expect(events[1]!.accumulated).toBe('Hello world')
+})
+
+test('non-streaming: thinking events fire', async () => {
+  const events: Array<{ type: string; text?: string }> = []
+
+  const { client, controller } = createStepMockClient([
+    {
+      content: [
+        {
+          type: 'thinking',
+          thinking: 'Let me think...',
+          citations: null,
+        } as never,
+        mockText('Answer'),
+      ],
+    },
+  ])
+
+  const runPromise = run(
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+      onMessage={(event) => {
+        events.push({
+          type: event.type,
+          text: 'text' in event ? event.text : undefined,
+        })
+      }}
+    >
+      <Message role="user">Think about this</Message>
+    </Agent>,
+    { providers: { anthropic: { client } } },
+  )
+
+  await controller.nextTurn()
+  await runPromise
+
+  const types = events.map((e) => e.type)
+  expect(types).toEqual(['thinking', 'text', 'message_complete'])
+  expect(events[0]!.text).toBe('Let me think...')
+})
+
+test('non-streaming: event order is content-blocks then message_complete', async () => {
+  const eventTypes: string[] = []
+
+  const { client, controller } = createStepMockClient([
+    {
+      content: [mockText('Hi'), mockToolUse('search', { q: 'test' })],
+      stop_reason: 'tool_use',
+    },
+    { content: [mockText('Done')] },
+  ])
+
+  const runPromise = run(
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+      onMessage={(event) => {
+        eventTypes.push(event.type)
+      }}
+    >
+      <Tools>
+        <Tool
+          name="search"
+          description="search"
+          parameters={z.object({ q: z.string() })}
+          handler={async () => 'result'}
+        />
+      </Tools>
+      <Message role="user">Search</Message>
+    </Agent>,
+    { providers: { anthropic: { client } } },
+  )
+
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  await controller.nextTurn()
+  await runPromise
+
+  // First turn: text, tool_use_start, message_complete
+  // Then tool_result event from engine
+  // Second turn: text, message_complete
+  expect(eventTypes[0]).toBe('text')
+  expect(eventTypes[1]).toBe('tool_use_start')
+  expect(eventTypes[2]).toBe('message_complete')
+})
+
+test('streaming: text and message_complete events fire', async () => {
+  const eventTypes: string[] = []
+  let lastAccumulated = ''
+
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Streamed text')] },
+  ])
+
+  const runPromise = run(
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={true}
+      onMessage={(event) => {
+        eventTypes.push(event.type)
+        if (event.type === 'text') lastAccumulated = event.accumulated
+      }}
+    >
+      <Message role="user">Hello</Message>
+    </Agent>,
+    { providers: { anthropic: { client } } },
+  )
+
+  await controller.nextTurn()
+  await runPromise
+
+  expect(eventTypes).toContain('text')
+  expect(eventTypes).toContain('message_complete')
+  expect(eventTypes[eventTypes.length - 1]).toBe('message_complete')
+  expect(lastAccumulated).toBe('Streamed text')
+})
+
+test('async onStepFinish is awaited before next iteration', async () => {
+  const order: string[] = []
+
+  const { client, controller } = createStepMockClient([
+    {
+      content: [mockToolUse('myTool', { x: 1 })],
+      stop_reason: 'tool_use',
+    },
+    { content: [mockText('Done')] },
+  ])
+
+  const runPromise = run(
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+      onStepFinish={async () => {
+        order.push('stepFinish:start')
+        await new Promise((r) => setTimeout(r, 50))
+        order.push('stepFinish:end')
+      }}
+    >
+      <Tools>
+        <Tool
+          name="myTool"
+          description="test"
+          parameters={z.object({ x: z.number() })}
+          handler={async () => {
+            order.push('tool:executed')
+            return 'ok'
+          }}
+        />
+      </Tools>
+      <Message role="user">Go</Message>
+    </Agent>,
+    { providers: { anthropic: { client } } },
+  )
+
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  await controller.nextTurn()
+  await runPromise
+
+  // The async onStepFinish should complete before the next API call
+  const toolIdx = order.indexOf('tool:executed')
+  const stepStartIdx = order.indexOf('stepFinish:start')
+  const stepEndIdx = order.indexOf('stepFinish:end')
+  expect(stepStartIdx).toBeGreaterThan(toolIdx)
+  expect(stepEndIdx).toBeGreaterThan(stepStartIdx)
+})

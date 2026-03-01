@@ -17,6 +17,7 @@ import type {
   NormalizedTurnRequest,
   NormalizedTurnResponse,
 } from './types'
+import { emitSyntheticEvents } from './syntheticEvents'
 import {
   isCodeExecutionTool,
   isMemoryTool,
@@ -190,11 +191,13 @@ export const anthropicAdapter: ProviderAdapter<'anthropic'> = {
 
     let response: BetaMessage
     if (request.stream) {
+      let accumulatedText = ''
       const stream = client.beta.messages.stream(params, {
         signal: request.signal,
       })
-      stream.on('text', (text, snapshot) => {
-        request.onStream({ type: 'text', text, accumulated: snapshot })
+      stream.on('text', (text) => {
+        accumulatedText += text
+        request.onStream({ type: 'text', text, accumulated: accumulatedText })
       })
       stream.on('thinking', (thinking) => {
         request.onStream({ type: 'thinking', text: thinking })
@@ -218,6 +221,24 @@ export const anthropicAdapter: ProviderAdapter<'anthropic'> = {
         { ...params, stream: false },
         { signal: request.signal },
       )
+
+      const blocks = toAgentBlocks(response.content)
+      emitSyntheticEvents(blocks, response.stop_reason, request.onStream)
+
+      return {
+        message: {
+          content: blocks,
+          stop_reason: response.stop_reason,
+          usage: {
+            input_tokens: response.usage.input_tokens,
+            output_tokens: response.usage.output_tokens,
+            cache_creation_input_tokens:
+              response.usage.cache_creation_input_tokens ?? null,
+            cache_read_input_tokens:
+              response.usage.cache_read_input_tokens ?? null,
+          },
+        },
+      }
     }
 
     return {

@@ -7,6 +7,7 @@ import type {
 import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
 import type { JsonObject, JsonValue } from '../types/json'
 import { isCodeExecutionTool, isWebSearchTool } from '../types/tools'
+import { emitSyntheticEvents } from './syntheticEvents'
 import { debug } from '../debug'
 
 type OpenAIResponseCreateParams =
@@ -508,7 +509,16 @@ export const openaiAdapter: ProviderAdapter<'openai'> = {
         ...toProviderOutputEventItem(item),
       })
     }
-    return parseOpenAIResponse(response)
+
+    const result = parseOpenAIResponse(response)
+
+    emitSyntheticEvents(
+      result.message.content,
+      result.message.stop_reason,
+      request.onStream,
+    )
+
+    return result
   },
 }
 

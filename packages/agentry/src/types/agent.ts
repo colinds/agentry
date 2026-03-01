@@ -71,7 +71,6 @@ export interface CompactionControl {
 export type AgentStreamEvent =
   | { type: 'text'; text: string; accumulated: string }
   | { type: 'tool_use_start'; toolName: string; toolId: string }
-  | { type: 'tool_use_input'; toolId: string; partialInput: string }
   | { type: 'tool_result'; toolId: string; result: string; isError: boolean }
   | {
       type: 'provider_event'

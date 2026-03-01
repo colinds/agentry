@@ -146,6 +146,14 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private agentInstance: AgentInstance
   private toolExecutionTimes = new Map<string, number>()
 
+  /**
+   * Async-aware step finish callback. Unlike the EventEmitter-based 'stepFinish'
+   * event, this callback is awaited before the next iteration begins, allowing
+   * consumers to perform async work (e.g. logging, persistence) that must complete
+   * before execution continues.
+   */
+  onStepFinish?: (result: OnStepFinishResult) => void | Promise<void>
+
   constructor(config: ExecutionEngineConfig) {
     super()
     this.client = config.client
@@ -313,9 +321,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             toolResults,
           )
           this.emit('stepFinish', stepResult)
+          await this.onStepFinish?.(stepResult)
         } else {
           const stepResult = this.buildStepFinishResult(message, [], [])
           this.emit('stepFinish', stepResult)
+          await this.onStepFinish?.(stepResult)
           break
         }
       }

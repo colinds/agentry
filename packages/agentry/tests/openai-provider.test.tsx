@@ -332,7 +332,6 @@ test('reasoning summary returned in result.thinking (non-streaming)', async () =
     { providers: { openai: { client } } },
   )
 
-  // thinking is available in the final result; onMessage does not fire in non-streaming mode
   expect(result.thinking).toBe('I reasoned...')
 })
 
@@ -633,6 +632,7 @@ test('streaming: built-in OpenAI output items fire tool_use_start events and par
 
 test('non-streaming: built-in OpenAI output items emit provider_event events', async () => {
   const providerEvents: string[] = []
+  const allEventTypes: string[] = []
 
   const { client } = createOpenAIMockClient([
     {
@@ -656,6 +656,7 @@ test('non-streaming: built-in OpenAI output items emit provider_event events', a
       model={OPENAI_TEST_MODEL}
       stream={false}
       onMessage={(event) => {
+        allEventTypes.push(event.type)
         if (event.type === 'provider_event') {
           providerEvents.push(event.itemType)
         }
@@ -668,6 +669,10 @@ test('non-streaming: built-in OpenAI output items emit provider_event events', a
 
   expect(result.content).toBe('Non-stream built-ins ok')
   expect(providerEvents).toEqual(['web_search_call', 'message'])
+  // Non-streaming mode now emits synthetic text + message_complete events
+  expect(allEventTypes).toContain('text')
+  expect(allEventTypes).toContain('message_complete')
+  expect(allEventTypes[allEventTypes.length - 1]).toBe('message_complete')
 })
 
 // toOpenAIInput unit tests
@@ -1547,4 +1552,140 @@ test('getErrorEventDetails extracts nested error fields', () => {
   const result3 = getErrorEventDetails({ error: { code: 'only_code' } })
   expect(result3.message).toContain('only_code')
   expect(result3.code).toBe('only_code')
+})
+
+// --- Synthetic event tests ---
+
+test('non-streaming: text and message_complete events fire', async () => {
+  const events: Array<{ type: string; text?: string; accumulated?: string }> =
+    []
+
+  const { client } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'Hello from OpenAI' }],
+        },
+      ],
+    },
+  ])
+
+  await run(
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={false}
+      onMessage={(event) => {
+        if (event.type === 'text') {
+          events.push({
+            type: 'text',
+            text: event.text,
+            accumulated: event.accumulated,
+          })
+        } else if (event.type === 'message_complete') {
+          events.push({ type: 'message_complete' })
+        }
+      }}
+    >
+      <Message role="user">Hello</Message>
+    </Agent>,
+    { providers: { openai: { client } } },
+  )
+
+  expect(events.length).toBeGreaterThanOrEqual(2)
+  const textEvents = events.filter((e) => e.type === 'text')
+  expect(textEvents.length).toBe(1)
+  expect(textEvents[0]!.accumulated).toBe('Hello from OpenAI')
+  expect(events[events.length - 1]!.type).toBe('message_complete')
+})
+
+test('non-streaming: multiple output_text blocks accumulate correctly', async () => {
+  const textEvents: Array<{ text: string; accumulated: string }> = []
+
+  const { client } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'message',
+          content: [
+            { type: 'output_text', text: 'Hello ' },
+            { type: 'output_text', text: 'world' },
+          ],
+        },
+      ],
+    },
+  ])
+
+  await run(
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={false}
+      onMessage={(event) => {
+        if (event.type === 'text') {
+          textEvents.push({ text: event.text, accumulated: event.accumulated })
+        }
+      }}
+    >
+      <Message role="user">Hello</Message>
+    </Agent>,
+    { providers: { openai: { client } } },
+  )
+
+  expect(textEvents).toHaveLength(2)
+  expect(textEvents[0]!.accumulated).toBe('Hello ')
+  expect(textEvents[1]!.accumulated).toBe('Hello world')
+})
+
+test('non-streaming: thinking events fire with reasoning block', async () => {
+  const events: Array<{ type: string; text?: string }> = []
+
+  const { client } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'reasoning',
+          id: 'rs_1',
+          summary: [{ type: 'summary_text', text: 'Thinking deeply...' }],
+        },
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'The answer is 42' }],
+        },
+      ],
+    },
+  ])
+
+  await run(
+    <Agent
+      provider="openai"
+      model={OPENAI_TEST_MODEL}
+      stream={false}
+      onMessage={(event) => {
+        if (
+          event.type === 'thinking' ||
+          event.type === 'text' ||
+          event.type === 'message_complete'
+        ) {
+          events.push({
+            type: event.type,
+            text: 'text' in event ? event.text : undefined,
+          })
+        }
+      }}
+    >
+      <Message role="user">Think hard</Message>
+    </Agent>,
+    { providers: { openai: { client } } },
+  )
+
+  const types = events.map((e) => e.type)
+  expect(types).toContain('thinking')
+  expect(types).toContain('text')
+  expect(types).toContain('message_complete')
+  expect(types[types.length - 1]).toBe('message_complete')
+
+  const thinkingEvent = events.find((e) => e.type === 'thinking')!
+  expect(thinkingEvent.text).toBe('Thinking deeply...')
 })
