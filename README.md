@@ -79,7 +79,7 @@ const result = await run(
     <Message role="user">What is 42 + 17?</Message>
   </Agent>,
   {
-    clients: { anthropic: new Anthropic() },
+    providers: { anthropic: { client: new Anthropic() } },
   },
 )
 
@@ -99,6 +99,7 @@ bun run agent.tsx
 - **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
 - **Type-safe tools** - Handler params inferred from Zod schemas
 - **Streaming support** - Stream responses
+- **WebSocket mode (OpenAI)** - Persistent connection via `websocket` prop reduces per-turn latency in multi-tool loops
 - **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.runAgent()`
 - **Cross-provider subagents** - Mix providers across parent/subagent boundaries
 - **Compaction control** - Automatic message compaction for long conversations to manage context window usage
@@ -124,7 +125,7 @@ import { createAI, Agent, Message, Tools } from 'agentry'
 import { WebSearch } from 'agentry/anthropic'
 
 const ai = createAI({
-  clients: { anthropic: new Anthropic() },
+  providers: { anthropic: { client: new Anthropic() } },
 })
 
 const result = await ai.run(
@@ -141,31 +142,34 @@ const result = await ai.run(
 
 Want to see code? See [examples/](/packages/examples/src)
 
-| Example                                                                                | Description                                |
-| -------------------------------------------------------------------------------------- | ------------------------------------------ |
-| [`demo.tsx`](packages/examples/src/demo.tsx)                                           | Company research with web search           |
-| [`basic.tsx`](packages/examples/src/basic.tsx)                                         | Simple calculator tool                     |
-| [`interactive.tsx`](packages/examples/src/interactive.tsx)                             | Multi-turn conversations with streaming    |
-| [`subagents.tsx`](packages/examples/src/subagents.tsx)                                 | Manager delegating to specialists          |
-| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                         | Hooks, composition, and dynamic tools      |
-| [`web-search.tsx`](packages/examples/src/web-search.tsx)                               | Web search workflows                       |
-| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | MCP server integration                     |
-| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                     | Terminal-based chatbot                     |
-| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                     | Dynamic subagent creation                  |
-| [`anthropic/cache-ephemeral.tsx`](packages/examples/src/anthropic/cache-ephemeral.tsx) | Prompt caching with ephemeral content      |
-| [`conditions.tsx`](packages/examples/src/conditions.tsx)                               | State-based and NL condition rendering     |
-| [`anthropic/thinking.tsx`](packages/examples/src/anthropic/thinking.tsx)               | Extended thinking with interleaved support |
-| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                   | Interactive authentication workflow        |
-| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx)   | Conversation save/load                     |
-| [`openai/basic.tsx`](packages/examples/src/openai/basic.tsx)                           | OpenAI Responses API basic usage           |
-| [`cross-provider/subagents.tsx`](packages/examples/src/cross-provider/subagents.tsx)   | OpenAI parent + Anthropic subagents        |
-| [`openai/codex-subagent.tsx`](packages/examples/src/openai/codex-subagent.tsx)         | OpenAI Codex subagent                      |
+| Example                                                                                | Description                                               |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [`demo.tsx`](packages/examples/src/demo.tsx)                                           | Company research with web search                          |
+| [`basic.tsx`](packages/examples/src/basic.tsx)                                         | Simple calculator tool                                    |
+| [`interactive.tsx`](packages/examples/src/interactive.tsx)                             | Multi-turn conversations with streaming                   |
+| [`subagents.tsx`](packages/examples/src/subagents.tsx)                                 | Manager delegating to specialists                         |
+| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                         | Hooks, composition, and dynamic tools                     |
+| [`web-search.tsx`](packages/examples/src/web-search.tsx)                               | Web search workflows                                      |
+| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | MCP server integration                                    |
+| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                     | Terminal-based chatbot                                    |
+| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                     | Dynamic subagent creation                                 |
+| [`anthropic/cache-ephemeral.tsx`](packages/examples/src/anthropic/cache-ephemeral.tsx) | Prompt caching with ephemeral content                     |
+| [`conditions.tsx`](packages/examples/src/conditions.tsx)                               | State-based and NL condition rendering                    |
+| [`anthropic/thinking.tsx`](packages/examples/src/anthropic/thinking.tsx)               | Extended thinking with interleaved support                |
+| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                   | Interactive authentication workflow                       |
+| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx)   | Conversation save/load                                    |
+| [`openai/basic.tsx`](packages/examples/src/openai/basic.tsx)                           | OpenAI Responses API basic usage                          |
+| [`cross-provider/subagents.tsx`](packages/examples/src/cross-provider/subagents.tsx)   | OpenAI parent + Anthropic subagents                       |
+| [`openai/codex-subagent.tsx`](packages/examples/src/openai/codex-subagent.tsx)         | OpenAI Codex subagent                                     |
+| [`openai/built-ins.tsx`](packages/examples/src/openai/built-ins.tsx)                   | OpenAI built-ins: WebSearch, CodeExecution, and MCP       |
+| [`openai/websocket.tsx`](packages/examples/src/openai/websocket.tsx)                   | OpenAI WebSocket mode for lower-latency multi-tool loops  |
+| [`compaction.tsx`](packages/examples/src/compaction.tsx)                               | Context compaction demo (works with Anthropic and OpenAI) |
 
 Run an example:
 
 ```bash
 echo "ANTHROPIC_API_KEY=sk-ant-***" > .env
-echo "OPENAI_API_KEY=sk-***" >> .env
+# echo "OPENAI_API_KEY=sk-***" >> .env
 bun run example:basic
 # OpenAI examples:
 bun run example:openai:basic
@@ -183,7 +187,7 @@ bun run example:anthropic:thinking
 
 ```tsx
 const result = await run(<Agent provider="anthropic">...</Agent>, {
-  clients: { anthropic: new Anthropic() },
+  providers: { anthropic: { client: new Anthropic() } },
 })
 ```
 
@@ -192,7 +196,7 @@ const result = await run(<Agent provider="anthropic">...</Agent>, {
 ```tsx
 const agent = await run(<Agent provider="anthropic">...</Agent>, {
   mode: 'interactive',
-  clients: { anthropic: new Anthropic() },
+  providers: { anthropic: { client: new Anthropic() } },
 })
 await agent.sendMessage('Hello')
 for await (const event of agent.stream('Tell me more')) {
@@ -286,7 +290,10 @@ import { createAI, Agent, AgentTool, Message, Tools } from 'agentry'
 import { z } from 'zod'
 
 const ai = createAI({
-  clients: { openai: new OpenAI(), anthropic: new Anthropic() },
+  providers: {
+    openai: { client: new OpenAI() },
+    anthropic: { client: new Anthropic() },
+  },
 })
 
 await ai.run(
@@ -451,20 +458,20 @@ Runs an agent and returns a result or handle.
 ```tsx
 // Batch mode
 const result: AgentResult = await run(<Agent provider="anthropic">...</Agent>, {
-  clients: { anthropic: new Anthropic() },
+  providers: { anthropic: { client: new Anthropic() } },
 })
 
 // Interactive mode
 const handle: AgentHandle = await run(<Agent provider="anthropic">...</Agent>, {
   mode: 'interactive',
-  clients: { anthropic: new Anthropic() },
+  providers: { anthropic: { client: new Anthropic() } },
 })
 ```
 
 **Options:**
 
 - `mode?: 'batch' | 'interactive'` - Execution mode (default: `'batch'`)
-- `clients?: { anthropic?: Anthropic; openai?: OpenAI }` - Provider client map
+- `providers?: { anthropic?: { client?: Anthropic }; openai?: { client?: OpenAI } }` - Provider client map
   - provider is chosen from `<Agent provider=\"...\">`
   - if omitted, provider clients are created from environment variables by default
 
@@ -477,7 +484,7 @@ import OpenAI from 'openai'
 import { createAI, Agent, Message } from 'agentry'
 
 const ai = createAI({
-  clients: { openai: new OpenAI() },
+  providers: { openai: { client: new OpenAI() } },
 })
 
 const result = await ai.run(
@@ -509,6 +516,7 @@ Built-ins are provider-owned exports:
 | `stream?`            | `boolean`                              | Enable streaming (default: `true`)                                                                                                                                                                                                                                              |
 | `betas?`             | `string[]`                             | Additional Anthropic beta features to enable                                                                                                                                                                                                                                    |
 | `thinking?`          | `ThinkingConfig`                       | Extended thinking config (provider-dependent). Anthropic: `{ type: 'enabled', budget_tokens: number, interleaved?: boolean }`. OpenAI: `{ type: 'enabled', effort: 'low' \| 'medium' \| 'high', summary: 'auto' \| 'concise' \| 'detailed' }`. Disable: `{ type: 'disabled' }`. |
+| `websocket?`         | `boolean`                              | Enable WebSocket mode for OpenAI (reduces per-turn latency ~40% in multi-tool loops via persistent WebSocket connection                                                                                                                                                         |
 | `compactionControl?` | `CompactionControl`                    | Context compaction settings (see below)                                                                                                                                                                                                                                         |
 | `onMessage?`         | `(event: AgentStreamEvent) => void`    | Stream event callback                                                                                                                                                                                                                                                           |
 | `onComplete?`        | `(result: AgentResult) => void`        | Completion callback                                                                                                                                                                                                                                                             |

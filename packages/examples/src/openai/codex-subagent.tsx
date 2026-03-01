@@ -35,7 +35,7 @@ const result = await run(
               provider="openai"
               model={CODEX_MODEL}
               name="codex"
-              maxTokens={8192}
+              websocket={true}
               onComplete={(result) => {
                 console.log(
                   `[codex] subagent complete — ${result.usage.inputTokens} in / ${result.usage.outputTokens} out tokens (model=${CODEX_MODEL})`,

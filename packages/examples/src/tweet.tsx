@@ -1,62 +1,56 @@
-import { useState } from 'react'
 import { z } from 'zod'
-import {
-  createAI,
-  Agent,
-  System,
-  Tools,
-  Tool,
-  AgentTool,
-  Message,
-} from 'agentry'
+import { run, Agent, System, Tools, AgentTool, Message } from 'agentry'
+import { WebSearch, CodeExecution } from 'agentry/openai'
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
-import { CodeExecution as AnthropicCodeExecution } from 'agentry/anthropic'
-import { CodeExecution as OpenAICodeExecution } from 'agentry/openai'
-import { MODEL, OPENAI_MODEL } from './constants'
 
-const EXAMPLE_PROVIDER =
-  process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
-const CodeExecution =
-  EXAMPLE_PROVIDER === 'openai' ? OpenAICodeExecution : AnthropicCodeExecution
-const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
-const ai =
-  EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ providers: { openai: { client: new OpenAI() } } })
-    : createAI({
-        providers: { anthropic: { client: new Anthropic() } },
-      })
-
-function Calculator() {
-  const [value, setValue] = useState(0)
-
+function Researcher() {
   return (
-    <Agent provider={EXAMPLE_PROVIDER} model={EXAMPLE_MODEL}>
-      <System>Value: {value}</System>
+    <Agent
+      provider="anthropic"
+      model="claude-sonnet-4-5"
+      onMessage={(event) => {
+        console.log('top-level', event)
+      }}
+    >
+      <System>You are a research assistant.</System>
       <Tools>
-        <Tool
-          name="add"
-          description="Add to value"
-          parameters={z.object({ n: z.number() })}
-          handler={async ({ n }) => {
-            setValue(value + n)
-            return `Value: ${value + n}`
-          }}
+        <AgentTool
+          name="search"
+          description="Search the web for information"
+          parameters={z.object({ query: z.string() })}
+          agent={({ query }) => (
+            <Agent
+              provider="openai"
+              model="gpt-5-mini"
+              websocket={true}
+              onMessage={(event) => {
+                console.log('sub-agent search', JSON.stringify(event, null, 2))
+              }}
+            >
+              <Tools>
+                <WebSearch />
+              </Tools>
+              <Message role="user">{query}</Message>
+            </Agent>
+          )}
         />
         <AgentTool
-          name="advanced_math"
-          description="Evaluate complex math expressions"
-          parameters={z.object({ expression: z.string() })}
-          agent={({ expression }) => (
-            <Agent provider={EXAMPLE_PROVIDER} model={EXAMPLE_MODEL}>
-              <System>
-                Use the code execution sandbox to evaluate the expression with
-                Python.
-              </System>
+          name="compute"
+          description="Run Python to analyze data"
+          parameters={z.object({ task: z.string() })}
+          agent={({ task }) => (
+            <Agent
+              provider="openai"
+              model="gpt-5.3-codex"
+              onMessage={(event) => {
+                console.log('sub-agent compute', JSON.stringify(event, null, 2))
+              }}
+            >
               <Tools>
                 <CodeExecution />
               </Tools>
-              <Message role="user">Evaluate: {expression}</Message>
+              <Message role="user">{task}</Message>
             </Agent>
           )}
         />
@@ -65,11 +59,17 @@ function Calculator() {
   )
 }
 
-const agent = await ai.run(<Calculator />, { mode: 'interactive' })
+const agent = await run(<Researcher />, {
+  mode: 'interactive',
+  providers: {
+    anthropic: { client: new Anthropic() },
+    openai: { client: new OpenAI() },
+  },
+})
 
-await agent.sendMessage('Add 10')
-await agent.sendMessage('Add 5')
 const res = await agent.sendMessage(
-  'Find the Nth prime number (where N is the current value)',
+  'Look up the populations of the 10 largest US cities, ' +
+    'then compute what percentage of the total US population they represent.',
 )
 console.log(res.content)
+agent.close()
