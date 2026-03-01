@@ -5,7 +5,7 @@ import type {
   NormalizedTurnResponse,
 } from './types'
 import type { AgentContentBlock, AgentMessageParam } from '../types/messages'
-import type { JsonObject, JsonValue } from '../types/json'
+import type { JsonObject } from '../types/json'
 import { isCodeExecutionTool, isWebSearchTool } from '../types/tools'
 import { emitSyntheticEvents } from './syntheticEvents'
 import { debug } from '../debug'
@@ -71,10 +71,10 @@ function stringifyContent(
 
 function toProviderOutputEventItem(
   item: OpenAIResponseResult['output'][number],
-): { itemType: string; item: Record<string, JsonValue> } {
+): { itemType: string; item: Record<string, unknown> } {
   return {
     itemType: item.type,
-    item: item as unknown as Record<string, JsonValue>,
+    item: item as unknown as Record<string, unknown>,
   }
 }
 
@@ -586,7 +586,9 @@ async function* createWSEventStream(
   }
 
   const onAbort = () => {
-    error = new OpenAITurnError('Request aborted')
+    const e = new Error('Request aborted')
+    e.name = 'AbortError'
+    error = e as OpenAITurnError
     done = true
     wake()
   }
@@ -794,6 +796,13 @@ export function createOpenAIAdapter(options?: {
         ws = await ensureWS(client)
         await waitForOpen(ws)
       } catch (err) {
+        if (
+          err instanceof TypeError ||
+          err instanceof ReferenceError ||
+          err instanceof SyntaxError
+        ) {
+          throw err
+        }
         // WS failed to open — fall back to HTTP for this turn
         console.warn(
           `[agentry] WebSocket connection failed, falling back to HTTP: ${err instanceof Error ? err.message : String(err)}`,

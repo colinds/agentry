@@ -5,6 +5,13 @@ export interface OpenAIMockFailedResponse {
   message: string
 }
 
+export interface OpenAIMockIncompleteResponse {
+  type: 'incomplete'
+  output: Array<Record<string, unknown>>
+  incomplete_details?: { reason: string } | null
+  usage?: { input_tokens?: number; output_tokens?: number }
+}
+
 interface OpenAIMockSuccessResponse {
   output: Array<Record<string, unknown>>
   usage?: { input_tokens?: number; output_tokens?: number }
@@ -13,11 +20,21 @@ interface OpenAIMockSuccessResponse {
 export type OpenAIMockResponse =
   | OpenAIMockSuccessResponse
   | OpenAIMockFailedResponse
+  | OpenAIMockIncompleteResponse
 
 function isFailedResponse(
   resp: OpenAIMockResponse,
 ): resp is OpenAIMockFailedResponse {
   return 'type' in resp && (resp as OpenAIMockFailedResponse).type === 'failed'
+}
+
+function isIncompleteResponse(
+  resp: OpenAIMockResponse,
+): resp is OpenAIMockIncompleteResponse {
+  return (
+    'type' in resp &&
+    (resp as OpenAIMockIncompleteResponse).type === 'incomplete'
+  )
 }
 
 export function createOpenAIMockClient(responses: OpenAIMockResponse[]): {
@@ -80,14 +97,18 @@ export function createOpenAIMockClient(responses: OpenAIMockResponse[]): {
       yield { type: 'response.output_item.done', output_index: i, item }
     }
 
-    // Emit the final response.completed event
+    // Emit the final response.completed or response.incomplete event
+    const isIncomplete = isIncompleteResponse(resp)
     yield {
-      type: 'response.completed',
+      type: isIncomplete ? 'response.incomplete' : 'response.completed',
       sequence_number: resp.output.length,
       response: {
         id: `resp_${callIndex}`,
         output: resp.output,
-        status: 'completed',
+        status: isIncomplete ? 'incomplete' : 'completed',
+        ...(isIncomplete && resp.incomplete_details !== undefined
+          ? { incomplete_details: resp.incomplete_details }
+          : {}),
         usage: {
           input_tokens: resp.usage?.input_tokens ?? 100,
           output_tokens: resp.usage?.output_tokens ?? 50,
@@ -115,6 +136,21 @@ export function createOpenAIMockClient(responses: OpenAIMockResponse[]): {
 
         if (isFailedResponse(next)) {
           throw new Error(`OpenAI response failed: ${next.message}`)
+        }
+
+        if (isIncompleteResponse(next)) {
+          return {
+            id: `resp_${callIndex}`,
+            output: next.output,
+            status: 'incomplete',
+            ...(next.incomplete_details !== undefined
+              ? { incomplete_details: next.incomplete_details }
+              : {}),
+            usage: {
+              input_tokens: next.usage?.input_tokens ?? 100,
+              output_tokens: next.usage?.output_tokens ?? 50,
+            },
+          }
         }
 
         return {

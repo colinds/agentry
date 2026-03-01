@@ -10,4 +10,5 @@ export {
   createOpenAIMockClient,
   type OpenAIMockResponse,
   type OpenAIMockFailedResponse,
+  type OpenAIMockIncompleteResponse,
 } from './openaiMock'

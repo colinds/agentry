@@ -216,7 +216,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       })
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
-      if (err.name === 'AbortError') throw err
+      if (err.name === 'AbortError' || signal?.aborted) throw err
       debug(
         'conditions',
         `NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}), conditions may be stale due to evaluation failure`,
@@ -646,6 +646,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       return true
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
+      // Re-throw abort errors — the agent is being cancelled
+      if (err.name === 'AbortError') throw err
       // Re-throw fatal errors (auth failures, invalid model) — these won't resolve on retry
       const status = (err as { status?: number }).status
       if (status === 401 || status === 403 || status === 404) {

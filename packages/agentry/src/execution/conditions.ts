@@ -6,6 +6,7 @@ import { isConditionInstance } from '../instances/types'
 import { debug } from '../debug'
 import type { ProviderClientMap } from '../providers/types'
 import type { ProviderName } from '../types/provider'
+import type { JsonObject } from '../types/json'
 import { toOpenAIInput } from '../providers/openai'
 import { toAnthropicMessage } from '../providers/anthropic'
 
@@ -146,7 +147,7 @@ function mapConditionResults({
  * Shared by both Anthropic and OpenAI evaluation paths.
  */
 function parseConditionIndices(
-  input: Record<string, unknown>,
+  input: JsonObject,
   provider: ProviderName,
 ): number[] {
   const indices = input.trueConditionIndices
@@ -269,7 +270,7 @@ async function evaluateNLWithAnthropic({
 
   const toolUse = response.content.find((block) => block.type === 'tool_use')
   if (toolUse && toolUse.type === 'tool_use') {
-    const input = toolUse.input as Record<string, unknown>
+    const input = toolUse.input as JsonObject
     const indices = parseConditionIndices(input, 'anthropic')
     return mapConditionResults({
       trueConditionIndices: indices,
@@ -351,9 +352,9 @@ async function evaluateNLWithOpenAI({
       item.type === 'function_call' && item.name === 'evaluate_conditions',
   )
   if (functionCall && functionCall.type === 'function_call') {
-    let parsed: Record<string, unknown>
+    let parsed: JsonObject
     try {
-      parsed = JSON.parse(functionCall.arguments) as Record<string, unknown>
+      parsed = JSON.parse(functionCall.arguments) as JsonObject
     } catch (e) {
       throw new Error(
         `[agentry] NL condition evaluation: failed to parse OpenAI function call arguments: "${functionCall.arguments}"`,

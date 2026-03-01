@@ -29,11 +29,13 @@ export class AgentHandle extends AbstractAgentHandle {
   private mode: 'batch' | 'interactive'
   private wsFactory: ((client: OpenAI) => ResponsesWSLike) | undefined
   private isDirty = true
-  private initialProps: {
-    provider: string
-    model: string
-    websocket: boolean
-  } | null = null
+  private initialProps:
+    | {
+        provider: string
+        model: string
+        websocket: boolean
+      }
+    | undefined
 
   constructor(
     element: ReactNode,
@@ -119,6 +121,11 @@ export class AgentHandle extends AbstractAgentHandle {
     }
 
     if (this.instance !== null) {
+      if (this.initialProps === undefined) {
+        throw new Error(
+          'Internal error: initialProps not set but instance exists',
+        )
+      }
       const agent = this.instance
       const provider = agent.props.provider
       const model = agent.props.model
@@ -127,21 +134,21 @@ export class AgentHandle extends AbstractAgentHandle {
           ? (agent.props.websocket ?? false)
           : false
 
-      if (this.initialProps!.provider !== provider) {
+      if (this.initialProps.provider !== provider) {
         throw new Error(
-          `Agent provider cannot change between runs (was "${this.initialProps!.provider}", got "${provider}"). ` +
+          `Agent provider cannot change between runs (was "${this.initialProps.provider}", got "${provider}"). ` +
             `Create a new agent handle instead.`,
         )
       }
-      if (this.initialProps!.model !== model) {
+      if (this.initialProps.model !== model) {
         throw new Error(
-          `Agent model cannot change between runs (was "${this.initialProps!.model}", got "${model}"). ` +
+          `Agent model cannot change between runs (was "${this.initialProps.model}", got "${model}"). ` +
             `Create a new agent handle instead.`,
         )
       }
-      if (this.initialProps!.websocket !== websocket) {
+      if (this.initialProps.websocket !== websocket) {
         throw new Error(
-          `Agent websocket mode cannot change between runs (was ${this.initialProps!.websocket}, got ${websocket}). ` +
+          `Agent websocket mode cannot change between runs (was ${this.initialProps.websocket}, got ${websocket}). ` +
             `Create a new agent handle instead.`,
         )
       }

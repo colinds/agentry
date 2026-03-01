@@ -1,4 +1,3 @@
-import type { JsonValue } from './json'
 import type { OnStepFinishResult } from './lifecycle'
 import type { AgentMessageParam } from './messages'
 import type { Model as _AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
@@ -75,7 +74,7 @@ export type AgentStreamEvent =
   | {
       type: 'provider_event'
       itemType: string
-      item: Record<string, JsonValue>
+      item: Record<string, unknown>
     }
   | { type: 'thinking'; text: string }
   | { type: 'message_complete'; stopReason: string | null }

@@ -44,7 +44,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Hello')
@@ -73,7 +75,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Hello')
@@ -103,7 +107,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Both')
@@ -152,7 +158,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -207,7 +215,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -237,7 +247,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Hello')
@@ -278,7 +290,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -385,7 +399,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn() // Route evaluation
       await controller.nextTurn() // Tool use
       await controller.nextTurn() // Final response
@@ -454,7 +470,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       await controller.nextTurn()
@@ -501,7 +519,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -551,7 +571,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -584,7 +606,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('authenticate')
@@ -630,7 +654,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -689,7 +715,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       await controller.nextTurn()
@@ -748,7 +776,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       await controller.nextTurn()
@@ -803,7 +833,9 @@ describe('NL Condition Evaluation', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn() // NL eval
       await controller.nextTurn() // agent calls calculate
       await controller.nextTurn() // final response
@@ -844,7 +876,9 @@ describe('NL Condition Evaluation', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { providers: { anthropic: { client } } })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn() // NL eval (no tool_use — fallback)
       await controller.nextTurn() // agent response
       const result = await runPromise

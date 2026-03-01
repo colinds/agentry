@@ -1689,3 +1689,144 @@ test('non-streaming: thinking events fire with reasoning block', async () => {
   const thinkingEvent = events.find((e) => e.type === 'thinking')!
   expect(thinkingEvent.text).toBe('Thinking deeply...')
 })
+
+// --- Test A: malformed function_call items in parseOpenAIResponse ---
+
+test('non-streaming: function_call with no call_id or id throws', async () => {
+  const { client } = createOpenAIMockClient([
+    {
+      output: [{ type: 'function_call', name: 'my_tool', arguments: '{}' }],
+    },
+  ])
+
+  await expect(
+    run(
+      <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+        <Message role="user">Hello</Message>
+      </Agent>,
+      { providers: { openai: { client } } },
+    ),
+  ).rejects.toThrow(/function_call with no call_id or id/)
+})
+
+test('non-streaming: function_call with no name throws', async () => {
+  const { client } = createOpenAIMockClient([
+    {
+      output: [{ type: 'function_call', call_id: 'call_1', arguments: '{}' }],
+    },
+  ])
+
+  await expect(
+    run(
+      <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+        <Message role="user">Hello</Message>
+      </Agent>,
+      { providers: { openai: { client } } },
+    ),
+  ).rejects.toThrow(/function_call with no name/)
+})
+
+test('non-streaming: function_call with non-object arguments throws', async () => {
+  const { client } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'function_call',
+          call_id: 'call_1',
+          name: 'my_tool',
+          arguments: 'null',
+        },
+      ],
+    },
+  ])
+
+  await expect(
+    run(
+      <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+        <Message role="user">Hello</Message>
+      </Agent>,
+      { providers: { openai: { client } } },
+    ),
+  ).rejects.toThrow(/expected object arguments/)
+})
+
+// --- Test B: response.status === 'incomplete' stop reason ---
+
+test('non-streaming: incomplete response with reason maps to stopReason length', async () => {
+  const { client } = createOpenAIMockClient([
+    {
+      type: 'incomplete',
+      output: [
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'Partial answer' }],
+        },
+      ],
+      incomplete_details: { reason: 'length' },
+    },
+  ])
+
+  const result = await run(
+    <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+      <Message role="user">Tell me a lot</Message>
+    </Agent>,
+    { providers: { openai: { client } } },
+  )
+
+  expect(result.stopReason).toBe('length')
+  expect(result.content).toBe('Partial answer')
+})
+
+test('non-streaming: incomplete response without incomplete_details falls back to length', async () => {
+  const { client } = createOpenAIMockClient([
+    {
+      type: 'incomplete',
+      output: [
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'Cut off' }],
+        },
+      ],
+    },
+  ])
+
+  const result = await run(
+    <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+      <Message role="user">Tell me a lot</Message>
+    </Agent>,
+    { providers: { openai: { client } } },
+  )
+
+  expect(result.stopReason).toBe('length')
+})
+
+// --- Test C: WS error event handler via emitError ---
+
+test('WS: emitError propagates WebSocket-level error from a turn', async () => {
+  let wsMock: MockResponsesWS | null = null
+  const { client } = createOpenAIMockClient([])
+
+  const adapter = createOpenAIAdapter({
+    websocket: true,
+    _responsesWSFactory: () => {
+      // Provide an empty batch so send() doesn't throw; the error comes via emitError
+      wsMock = new MockResponsesWS([[]])
+      return wsMock
+    },
+  })
+
+  const request = makeTurnRequest([
+    { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
+  ])
+
+  const wsError = new Error('WebSocket connection reset')
+
+  // Start the turn, then emit the WS error after send() has been called
+  const turnPromise = adapter.createTurn(client, request)
+  // Yield twice: once for send() scheduling, once for the empty batch emission
+  await Promise.resolve()
+  await Promise.resolve()
+  wsMock!.emitError(wsError)
+
+  await expect(turnPromise).rejects.toThrow('WebSocket connection reset')
+})
