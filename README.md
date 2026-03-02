@@ -19,14 +19,22 @@ Agentry adapts React’s component model for AI agents. Define behavior declarat
 > [!WARNING]
 > This library is in active development.
 
+> [!NOTE]
+> Supports OpenAI and Anthropic models.
+
 ## Quick Start
 
 ### Installation
 
 ```bash
 bun add agentry react zod
-# Set one or both provider keys
+
+# for anthropic
+bun add @anthropic-ai/sdk
 export ANTHROPIC_API_KEY="sk-ant-***"
+
+# for openai
+bun add openai
 export OPENAI_API_KEY="sk-***"
 ```
 
