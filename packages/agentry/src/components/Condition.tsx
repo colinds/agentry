@@ -1,9 +1,20 @@
 import type { ReactNode } from 'react'
+import type { ProviderModelOverride } from '../types/agent'
 
-export interface ConditionProps {
-  when: boolean | string
-  children?: ReactNode
-}
+/**
+ * Props for the Condition component.
+ *
+ * Boolean conditions (`when={boolean}`) don't accept model/provider overrides.
+ * NL conditions (`when="..."`) extend `ProviderModelOverride` for typed provider/model
+ * overrides used during LLM evaluation. The first NL condition's override applies to
+ * the entire batch.
+ */
+export type ConditionProps =
+  | ({ when: boolean; children?: ReactNode } & {
+      provider?: undefined
+      model?: undefined
+    })
+  | ({ when: string; children?: ReactNode } & ProviderModelOverride)
 
 /**
  * Condition component - conditionally renders children based on a boolean or natural language condition
@@ -33,6 +44,13 @@ export interface ConditionProps {
  * </Condition>
  * ```
  *
+ * @example NL condition with cheap model override
+ * ```tsx
+ * <Condition when="user wants to search" model="claude-haiku-4-5" provider="anthropic">
+ *   <Tools><WebSearch /></Tools>
+ * </Condition>
+ * ```
+ *
  * @example Nested conditions
  * ```tsx
  * <Condition when={isAuthenticated}>
@@ -42,6 +60,13 @@ export interface ConditionProps {
  * </Condition>
  * ```
  */
-export function Condition({ when, children }: ConditionProps): ReactNode {
-  return <condition when={when}>{children}</condition>
+export function Condition(props: ConditionProps): ReactNode {
+  if (typeof props.when === 'boolean') {
+    return <condition when={props.when}>{props.children}</condition>
+  }
+  return (
+    <condition when={props.when} model={props.model} provider={props.provider}>
+      {props.children}
+    </condition>
+  )
 }

@@ -10,6 +10,11 @@ import type { JsonObject } from '../types/json'
 import { toOpenAIInput } from '../providers/openai'
 import { toAnthropicMessage } from '../providers/anthropic'
 
+const CONDITION_DEFAULT_MODELS: Record<ProviderName, string> = {
+  anthropic: 'claude-haiku-4-5',
+  openai: 'gpt-4.1-mini',
+}
+
 function buildNLConditionSystemPrompt(conditionDescriptions: string): string {
   return `You are a condition evaluation assistant. Given a conversation, determine which conditions are true. Multiple conditions can be true simultaneously.
 
@@ -49,7 +54,6 @@ export async function evaluateConditions({
   messages,
   clients,
   provider,
-  model,
   signal,
   evaluateNL,
 }: {
@@ -57,7 +61,6 @@ export async function evaluateConditions({
   messages: AgentMessageParam[]
   clients: Partial<ProviderClientMap>
   provider: ProviderName
-  model: string
   signal?: AbortSignal
   evaluateNL?: boolean
 }): Promise<boolean> {
@@ -89,12 +92,18 @@ export async function evaluateConditions({
   const nlConditions = conditions.filter((c) => typeof c.when === 'string')
 
   if (nlConditions.length > 0 && evaluateNL !== false) {
+    // Resolve provider/model for NL evaluation: first condition's override → cheap default
+    const firstNL = nlConditions[0]!
+    const resolvedProvider = firstNL.provider ?? provider
+    const resolvedModel =
+      firstNL.model ?? CONDITION_DEFAULT_MODELS[resolvedProvider]
+
     const nlResults = await evaluateNaturalLanguageConditions({
       conditions: nlConditions,
       messages,
       clients,
-      provider,
-      model,
+      provider: resolvedProvider,
+      model: resolvedModel,
       signal,
     })
 
@@ -223,7 +232,11 @@ async function evaluateNLWithAnthropic({
 
   const validIndices = conditions.map((_, index) => index)
 
-  const evalMessages = ensureValidMessageStart(messages).map(toAnthropicMessage)
+  const trimmedMessages = ensureValidMessageStart(messages)
+  if (trimmedMessages.length === 0) {
+    return Array.from({ length: conditions.length }, () => false)
+  }
+  const evalMessages = trimmedMessages.map(toAnthropicMessage)
 
   const startTime = performance.now()
   const response = await client.beta.messages.create(
@@ -307,6 +320,10 @@ async function evaluateNLWithOpenAI({
 
   const validIndices = conditions.map((_, index) => index)
   const evalMessages = ensureValidMessageStart(messages)
+
+  if (evalMessages.length === 0) {
+    return Array.from({ length: conditions.length }, () => false)
+  }
 
   const input = [
     ...toOpenAIInput(evalMessages),

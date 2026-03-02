@@ -5,7 +5,7 @@ import type { AgentComponentPublicProps } from './Agent.tsx'
 import type { MCPServerConfig } from '../instances/types'
 import type { AgentContentBlock } from '../types/messages'
 import type { ProviderName } from '../types/provider'
-import type { Model } from '../types/agent'
+import type { Model, ProviderModelOverride } from '../types/agent'
 
 export interface AgentryElements {
   // Internal reconciler element — both fields are optional so the reconciler can
@@ -44,7 +44,10 @@ export interface AgentryElements {
     key?: string
   }
 
-  condition: { when: boolean | string; children?: ReactNode }
+  condition: {
+    when: boolean | string
+    children?: ReactNode
+  } & ProviderModelOverride
 }
 
 declare module 'react' {

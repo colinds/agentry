@@ -14,7 +14,12 @@ import {
   isConditionInstance,
 } from '../instances'
 import { createInstance, InstanceType, type ElementProps } from '../instances'
-import type { AgentProps, CompactionControl, Model } from '../types'
+import type {
+  AgentProps,
+  CompactionControl,
+  Model,
+  ProviderModelOverride,
+} from '../types'
 import { debug } from '../debug'
 import { diffProps, disposeOnIdle } from './utils'
 import { collectChild, uncollectChild } from './collectors'
@@ -422,9 +427,17 @@ function applyUpdate(
       }
     }
   } else if (isConditionInstance(instance)) {
-    const payload = updatePayload as { when?: boolean | string }
+    const payload = updatePayload as Partial<
+      { when: boolean | string } & ProviderModelOverride
+    >
     if (payload.when !== undefined) {
       instance.when = payload.when
+    }
+    if (payload.model !== undefined) {
+      instance.model = payload.model
+    }
+    if (payload.provider !== undefined) {
+      instance.provider = payload.provider
     }
   }
 }

@@ -47,6 +47,7 @@ export {
   type AnthropicThinkingEnabled,
   type OpenAIThinkingEnabled,
   type CompactionControl,
+  type ProviderModelOverride,
   type AgentStreamEvent,
   type AgentResult,
 } from './agent'

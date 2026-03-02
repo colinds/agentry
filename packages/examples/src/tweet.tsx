@@ -6,13 +6,7 @@ import OpenAI from 'openai'
 
 function Researcher() {
   return (
-    <Agent
-      provider="anthropic"
-      model="claude-sonnet-4-5"
-      onMessage={(event) => {
-        console.log('top-level', event)
-      }}
-    >
+    <Agent provider="anthropic" model="claude-sonnet-4-5">
       <System>You are a research assistant.</System>
       <Tools>
         <AgentTool
@@ -20,14 +14,7 @@ function Researcher() {
           description="Search the web for information"
           parameters={z.object({ query: z.string() })}
           agent={({ query }) => (
-            <Agent
-              provider="openai"
-              model="gpt-5-mini"
-              websocket={true}
-              onMessage={(event) => {
-                console.log('sub-agent search', JSON.stringify(event, null, 2))
-              }}
-            >
+            <Agent provider="openai" model="gpt-5-mini" websocket={true}>
               <Tools>
                 <WebSearch />
               </Tools>
@@ -40,13 +27,7 @@ function Researcher() {
           description="Run Python to analyze data"
           parameters={z.object({ task: z.string() })}
           agent={({ task }) => (
-            <Agent
-              provider="openai"
-              model="gpt-5.3-codex"
-              onMessage={(event) => {
-                console.log('sub-agent compute', JSON.stringify(event, null, 2))
-              }}
-            >
+            <Agent provider="openai" model="gpt-5.3-codex">
               <Tools>
                 <CodeExecution />
               </Tools>

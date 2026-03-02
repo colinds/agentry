@@ -5,7 +5,7 @@ import type {
   SubagentInstance,
   AgentToolInstance,
   ToolInstance,
-  SdkToolInstance,
+  BuiltInToolInstance,
   SystemInstance,
   ContextInstance,
   MessageInstance,
@@ -15,7 +15,7 @@ import type {
   AgentComponentProps,
   AgentToolComponentProps,
   ToolComponentProps,
-  SdkToolComponentProps,
+  BuiltInToolComponentProps,
   SystemComponentProps,
   ContextComponentProps,
   MessageComponentProps,
@@ -70,7 +70,7 @@ export type ElementProps =
   | AgentComponentProps
   | AgentToolComponentProps
   | ToolComponentProps
-  | SdkToolComponentProps
+  | BuiltInToolComponentProps
   | SystemComponentProps
   | ContextComponentProps
   | MessageComponentProps
@@ -93,7 +93,7 @@ export function createInstance(
     case InstanceType.Tool:
       return createToolInstance(props as ToolComponentProps)
     case InstanceType.BuiltInTool:
-      return createSdkToolInstance(props as SdkToolComponentProps)
+      return createBuiltInToolInstance(props as BuiltInToolComponentProps)
     case InstanceType.System:
       return createSystemInstance(props as SystemComponentProps)
     case InstanceType.Context:
@@ -190,7 +190,9 @@ function createAgentToolInstance(
   }
 }
 
-function createSdkToolInstance(props: SdkToolComponentProps): SdkToolInstance {
+function createBuiltInToolInstance(
+  props: BuiltInToolComponentProps,
+): BuiltInToolInstance {
   return {
     type: InstanceType.BuiltInTool,
     tool: props.tool,
@@ -280,6 +282,8 @@ function createConditionInstance(
   return {
     type: InstanceType.Condition,
     when: props.when,
+    model: props.model,
+    provider: props.provider,
     isActive: typeof props.when === 'boolean' ? props.when : false,
     children: [],
     parent: null,
@@ -324,8 +328,14 @@ export function createSubagentInstance(
       stream: props.stream ?? inherited.stream ?? true,
       compactionControl: props.compactionControl ?? inherited.compactionControl,
       thinking: props.thinking ?? inherited.thinking,
-      betas: props.betas ?? inherited.betas,
-      websocket: props.websocket ?? inherited.websocket,
+      betas:
+        (props.provider ?? inherited.provider) === 'anthropic'
+          ? (props.betas ?? inherited.betas)
+          : undefined,
+      websocket:
+        (props.provider ?? inherited.provider) === 'openai'
+          ? (props.websocket ?? inherited.websocket)
+          : undefined,
       // callbacks never inherited
       onMessage: props.onMessage,
       onComplete: props.onComplete,

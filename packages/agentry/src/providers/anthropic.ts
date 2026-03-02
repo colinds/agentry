@@ -110,7 +110,7 @@ function toAgentBlocks(content: BetaContentBlock[]): AgentContentBlock[] {
   return blocks
 }
 
-function toApiSdkTool(tool: BuiltInTool): BetaToolUnion {
+function toApiBuiltInTool(tool: BuiltInTool): BetaToolUnion {
   if (isCodeExecutionTool(tool)) {
     return { type: 'code_execution_20250825', name: 'code_execution' }
   }
@@ -147,7 +147,7 @@ export const anthropicAdapter: ProviderAdapter<'anthropic'> = {
   ): Promise<NormalizedTurnResponse> {
     const tools: BetaToolUnion[] = [
       ...request.tools.map(toApiTool),
-      ...request.builtInTools.map(toApiSdkTool),
+      ...request.builtInTools.map(toApiBuiltInTool),
       ...request.mcpServers.map((server) => ({
         type: 'mcp_toolset' as const,
         mcp_server_name: server.name,
@@ -221,29 +221,16 @@ export const anthropicAdapter: ProviderAdapter<'anthropic'> = {
         { ...params, stream: false },
         { signal: request.signal },
       )
+    }
 
-      const blocks = toAgentBlocks(response.content)
+    const blocks = toAgentBlocks(response.content)
+    if (!request.stream) {
       emitSyntheticEvents(blocks, response.stop_reason, request.onStream)
-
-      return {
-        message: {
-          content: blocks,
-          stop_reason: response.stop_reason,
-          usage: {
-            input_tokens: response.usage.input_tokens,
-            output_tokens: response.usage.output_tokens,
-            cache_creation_input_tokens:
-              response.usage.cache_creation_input_tokens ?? null,
-            cache_read_input_tokens:
-              response.usage.cache_read_input_tokens ?? null,
-          },
-        },
-      }
     }
 
     return {
       message: {
-        content: toAgentBlocks(response.content),
+        content: blocks,
         stop_reason: response.stop_reason,
         usage: {
           input_tokens: response.usage.input_tokens,

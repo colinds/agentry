@@ -1,5 +1,6 @@
 import type { OnStepFinishResult } from './lifecycle'
 import type { AgentMessageParam } from './messages'
+import type { JsonObject } from './json'
 import type { Model as _AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
 import type {
   Reasoning,
@@ -43,20 +44,28 @@ export interface BaseAgentProps {
   compactionControl?: CompactionControl
 }
 
+/**
+ * Base discriminated union for provider + model selection.
+ * Narrows `model` to the correct SDK type based on `provider`.
+ * Extended by `ProviderVariant` (Agent) and used directly by `Condition`.
+ */
+export type ProviderModelOverride =
+  | { provider: 'anthropic'; model?: AnthropicModel }
+  | { provider: 'openai'; model?: OpenAIModel }
+  | { provider?: undefined; model?: Model }
+
 export type ProviderVariant =
-  | {
-      provider: 'anthropic'
-      model?: AnthropicModel
+  | (Extract<ProviderModelOverride, { provider: 'anthropic' }> & {
       thinking?: AnthropicThinkingEnabled | { type: 'disabled' }
       betas?: string[]
-    }
-  | {
-      provider: 'openai'
-      model?: OpenAIModel
+    })
+  | (Extract<ProviderModelOverride, { provider: 'openai' }> & {
       thinking?: OpenAIThinkingEnabled | { type: 'disabled' }
       websocket?: boolean
-    }
-  | { provider?: undefined; model?: Model; thinking?: ThinkingConfig }
+    })
+  | (Extract<ProviderModelOverride, { provider?: undefined }> & {
+      thinking?: ThinkingConfig
+    })
 
 export type AgentProps = BaseAgentProps & ProviderVariant
 
@@ -74,7 +83,7 @@ export type AgentStreamEvent =
   | {
       type: 'provider_event'
       itemType: string
-      item: Record<string, unknown>
+      item: JsonObject
     }
   | { type: 'thinking'; text: string }
   | { type: 'message_complete'; stopReason: string | null }

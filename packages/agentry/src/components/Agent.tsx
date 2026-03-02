@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import type {
   BaseAgentProps,
-  AnthropicModel,
-  OpenAIModel,
+  ProviderModelOverride,
   ThinkingConfig,
   AnthropicThinkingEnabled,
   OpenAIThinkingEnabled,
@@ -12,19 +11,18 @@ import type {
  * `provider` and `model` must be specified together or not at all.
  * - Root agents: specify both (`provider="anthropic" model="claude-haiku-4-5"`)
  * - Subagents inside AgentTool: can omit both (inherit from parent)
+ *
+ * Extends `ProviderModelOverride` but makes `model` required when `provider`
+ * is specified (root agents must provide a model).
  */
 type PublicProviderVariant =
-  | {
-      provider: 'anthropic'
-      model: AnthropicModel
+  | (Required<Extract<ProviderModelOverride, { provider: 'anthropic' }>> & {
       thinking?: AnthropicThinkingEnabled | { type: 'disabled' }
-    }
-  | {
-      provider: 'openai'
-      model: OpenAIModel
+    })
+  | (Required<Extract<ProviderModelOverride, { provider: 'openai' }>> & {
       thinking?: OpenAIThinkingEnabled | { type: 'disabled' }
       websocket?: boolean
-    }
+    })
   | { provider?: undefined; model?: undefined; thinking?: ThinkingConfig }
 
 export type AgentComponentPublicProps = BaseAgentProps &

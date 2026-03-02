@@ -11,6 +11,7 @@ import type { ExecutionEngine } from '../execution'
 import type { AgentStore } from '../store'
 import type { z } from 'zod'
 import type { ProviderClientMap, MCPServerConfig } from '../providers/types'
+import type { ProviderModelOverride } from '../types/agent'
 
 export type { MCPServerConfig }
 
@@ -51,7 +52,7 @@ export interface ToolInstance extends BaseInstance {
   tool: InternalTool
 }
 
-export interface SdkToolInstance extends BaseInstance {
+export interface BuiltInToolInstance extends BaseInstance {
   type: InstanceType.BuiltInTool
   tool: BuiltInTool
 }
@@ -105,13 +106,14 @@ export interface AgentToolInstance extends BaseInstance {
   agent: AgentToolFunction<z.ZodType>
 }
 
-export interface ConditionInstance extends BaseInstance {
-  type: InstanceType.Condition
-  parent: Instance | null
-  when: boolean | string
-  isActive: boolean
-  children: Instance[]
-}
+export type ConditionInstance = BaseInstance &
+  ProviderModelOverride & {
+    type: InstanceType.Condition
+    parent: Instance | null
+    when: boolean | string
+    isActive: boolean
+    children: Instance[]
+  }
 
 export type AgentLike = AgentInstance | SubagentInstance
 
@@ -120,7 +122,7 @@ export type Instance =
   | SubagentInstance
   | AgentToolInstance
   | ToolInstance
-  | SdkToolInstance
+  | BuiltInToolInstance
   | SystemInstance
   | ContextInstance
   | MessageInstance
@@ -141,7 +143,7 @@ export interface AgentToolComponentProps {
   agentTool: InternalAgentTool
 }
 
-export interface SdkToolComponentProps {
+export interface BuiltInToolComponentProps {
   tool: BuiltInTool
 }
 
@@ -172,10 +174,10 @@ export interface ToolsContainerProps {
   children?: React.ReactNode
 }
 
-export interface ConditionComponentProps {
+export type ConditionComponentProps = {
   when: boolean | string
   children?: React.ReactNode
-}
+} & ProviderModelOverride
 
 export function isAgentInstance(instance: Instance): instance is AgentInstance {
   return instance.type === InstanceType.Agent
@@ -185,9 +187,9 @@ export function isToolInstance(instance: Instance): instance is ToolInstance {
   return instance.type === InstanceType.Tool
 }
 
-export function isSdkToolInstance(
+export function isBuiltInToolInstance(
   instance: Instance,
-): instance is SdkToolInstance {
+): instance is BuiltInToolInstance {
   return instance.type === InstanceType.BuiltInTool
 }
 

@@ -23,7 +23,7 @@ export interface ToolResultContentBlock {
   type: 'tool_result'
   tool_use_id: string
   content: string | TextContentArray
-  is_error?: boolean
+  is_error: boolean
 }
 
 export type AgentContentBlock =

@@ -573,10 +573,12 @@ Built-ins are provider-owned exports:
 
 #### `<Condition>`
 
-| Prop       | Type                | Description                                            |
-| ---------- | ------------------- | ------------------------------------------------------ |
-| `when`     | `boolean \| string` | Condition (boolean or NL description evaluated by LLM) |
-| `children` | `ReactNode`         | Content to render when condition is true               |
+| Prop        | Type                            | Description                                                                                   |
+| ----------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
+| `when`      | `boolean \| string`             | Condition (boolean or NL description evaluated by LLM)                                        |
+| `provider?` | `'anthropic' \| 'openai'`       | Override provider for NL evaluation (first NL condition's override applies to the batch)      |
+| `model?`    | `AnthropicModel \| OpenAIModel` | Override model for NL evaluation (defaults to `claude-haiku-4-5` / `gpt-4.1-mini` if not set) |
+| `children`  | `ReactNode`                     | Content to render when condition is true                                                      |
 
 #### `<WebSearch>`
 

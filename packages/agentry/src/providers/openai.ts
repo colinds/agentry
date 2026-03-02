@@ -71,10 +71,10 @@ function stringifyContent(
 
 function toProviderOutputEventItem(
   item: OpenAIResponseResult['output'][number],
-): { itemType: string; item: Record<string, unknown> } {
+): { itemType: string; item: JsonObject } {
   return {
     itemType: item.type,
-    item: item as unknown as Record<string, unknown>,
+    item: item as unknown as JsonObject,
   }
 }
 

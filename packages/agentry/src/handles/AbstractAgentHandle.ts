@@ -113,7 +113,11 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     // Wire up async-aware onStepFinish so the engine awaits it before
     // proceeding to the next iteration.
     this.engine.onStepFinish = async (result: OnStepFinishResult) => {
-      await agent.props.onStepFinish?.(result)
+      try {
+        await agent.props.onStepFinish?.(result)
+      } catch (err) {
+        throw new Error('[agentry] onStepFinish callback threw', { cause: err })
+      }
     }
 
     let onStateChange: ((state: AgentState) => void) | undefined

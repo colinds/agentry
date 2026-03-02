@@ -707,6 +707,7 @@ test('toOpenAIInput: tool_result without is_error has no [ERROR] prefix', () => 
           type: 'tool_result',
           tool_use_id: 'call_y',
           content: 'success result',
+          is_error: false,
         },
       ],
     },

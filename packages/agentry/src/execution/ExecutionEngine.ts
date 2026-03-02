@@ -202,32 +202,42 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
   private async evaluateAllConditions(
     signal?: AbortSignal,
-    options?: { evaluateNL?: boolean },
-  ): Promise<boolean> {
+    options?: { evaluateNL?: boolean; consecutiveFailures?: number },
+  ): Promise<{ changed: boolean; consecutiveFailures: number }> {
     try {
-      return await evaluateConditions({
+      const changed = await evaluateConditions({
         root: this.agentInstance,
         messages: this.messages as AgentMessageParam[],
         clients: this.config.clients ?? {},
         provider: this.config.provider,
-        model: this.config.model,
         signal,
         evaluateNL: options?.evaluateNL,
       })
+      return { changed, consecutiveFailures: 0 }
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
       if (err.name === 'AbortError' || signal?.aborted) throw err
+
+      const failures = (options?.consecutiveFailures ?? 0) + 1
+
+      if (failures >= 3) {
+        throw new Error(
+          `[agentry] NL condition evaluation failed ${failures} consecutive times (agent: ${this.config.agentName ?? 'unknown'}). Aborting to prevent silently stale conditions.`,
+          { cause: err },
+        )
+      }
+
       debug(
         'conditions',
-        `NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}), conditions may be stale due to evaluation failure`,
+        `NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}, consecutive failures: ${failures}), conditions may be stale due to evaluation failure`,
         { error: err.message },
       )
       console.error(
-        `[agentry] NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}), conditions may be stale due to evaluation failure:`,
+        `[agentry] NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}, consecutive failures: ${failures}), conditions may be stale due to evaluation failure:`,
         err,
       )
       this.emit('error', err)
-      return false
+      return { changed: false, consecutiveFailures: failures }
     }
   }
 
@@ -253,6 +263,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.iterationCount = 0
 
     try {
+      let conditionEvalFailures = 0
+
       while (!this.aborted) {
         if (
           this.config.maxIterations !== undefined &&
@@ -269,11 +281,15 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         })
 
         const isFirstIteration = this.iterationCount === 1
-        const conditionsChanged = await this.evaluateAllConditions(
+        const conditionResult = await this.evaluateAllConditions(
           abortController.signal,
-          { evaluateNL: isFirstIteration }, // only evaluate NL conditions from the user's history
+          {
+            evaluateNL: isFirstIteration,
+            consecutiveFailures: conditionEvalFailures,
+          },
         )
-        if (conditionsChanged) {
+        conditionEvalFailures = conditionResult.consecutiveFailures
+        if (conditionResult.changed) {
           this.recollectAll()
         }
 
@@ -498,7 +514,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       type: 'tool_result',
       tool_use_id: toolCall.id,
       content: result,
-      is_error: isError || undefined,
+      is_error: isError,
     }
   }
 
@@ -522,7 +538,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         toolCallId: tr.tool_use_id,
         toolName: toolUse?.name ?? 'unknown',
         result: tr.content,
-        isError: tr.is_error ?? false,
+        isError: tr.is_error,
         executionTime: this.toolExecutionTimes.get(tr.tool_use_id),
       }
     })
