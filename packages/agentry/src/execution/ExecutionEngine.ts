@@ -1,18 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { EventEmitter } from 'eventemitter3'
-import type {
-  BetaMessage,
-  BetaMessageParam,
-  BetaToolUnion,
-  BetaToolResultBlockParam,
-  BetaTextBlock,
-  BetaContentBlock,
-  BetaContentBlockParam,
-  BetaTextBlockParam,
-  BetaRequestMCPServerURLDefinition,
-  BetaMemoryTool20250818,
-  BetaThinkingConfigParam,
-} from '@anthropic-ai/sdk/resources/beta'
 import { yieldToSchedulerImmediate } from '../scheduler'
 import type {
   AgentState,
@@ -20,124 +6,59 @@ import type {
   AgentResult,
   PendingToolCall,
   ToolContext,
-  CompactionControl,
   Model,
   OnStepFinishResult,
   StepToolCall,
   StepToolResult,
   ThinkingConfig,
 } from '../types'
-import { ANTHROPIC_BETAS } from '../constants'
 import type { AgentInstance } from '../instances'
 import { isMessageInstance } from '../instances'
 import { evaluateConditions } from './conditions'
 import {
   transition,
+  TransitionType,
+  AgentStatus,
   extractToolUses,
   extractText,
   isMemoryTool,
-  isCodeExecutionTool,
 } from '../types'
-import type { SdkTool } from '../types'
-import { toApiTool, executeTool } from '../tools'
-import { executeMemoryTool } from '../tools/memoryTool'
+import { executeTool } from '../tools'
+import { executeMemoryTool, isMemoryToolInput } from '../tools/memoryTool'
 import { createRunAgent } from '../run/runAgentFunction'
 import { debug } from '../debug'
 import { buildSystemPrompt } from './createEngineConfig'
 import { flushSync } from '../reconciler/renderer'
 import type { AgentStore } from '../store'
 import { collectChild } from '../reconciler/collectors'
+import {
+  isThinkingBlock,
+  type AgentMessage,
+  type AgentMessageParam,
+  type ToolResultContentBlock,
+} from '../types/messages'
+import type { ProviderName } from '../types/provider'
+import type {
+  ProviderAdapter,
+  ProviderClientMap,
+  SystemBlock,
+} from '../providers/types'
+import { createDefaultAdapters } from '../providers'
+import { isTextBlock } from '../types/messages'
+import type { JsonObject } from '../types/json'
 
-/**
- * Sanitize content blocks from API responses to be safe for sending back as parameters.
- * Removes response-only fields like 'parsed' that are not allowed in request parameters.
- */
-function sanitizeContentBlocks(
-  content: BetaContentBlock[],
-): BetaContentBlockParam[] {
-  return content.map((block) => {
-    if (block.type === 'text') {
-      // structured outputs sets parsed_output field (parsed is deprecated)
-      // we cannot mutate since the SDK response is frozen
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { parsed_output, ...rest } = block as BetaTextBlockParam & {
-        parsed_output?: unknown
-      }
-      return rest as BetaTextBlockParam
-    }
-    return block as BetaContentBlockParam
-  })
-}
-
-// subset of Anthropic's MessageCreateParams
-interface CreateMessageParams {
-  model: string
-  max_tokens: number
-  system?: SystemPrompt
-  messages: BetaMessageParam[]
-  tools?: BetaToolUnion[]
-  mcp_servers?: BetaRequestMCPServerURLDefinition[]
-  stop_sequences?: string[]
-  temperature?: number
-  betas?: string[]
-  thinking?: BetaThinkingConfigParam
-  stream?: boolean
-}
-
-export interface ExecutionEngineEvents {
+interface ExecutionEngineEvents {
   stateChange: (state: AgentState) => void
   stream: (event: AgentStreamEvent) => void
-  message: (message: BetaMessage) => void
+  message: (message: AgentMessage) => void
   complete: (result: AgentResult) => void
   error: (error: Error) => void
   stepFinish: (result: OnStepFinishResult) => void
 }
 
-export type SystemPrompt =
-  | string
-  | Array<{
-      type: 'text'
-      text: string
-      cache_control?: { type: 'ephemeral' }
-    }>
-
-export interface ExecutionEngineConfig {
-  client: Anthropic
-  model: Model
-  maxTokens: number
-  system?: SystemPrompt
-  stream?: boolean
-  maxIterations?: number
-  compactionControl?: CompactionControl
-  stopSequences?: string[]
-  temperature?: number
-  agentName?: string
-  agentInstance: AgentInstance
-  store: AgentStore
-  thinking?: ThinkingConfig
-  betas?: string[]
-}
+export type SystemPrompt = string | SystemBlock[]
 
 const DEFAULT_TOKEN_THRESHOLD = 100_000
-
-function hasName(t: unknown): t is { name: string } {
-  return typeof t === 'object' && t !== null && 'name' in t
-}
-
-/**
- * Convert SdkTool to Anthropic API format (BetaToolUnion)
- * Strips memoryHandlers from MemoryTool before sending to API
- */
-function toApiSdkTool(sdkTool: SdkTool): BetaToolUnion {
-  if (isMemoryTool(sdkTool)) {
-    // Strip memoryHandlers - it's not part of the API contract
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { memoryHandlers, ...apiTool } = sdkTool
-    return apiTool as BetaMemoryTool20250818
-  }
-  // CodeExecutionTool and WebSearchTool are already in the correct format
-  return sdkTool as BetaToolUnion
-}
 
 const DEFAULT_SUMMARY_PROMPT = `You have been working on the task described above but have not yet completed it. Write a continuation summary that will allow you (or another instance of yourself) to resume work efficiently in a future context window where the conversation history will be replaced with this summary. Your summary should be structured, concise, and actionable. Include:
 1. Task Overview
@@ -148,25 +69,111 @@ const DEFAULT_SUMMARY_PROMPT = `You have been working on the task described abov
 Be concise but complete. Write in a way that enables immediate resumption of the task.
 Wrap your summary in <summary></summary> tags.`
 
+export interface ExecutionEngineConfig {
+  provider: ProviderName
+  client: ProviderClientMap[ProviderName]
+  clients?: Partial<ProviderClientMap>
+  adapters?: Record<ProviderName, ProviderAdapter<ProviderName>>
+  model: Model
+  maxTokens: number
+  system?: SystemPrompt
+  stream?: boolean
+  maxIterations?: number
+  compactionControl?: {
+    enabled: boolean
+    contextTokenThreshold?: number
+    model?: Model
+    summaryPrompt?: string
+  }
+  stopSequences?: string[]
+  temperature?: number
+  agentName?: string
+  agentInstance: AgentInstance
+  store: AgentStore
+  thinking?: ThinkingConfig
+  betas?: string[]
+}
+
+function buildToolContext(
+  config: ExecutionEngineConfig,
+  client: ProviderClientMap[ProviderName],
+  signal: AbortSignal,
+): ToolContext {
+  const base = {
+    agentName: config.agentName ?? 'agent',
+    clients: config.clients,
+    model: config.model,
+    signal,
+    runAgent: createRunAgent({
+      provider: config.provider,
+      clients: config.clients,
+      model: config.model,
+      signal,
+    }),
+  }
+  if (config.provider === 'anthropic') {
+    return {
+      ...base,
+      provider: 'anthropic',
+      client: client as ProviderClientMap['anthropic'],
+    }
+  }
+  if (config.provider === 'openai') {
+    return {
+      ...base,
+      provider: 'openai',
+      client: client as ProviderClientMap['openai'],
+    }
+  }
+  const _exhaustive: never = config.provider
+  throw new Error(
+    `[agentry] buildToolContext: unhandled provider "${String(_exhaustive)}". Add a branch for this provider.`,
+  )
+}
+
 /**
- * execution engine handles the conversation loop with Claude
- *
- * inspired by BetaToolRunner but with our own interface and React integration
+ * Handles the conversation loop with the configured AI provider via a ProviderAdapter.
+ * Manages state transitions, tool execution, condition evaluation, and compaction.
  */
 export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
-  private client: Anthropic
+  private client: ProviderClientMap[ProviderName]
+  private adapter: ProviderAdapter<ProviderName>
   private config: ExecutionEngineConfig
   private store: AgentStore
   private iterationCount = 0
-  private lastMessage: BetaMessage | null = null
+  private lastMessage: AgentMessage | null = null
   private aborted = false
   private agentInstance: AgentInstance
   private toolExecutionTimes = new Map<string, number>()
 
+  /**
+   * Async-aware step finish callback. Unlike the EventEmitter-based 'stepFinish'
+   * event, this callback is awaited before the next iteration begins, allowing
+   * consumers to perform async work (e.g. logging, persistence) that must complete
+   * before execution continues.
+   */
+  onStepFinish?: (result: OnStepFinishResult) => void | Promise<void>
+
   constructor(config: ExecutionEngineConfig) {
     super()
     this.client = config.client
-    this.config = config
+    if (!config.provider) {
+      throw new Error('Provider is required in execution engine config.')
+    }
+    const provider = config.provider
+    const adapters = config.adapters ?? createDefaultAdapters()
+    this.adapter = adapters[provider]
+    if (!this.adapter) {
+      throw new Error(
+        `[agentry] No adapter registered for provider "${provider}". Available: ${Object.keys(adapters).join(', ')}.`,
+      )
+    }
+    this.config = {
+      ...config,
+      provider,
+      adapters,
+      clients: config.clients ?? {},
+    }
     this.store = config.store
     this.agentInstance = config.agentInstance
   }
@@ -175,7 +182,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     return this.store.getState().executionState
   }
 
-  get messages(): readonly BetaMessageParam[] {
+  get messages(): readonly AgentMessageParam[] {
     return this.store.getState().messages
   }
 
@@ -183,7 +190,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.config = { ...this.config, ...updates }
   }
 
-  pushMessage(message: BetaMessageParam): void {
+  pushMessage(message: AgentMessageParam): void {
     this.store.getState().actions.pushMessage(message)
   }
 
@@ -193,86 +200,45 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.emit('stateChange', newState)
   }
 
-  private async buildParams(): Promise<CreateMessageParams> {
-    const tools: BetaToolUnion[] = []
+  private async evaluateAllConditions(
+    signal?: AbortSignal,
+    options?: { evaluateNL?: boolean; consecutiveFailures?: number },
+  ): Promise<{ changed: boolean; consecutiveFailures: number }> {
+    try {
+      const changed = await evaluateConditions({
+        root: this.agentInstance,
+        messages: this.messages as AgentMessageParam[],
+        clients: this.config.clients ?? {},
+        provider: this.config.provider,
+        signal,
+        evaluateNL: options?.evaluateNL,
+      })
+      return { changed, consecutiveFailures: 0 }
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e))
+      if (err.name === 'AbortError' || signal?.aborted) throw err
 
-    const {
-      tools: internalTools = [],
-      sdkTools = [],
-      mcpServers = [],
-    } = this.agentInstance
-    tools.push(...internalTools.map(toApiTool))
-    tools.push(...sdkTools.map(toApiSdkTool))
+      const failures = (options?.consecutiveFailures ?? 0) + 1
 
-    if (mcpServers?.length) {
-      for (const server of mcpServers) {
-        tools.push({
-          type: 'mcp_toolset',
-          mcp_server_name: server.name,
-        })
+      if (failures >= 3) {
+        throw new Error(
+          `[agentry] NL condition evaluation failed ${failures} consecutive times (agent: ${this.config.agentName ?? 'unknown'}). Aborting to prevent silently stale conditions.`,
+          { cause: err },
+        )
       }
-    }
 
-    const betas: Set<string> = new Set(this.config.betas ?? [])
-    if (mcpServers?.length) {
-      betas.add(ANTHROPIC_BETAS.MCP_CLIENT)
+      debug(
+        'conditions',
+        `NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}, consecutive failures: ${failures}), conditions may be stale due to evaluation failure`,
+        { error: err.message },
+      )
+      console.error(
+        `[agentry] NL condition evaluation failed (agent: ${this.config.agentName ?? 'unknown'}, iteration: ${this.iterationCount}, consecutive failures: ${failures}), conditions may be stale due to evaluation failure:`,
+        err,
+      )
+      this.emit('error', err)
+      return { changed: false, consecutiveFailures: failures }
     }
-    if (sdkTools.some(isCodeExecutionTool)) {
-      betas.add(ANTHROPIC_BETAS.CODE_EXECUTION)
-    }
-    if (sdkTools.some(isMemoryTool)) {
-      betas.add(ANTHROPIC_BETAS.CONTEXT_MANAGEMENT)
-    }
-    if (internalTools.some(({ strict }) => strict)) {
-      betas.add(ANTHROPIC_BETAS.STRUCTURED_OUTPUTS)
-    }
-
-    if (
-      this.config.thinking?.type === 'enabled' &&
-      this.config.thinking?.interleaved !== false
-    ) {
-      betas.add(ANTHROPIC_BETAS.INTERLEAVED_THINKING)
-    }
-
-    const system = buildSystemPrompt(this.agentInstance)
-
-    const apiThinking: BetaThinkingConfigParam | undefined = this.config
-      .thinking
-      ? this.config.thinking.type === 'enabled'
-        ? {
-            type: this.config.thinking.type,
-            budget_tokens: this.config.thinking.budget_tokens,
-          }
-        : { type: this.config.thinking.type }
-      : undefined
-
-    const params: CreateMessageParams = {
-      model: this.config.model,
-      max_tokens: this.config.maxTokens,
-      system,
-      messages: this.messages as BetaMessageParam[],
-      tools: tools.length > 0 ? tools : undefined,
-      mcp_servers: mcpServers?.length ? mcpServers : undefined,
-      stop_sequences: this.config.stopSequences,
-      temperature: this.config.temperature,
-      betas: betas.size > 0 ? Array.from(betas) : undefined,
-      thinking: apiThinking,
-    }
-
-    return params
-  }
-
-  private async evaluateAllConditions(options?: {
-    evaluateNL?: boolean
-  }): Promise<boolean> {
-    return evaluateConditions(
-      this.agentInstance,
-      this.messages as BetaMessageParam[],
-      this.client,
-      this.config.model,
-      undefined, // signal
-      options,
-    )
   }
 
   // todo(colin): not a huge fan on recollecting everything
@@ -281,7 +247,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private recollectAll(): void {
     this.agentInstance.tools = []
     this.agentInstance.systemParts = []
-    this.agentInstance.sdkTools = []
+    this.agentInstance.builtInTools = []
     this.agentInstance.mcpServers = []
 
     for (const child of this.agentInstance.children) {
@@ -297,6 +263,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.iterationCount = 0
 
     try {
+      let conditionEvalFailures = 0
+
       while (!this.aborted) {
         if (
           this.config.maxIterations !== undefined &&
@@ -307,13 +275,21 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
         this.iterationCount++
         const abortController = new AbortController()
-        this.transition({ type: 'start_streaming', abortController })
+        this.transition({
+          type: TransitionType.StartStreaming,
+          abortController,
+        })
 
         const isFirstIteration = this.iterationCount === 1
-        const conditionsChanged = await this.evaluateAllConditions({
-          evaluateNL: isFirstIteration, // only evaluate NL conditions from the user's history
-        })
-        if (conditionsChanged) {
+        const conditionResult = await this.evaluateAllConditions(
+          abortController.signal,
+          {
+            evaluateNL: isFirstIteration,
+            consecutiveFailures: conditionEvalFailures,
+          },
+        )
+        conditionEvalFailures = conditionResult.consecutiveFailures
+        if (conditionResult.changed) {
           this.recollectAll()
         }
 
@@ -321,9 +297,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         this.lastMessage = message
         this.emit('message', message)
 
-        const assistantMessage: BetaMessageParam = {
+        const assistantMessage: AgentMessageParam = {
           role: 'assistant',
-          content: sanitizeContentBlocks(message.content),
+          content: message.content,
         }
         this.pushMessage(assistantMessage)
 
@@ -335,23 +311,25 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             input: tu.input,
           }))
 
-          this.transition({ type: 'tools_requested', pendingTools })
+          this.transition({ type: TransitionType.ToolsRequested, pendingTools })
 
-          const toolResults = await this.executeTools(pendingTools)
+          const toolResults = await this.executeTools(
+            pendingTools,
+            abortController,
+          )
 
-          const toolResultMessage: BetaMessageParam = {
+          const toolResultMessage: AgentMessageParam = {
             role: 'user',
             content: toolResults,
           }
           this.pushMessage(toolResultMessage)
 
-          this.transition({ type: 'tools_completed', results: [] })
+          this.transition({ type: TransitionType.ToolsCompleted, results: [] })
 
           // force React to commit any pending state updates from tool handlers
           flushSync(() => {})
           await yieldToSchedulerImmediate()
-
-          await this.checkAndCompact()
+          await this.checkAndCompact(abortController.signal)
 
           const stepResult = this.buildStepFinishResult(
             message,
@@ -359,9 +337,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             toolResults,
           )
           this.emit('stepFinish', stepResult)
+          await this.onStepFinish?.(stepResult)
         } else {
           const stepResult = this.buildStepFinishResult(message, [], [])
           this.emit('stepFinish', stepResult)
+          await this.onStepFinish?.(stepResult)
           break
         }
       }
@@ -371,12 +351,15 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       }
 
       const result = this.buildResult()
-      this.transition({ type: 'completed', finalMessage: this.lastMessage })
+      this.transition({
+        type: TransitionType.Completed,
+        finalMessage: this.lastMessage,
+      })
       this.emit('complete', result)
       return result
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error))
-      this.transition({ type: 'error', error: err })
+      this.transition({ type: TransitionType.Error, error: err })
       this.emit('error', err)
       throw err
     }
@@ -384,110 +367,45 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
   private async makeApiCall(
     abortController: AbortController,
-  ): Promise<BetaMessage> {
-    const params = await this.buildParams()
-
-    debug('api', `Request #${this.iterationCount}`, {
-      model: params.model,
-      tools: params.tools?.map((t) => ('name' in t ? t.name : t.type)),
-      messageCount: params.messages.length,
-      system: params.system
-        ? typeof params.system === 'string'
-          ? `${params.system}`
-          : params.system.map(({ text }) => text).join('\n')
-        : undefined,
-      ...(params.mcp_servers?.length
-        ? { mcpServers: params.mcp_servers?.map((s) => s.name) }
-        : {}),
-    })
-
+  ): Promise<AgentMessage> {
+    const system = buildSystemPrompt(this.agentInstance)
     const startTime = performance.now()
-    let response: BetaMessage
-    if (this.config.stream) {
-      response = await this.streamApiCall(params, abortController)
-    } else {
-      response = await this.client.beta.messages.create(
-        { ...params, stream: false },
-        { signal: abortController.signal },
-      )
-    }
+    const response = await this.adapter.createTurn(this.client, {
+      model: this.config.model,
+      maxTokens: this.config.maxTokens,
+      system,
+      messages: this.messages as AgentMessageParam[],
+      tools: this.agentInstance.tools,
+      builtInTools: this.agentInstance.builtInTools,
+      mcpServers: this.agentInstance.mcpServers,
+      stopSequences: this.config.stopSequences,
+      temperature: this.config.temperature,
+      thinking: this.config.thinking,
+      betas: this.config.betas,
+      stream: this.config.stream,
+      signal: abortController.signal,
+      onStream: (event) => this.emit('stream', event),
+    })
     const durationMs = Math.round(performance.now() - startTime)
-
     debug('api', `Response #${this.iterationCount}`, {
       durationMs,
-      stopReason: response.stop_reason,
-      toolUses: extractToolUses(response).map((t) => t.name),
-      textLength: extractText(response).length,
-      cacheCreation: response.usage.cache_creation_input_tokens,
-      cacheRead: response.usage.cache_read_input_tokens,
+      stopReason: response.message.stop_reason,
+      toolUses: extractToolUses(response.message).map((t) => t.name),
+      textLength: extractText(response.message).length,
     })
-
-    return response
-  }
-
-  private async streamApiCall(
-    params: CreateMessageParams,
-    abortController: AbortController,
-  ): Promise<BetaMessage> {
-    const stream = this.client.beta.messages.stream(params, {
-      signal: abortController.signal,
-    })
-
-    stream.on('text', (text, snapshot) => {
-      this.emit('stream', { type: 'text', text, accumulated: snapshot })
-    })
-
-    stream.on('thinking', (thinking) => {
-      this.emit('stream', { type: 'thinking', text: thinking })
-    })
-
-    stream.on('contentBlock', (block) => {
-      if (block.type === 'tool_use') {
-        this.emit('stream', {
-          type: 'tool_use_start',
-          toolName: block.name,
-          toolId: block.id,
-        })
-      }
-    })
-
-    stream.on('inputJson', () => {})
-
-    const finalMessage = await stream.finalMessage()
-
-    this.emit('stream', {
-      type: 'message_complete',
-      stopReason: finalMessage.stop_reason ?? 'unknown',
-    })
-
-    return finalMessage
+    return response.message
   }
 
   private async executeTools(
     pendingTools: PendingToolCall[],
-  ): Promise<BetaToolResultBlockParam[]> {
-    this.transition({ type: 'tools_executing', pendingTools })
+    abortController: AbortController,
+  ): Promise<ToolResultContentBlock[]> {
+    this.transition({ type: TransitionType.ToolsExecuting, pendingTools })
 
-    const currentState = this.executionState
-    const context: ToolContext = {
-      agentName: this.config.agentName ?? 'agent',
-      client: this.client,
-      model: this.config.model,
-      signal:
-        currentState.status === 'streaming'
-          ? currentState.abortController.signal
-          : undefined,
-      runAgent: createRunAgent({
-        client: this.client,
-        model: this.config.model,
-        signal:
-          currentState.status === 'streaming'
-            ? currentState.abortController.signal
-            : undefined,
-      }),
-    }
+    const signal = abortController.signal
+    const context = buildToolContext(this.config, this.client, signal)
 
-    const { tools: internalTools = [], sdkTools = [] } = this.agentInstance
+    const { tools: internalTools = [], builtInTools = [] } = this.agentInstance
 
     const results = await Promise.all(
       pendingTools.map(async (toolCall) => {
@@ -512,112 +430,101 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
               typeof result === 'string' ? result.substring(0, 100) : result,
           })
 
-          const executionTime = performance.now() - startTime
-          this.toolExecutionTimes.set(toolCall.id, executionTime)
-
-          this.emit('stream', {
-            type: 'tool_result',
-            toolId: toolCall.id,
-            result:
-              typeof result === 'string' ? result : JSON.stringify(result),
+          return this.buildToolResult({
+            toolCall,
+            startTime,
+            result,
             isError,
           })
-
-          return {
-            type: 'tool_result' as const,
-            tool_use_id: toolCall.id,
-            content: result,
-            is_error: isError ? true : undefined,
-          }
         }
 
-        // check if it's an SDK tool
-        const sdkTool = sdkTools.find(
-          (t) => hasName(t) && t.name === toolCall.name,
-        )
+        // check if it's a built-in tool
+        const sdkTool = builtInTools.find((t) => t.name === toolCall.name)
 
         if (sdkTool) {
           // Memory tool requires client-side handlers
           if (isMemoryTool(sdkTool) && sdkTool.memoryHandlers) {
+            if (!isMemoryToolInput(toolCall.input)) {
+              return this.buildToolResult({
+                toolCall,
+                startTime,
+                result: 'Error: Invalid memory tool input payload',
+                isError: true,
+              })
+            }
             const { result, isError } = await executeMemoryTool(
               sdkTool,
-              toolCall.input as Parameters<typeof executeMemoryTool>[1],
+              toolCall.input,
             )
 
-            const executionTime = performance.now() - startTime
-            this.toolExecutionTimes.set(toolCall.id, executionTime)
-
-            this.emit('stream', {
-              type: 'tool_result',
-              toolId: toolCall.id,
-              result:
-                typeof result === 'string' ? result : JSON.stringify(result),
+            return this.buildToolResult({
+              toolCall,
+              startTime,
+              result,
               isError,
             })
-
-            return {
-              type: 'tool_result' as const,
-              tool_use_id: toolCall.id,
-              content: result,
-              is_error: isError ? true : undefined,
-            }
           }
 
-          // Other SDK tools are handled by Anthropic server-side
-          const errorMessage = `Tool '${toolCall.name}' is a server-side tool and cannot be executed locally`
-          const executionTime = performance.now() - startTime
-          this.toolExecutionTimes.set(toolCall.id, executionTime)
-
-          this.emit('stream', {
-            type: 'tool_result',
-            toolId: toolCall.id,
-            result: errorMessage,
+          // Non-memory SDK tools (web_search, code_interpreter) are dispatched to the provider and handled server-side
+          debug(
+            'tool',
+            `Server-side tool "${toolCall.name}" cannot be executed locally`,
+          )
+          return this.buildToolResult({
+            toolCall,
+            startTime,
+            result: `Tool '${toolCall.name}' is a server-side tool and cannot be executed locally`,
             isError: true,
           })
-
-          return {
-            type: 'tool_result' as const,
-            tool_use_id: toolCall.id,
-            content: errorMessage,
-            is_error: true,
-          }
         }
 
-        const errorMessage = `Error: Tool '${toolCall.name}' not found`
-        const executionTime = performance.now() - startTime
-        this.toolExecutionTimes.set(toolCall.id, executionTime)
-
-        this.emit('stream', {
-          type: 'tool_result',
-          toolId: toolCall.id,
-          result: errorMessage,
+        debug('tool', `Tool "${toolCall.name}" not found`, {
+          available: internalTools.map((t) => t.name),
+        })
+        return this.buildToolResult({
+          toolCall,
+          startTime,
+          result: `Error: Tool '${toolCall.name}' not found`,
           isError: true,
         })
-
-        return {
-          type: 'tool_result' as const,
-          tool_use_id: toolCall.id,
-          content: errorMessage,
-          is_error: true,
-        }
       }),
     )
 
     return results
   }
 
+  private buildToolResult(opts: {
+    toolCall: PendingToolCall
+    startTime: number
+    result: ToolResultContentBlock['content']
+    isError: boolean
+  }): ToolResultContentBlock {
+    const { toolCall, startTime, result, isError } = opts
+    const executionTime = performance.now() - startTime
+    this.toolExecutionTimes.set(toolCall.id, executionTime)
+
+    this.emit('stream', {
+      type: 'tool_result',
+      toolId: toolCall.id,
+      result: typeof result === 'string' ? result : JSON.stringify(result),
+      isError,
+    })
+
+    return {
+      type: 'tool_result',
+      tool_use_id: toolCall.id,
+      content: result,
+      is_error: isError,
+    }
+  }
+
   private buildStepFinishResult(
-    message: BetaMessage,
-    toolUses: Array<{ id: string; name: string; input: unknown }>,
-    toolResults: BetaToolResultBlockParam[],
+    message: AgentMessage,
+    toolUses: Array<{ id: string; name: string; input: JsonObject }>,
+    toolResults: ToolResultContentBlock[],
   ): OnStepFinishResult {
     const text = extractText(message)
-
-    const thinkingBlock = message.content.find(
-      (b): b is Extract<BetaContentBlock, { type: 'thinking' }> =>
-        b.type === 'thinking',
-    )
-    const thinking = thinkingBlock?.thinking
+    const thinking = message.content.find(isThinkingBlock)?.thinking
 
     const toolCalls: StepToolCall[] = toolUses.map((tu) => ({
       id: tu.id,
@@ -631,7 +538,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         toolCallId: tr.tool_use_id,
         toolName: toolUse?.name ?? 'unknown',
         result: tr.content,
-        isError: tr.is_error ?? false,
+        isError: tr.is_error,
         executionTime: this.toolExecutionTimes.get(tr.tool_use_id),
       }
     })
@@ -657,96 +564,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     }
   }
 
-  private async checkAndCompact(): Promise<boolean> {
-    const compactionControl = this.config.compactionControl
-    if (!compactionControl?.enabled) {
-      return false
-    }
-
-    if (!this.lastMessage) {
-      return false
-    }
-
-    const totalTokens =
-      this.lastMessage.usage.input_tokens +
-      this.lastMessage.usage.output_tokens +
-      (this.lastMessage.usage.cache_creation_input_tokens ?? 0) +
-      (this.lastMessage.usage.cache_read_input_tokens ?? 0)
-
-    const threshold =
-      compactionControl.contextTokenThreshold ?? DEFAULT_TOKEN_THRESHOLD
-
-    if (totalTokens < threshold) {
-      return false
-    }
-
-    const model = compactionControl.model ?? this.config.model
-    const summaryPrompt =
-      compactionControl.summaryPrompt ?? DEFAULT_SUMMARY_PROMPT
-
-    const currentMessages = [...this.messages]
-    const lastMessage = currentMessages[currentMessages.length - 1]
-    if (
-      lastMessage?.role === 'assistant' &&
-      Array.isArray(lastMessage.content)
-    ) {
-      const nonToolBlocks = lastMessage.content.filter(
-        (block: { type: string }) => block.type !== 'tool_use',
-      )
-      if (nonToolBlocks.length === 0) {
-        currentMessages.pop()
-      } else {
-        currentMessages[currentMessages.length - 1] = {
-          ...lastMessage,
-          content: nonToolBlocks,
-        }
-      }
-    }
-
-    const startTime = performance.now()
-    const response = await this.client.beta.messages.create({
-      model,
-      messages: [
-        ...currentMessages,
-        {
-          role: 'user',
-          content: [{ type: 'text', text: summaryPrompt }],
-        },
-      ],
-      max_tokens: this.config.maxTokens,
-    })
-    const durationMs = Math.round(performance.now() - startTime)
-
-    debug('api', `Compaction response`, { durationMs, model })
-
-    const summaryBlock = response.content.find(
-      (block): block is BetaTextBlock => block.type === 'text',
-    )
-
-    if (!summaryBlock) {
-      return false
-    }
-
-    this.store.getState().actions.setMessages([
-      {
-        role: 'user',
-        content: [{ type: 'text', text: summaryBlock.text }],
-      },
-    ])
-
-    return true
-  }
-
   private buildResult(): AgentResult {
     if (!this.lastMessage) {
       throw new Error('No message received')
     }
 
-    const thinkingBlock = this.lastMessage.content.find(
-      (b): b is Extract<BetaContentBlock, { type: 'thinking' }> =>
-        b.type === 'thinking',
-    )
-    const thinking = thinkingBlock?.thinking
+    const thinking = this.lastMessage.content.find(isThinkingBlock)?.thinking
 
     return {
       content: extractText(this.lastMessage),
@@ -767,11 +590,104 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   abort(): void {
     this.aborted = true
     const currentState = this.executionState
-    if (currentState.status === 'streaming') {
+    if (currentState.status === AgentStatus.Streaming) {
       currentState.abortController.abort()
     }
     const error = new Error('Execution aborted')
-    this.transition({ type: 'error', error })
+    error.name = 'AbortError'
+    this.transition({ type: TransitionType.Error, error })
     this.emit('error', error)
+  }
+
+  private async checkAndCompact(signal?: AbortSignal): Promise<boolean> {
+    const compactionControl = this.config.compactionControl
+    if (!compactionControl?.enabled || !this.lastMessage) {
+      return false
+    }
+
+    const totalTokens =
+      this.lastMessage.usage.input_tokens +
+      this.lastMessage.usage.output_tokens +
+      (this.lastMessage.usage.cache_creation_input_tokens ?? 0) +
+      (this.lastMessage.usage.cache_read_input_tokens ?? 0)
+
+    const threshold =
+      compactionControl.contextTokenThreshold ?? DEFAULT_TOKEN_THRESHOLD
+
+    if (totalTokens < threshold) {
+      return false
+    }
+
+    const summaryPrompt =
+      compactionControl.summaryPrompt ?? DEFAULT_SUMMARY_PROMPT
+    const currentMessages = [...this.messages] as AgentMessageParam[]
+
+    try {
+      const response = await this.adapter.createTurn(this.client, {
+        model: compactionControl.model ?? this.config.model,
+        maxTokens: this.config.maxTokens,
+        messages: [
+          ...currentMessages,
+          { role: 'user', content: summaryPrompt },
+        ],
+        tools: [],
+        builtInTools: [],
+        mcpServers: [],
+        betas: this.config.betas,
+        stream: false,
+        signal: signal ?? AbortSignal.timeout(60_000),
+        onStream: () => {},
+      })
+
+      const summaryText = response.message.content
+        .filter(isTextBlock)
+        .map((block) => block.text)
+        .join('')
+
+      if (!summaryText) {
+        const err = new Error(
+          `[agentry] Compaction: model returned no text summary (agent: ${this.config.agentName ?? 'unknown'})`,
+        )
+        console.warn(err.message)
+        this.emit('error', err)
+        return false
+      }
+
+      this.store
+        .getState()
+        .actions.setMessages([
+          { role: 'user', content: [{ type: 'text', text: summaryText }] },
+        ])
+      this.adapter.resetChain?.()
+      return true
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e))
+      // Re-throw abort errors — the agent is being cancelled
+      if (err.name === 'AbortError') throw err
+      // Re-throw fatal errors (auth failures, invalid model) — these won't resolve on retry
+      const status = (err as { status?: number }).status
+      if (status === 401 || status === 403 || status === 404) {
+        throw err
+      }
+      // Re-throw programming errors — these indicate bugs, not transient failures
+      if (
+        err instanceof TypeError ||
+        err instanceof ReferenceError ||
+        err instanceof SyntaxError
+      ) {
+        throw err
+      }
+      const compactionModel = compactionControl.model ?? this.config.model
+      const tokenCount =
+        (this.lastMessage?.usage.input_tokens ?? 0) +
+        (this.lastMessage?.usage.output_tokens ?? 0)
+      console.warn(
+        `[agentry] Compaction failed for agent "${this.config.agentName ?? 'unknown'}" ` +
+          `(model: ${compactionModel}, tokens: ${tokenCount}): ${err.message}. ` +
+          `Continuing without compaction.`,
+      )
+      this.emit('error', err)
+      return false
+    }
   }
 }

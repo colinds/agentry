@@ -35,7 +35,7 @@ function ConditionDemoAgent() {
   )
 
   return (
-    <Agent model={MODEL} maxTokens={2048} stream={true}>
+    <Agent provider="anthropic" model={MODEL} maxTokens={2048} stream={true}>
       <System>
         You are a helpful assistant with capabilities that change based on
         authentication status and user intent. Always check your available tools

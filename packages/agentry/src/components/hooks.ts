@@ -1,20 +1,9 @@
 import { useContext } from 'react'
 import { useStore } from 'zustand'
-import {
-  createAgentStore,
-  type AgentStore,
-  type AgentStoreState,
-} from '../store'
-import { AgentContext, AgentProvider } from '../context'
-import type { AgentState, BetaMessageParam } from '../types'
-
-export {
-  createAgentStore,
-  AgentContext,
-  AgentProvider,
-  type AgentStore,
-  type AgentStoreState,
-}
+import type { AgentStore, AgentStoreState } from '../store'
+import { AgentContext } from '../context'
+import type { AgentState } from '../types'
+import type { AgentMessageParam } from '../types/messages'
 
 /**
  * Get the agent store from context (throws if not found)
@@ -60,7 +49,7 @@ export function useExecutionState(): AgentState {
  * }
  * ```
  */
-export function useMessages(): BetaMessageParam[] {
+export function useMessages(): AgentMessageParam[] {
   const store = useAgentStore()
   return useStore(store, ({ messages }) => messages)
 }
@@ -81,8 +70,3 @@ export function useAgentState(): AgentStoreState {
   const store = useAgentStore()
   return useStore(store)
 }
-
-/**
- * Hook to access the raw store (for transient updates or subscriptions)
- */
-export { useAgentStore }

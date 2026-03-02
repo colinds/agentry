@@ -20,7 +20,7 @@ function AuthenticatedAgent() {
   }, [email])
 
   return (
-    <Agent model={MODEL} maxTokens={2048} stream={true}>
+    <Agent provider="anthropic" model={MODEL} maxTokens={2048} stream={true}>
       {!email && <System>User must authenticate with email first.</System>}
       {email && !authed && (
         <System>Verifying authentication for {email}...</System>

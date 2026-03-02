@@ -19,17 +19,15 @@ Agentry adapts React’s component model for AI agents. Define behavior declarat
 > [!WARNING]
 > This library is in active development.
 
-> [!NOTE]
-> Agentry currently only supports Anthropic models.
-
 ## Quick Start
 
 ### Installation
 
 ```bash
 bun add agentry react zod
-# Set your Anthropic API key
+# Set one or both provider keys
 export ANTHROPIC_API_KEY="sk-ant-***"
+export OPENAI_API_KEY="sk-***"
 ```
 
 Next, in your `tsconfig.json`:
@@ -51,11 +49,12 @@ Next, in your `tsconfig.json`:
 In `agent.tsx`:
 
 ```tsx
+import Anthropic from '@anthropic-ai/sdk'
 import { run, Agent, System, Tools, Tool, Message } from 'agentry'
 import { z } from 'zod'
 
 const result = await run(
-  <Agent model="claude-haiku-4-5" maxTokens={1024}>
+  <Agent provider="anthropic" model="claude-haiku-4-5" maxTokens={1024}>
     <System>You are a helpful math assistant</System>
     <Tools>
       <Tool
@@ -79,6 +78,9 @@ const result = await run(
     </Tools>
     <Message role="user">What is 42 + 17?</Message>
   </Agent>,
+  {
+    providers: { anthropic: { client: new Anthropic() } },
+  },
 )
 
 console.log(result.content)
@@ -97,39 +99,84 @@ bun run agent.tsx
 - **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
 - **Type-safe tools** - Handler params inferred from Zod schemas
 - **Streaming support** - Stream responses
+- **WebSocket mode (OpenAI)** - Persistent connection via `websocket` prop reduces per-turn latency in multi-tool loops
 - **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.runAgent()`
+- **Cross-provider subagents** - Mix providers across parent/subagent boundaries
 - **Compaction control** - Automatic message compaction for long conversations to manage context window usage
 - **Conditional rendering** - Use `<Condition>` to conditionally render agent components based on state or natural language intent
 - **Structured outputs** - Use `strict` on tools
 - **Prompt caching** - Supports Anthropic's prompt caching
-- **Built-in tools** - `<WebSearch />`, `<CodeExecution />`, `<Memory />`, `<MCP />`
+
+## Providers
+
+Agentry supports multiple providers with a single declarative API.
+
+- Root `agentry` exports the provider-agnostic core (`run`, `Agent`, hooks, custom tools).
+- Provider modules export provider clients and built-ins:
+  - `agentry/anthropic`
+  - `agentry/openai`
+- Built-ins are treated as regular tools in execution (no per-provider capability matrix to maintain).
+
+### Reusable instance
+
+```tsx
+import Anthropic from '@anthropic-ai/sdk'
+import { createAI, Agent, Message, Tools } from 'agentry'
+import { WebSearch } from 'agentry/anthropic'
+
+const ai = createAI({
+  providers: { anthropic: { client: new Anthropic() } },
+})
+
+const result = await ai.run(
+  <Agent provider="anthropic" model="claude-sonnet-4-5" maxTokens={1024}>
+    <Tools>
+      <WebSearch maxUses={3} />
+    </Tools>
+    <Message role="user">Find the latest React release notes</Message>
+  </Agent>,
+)
+```
 
 ## Examples
 
 Want to see code? See [examples/](/packages/examples/src)
 
-| Example                                                                              | Description                                |
-| ------------------------------------------------------------------------------------ | ------------------------------------------ |
-| [`demo.tsx`](packages/examples/src/demo.tsx)                                         | Company research with web search           |
-| [`basic.tsx`](packages/examples/src/basic.tsx)                                       | Simple calculator tool                     |
-| [`interactive.tsx`](packages/examples/src/interactive.tsx)                           | Multi-turn conversations with streaming    |
-| [`subagents.tsx`](packages/examples/src/subagents.tsx)                               | Manager delegating to specialists          |
-| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                       | Hooks, composition, and dynamic tools      |
-| [`web-search.tsx`](packages/examples/src/web-search.tsx)                             | Web search workflows                       |
-| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                           | MCP server integration                     |
-| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                   | Terminal-based chatbot                     |
-| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                   | Dynamic subagent creation                  |
-| [`cache-ephemeral.tsx`](packages/examples/src/cache-ephemeral.tsx)                   | Prompt caching with ephemeral content      |
-| [`conditions.tsx`](packages/examples/src/conditions.tsx)                             | State-based and NL condition rendering     |
-| [`thinking.tsx`](packages/examples/src/thinking.tsx)                                 | Extended thinking with interleaved support |
-| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                 | Interactive authentication workflow        |
-| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx) | Conversation save/load                     |
+| Example                                                                                | Description                                               |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [`demo.tsx`](packages/examples/src/demo.tsx)                                           | Company research with web search                          |
+| [`basic.tsx`](packages/examples/src/basic.tsx)                                         | Simple calculator tool                                    |
+| [`interactive.tsx`](packages/examples/src/interactive.tsx)                             | Multi-turn conversations with streaming                   |
+| [`subagents.tsx`](packages/examples/src/subagents.tsx)                                 | Manager delegating to specialists                         |
+| [`hooks.tsx`](packages/examples/src/hooks.tsx)                                         | Hooks, composition, and dynamic tools                     |
+| [`web-search.tsx`](packages/examples/src/web-search.tsx)                               | Web search workflows                                      |
+| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | MCP server integration                                    |
+| [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                     | Terminal-based chatbot                                    |
+| [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                     | Dynamic subagent creation                                 |
+| [`anthropic/cache-ephemeral.tsx`](packages/examples/src/anthropic/cache-ephemeral.tsx) | Prompt caching with ephemeral content                     |
+| [`conditions.tsx`](packages/examples/src/conditions.tsx)                               | State-based and NL condition rendering                    |
+| [`anthropic/thinking.tsx`](packages/examples/src/anthropic/thinking.tsx)               | Extended thinking with interleaved support                |
+| [`workflow.tsx`](packages/examples/src/workflow.tsx)                                   | Interactive authentication workflow                       |
+| [`conversation-persistence.tsx`](packages/examples/src/conversation-persistence.tsx)   | Conversation save/load                                    |
+| [`openai/basic.tsx`](packages/examples/src/openai/basic.tsx)                           | OpenAI Responses API basic usage                          |
+| [`cross-provider/subagents.tsx`](packages/examples/src/cross-provider/subagents.tsx)   | OpenAI parent + Anthropic subagents                       |
+| [`openai/codex-subagent.tsx`](packages/examples/src/openai/codex-subagent.tsx)         | OpenAI Codex subagent                                     |
+| [`openai/built-ins.tsx`](packages/examples/src/openai/built-ins.tsx)                   | OpenAI built-ins: WebSearch, CodeExecution, and MCP       |
+| [`openai/websocket.tsx`](packages/examples/src/openai/websocket.tsx)                   | OpenAI WebSocket mode for lower-latency multi-tool loops  |
+| [`compaction.tsx`](packages/examples/src/compaction.tsx)                               | Context compaction demo (works with Anthropic and OpenAI) |
 
 Run an example:
 
 ```bash
 echo "ANTHROPIC_API_KEY=sk-ant-***" > .env
+# echo "OPENAI_API_KEY=sk-***" >> .env
 bun run example:basic
+# OpenAI examples:
+bun run example:openai:basic
+# provider-agnostic examples (set EXAMPLE_PROVIDER=openai if needed):
+bun run example:chatbot
+# Anthropic-specific examples:
+bun run example:anthropic:thinking
 ```
 
 ## Core Concepts
@@ -139,13 +186,18 @@ bun run example:basic
 **Batch mode** (default) - Runs to completion:
 
 ```tsx
-const result = await run(<Agent>...</Agent>)
+const result = await run(<Agent provider="anthropic">...</Agent>, {
+  providers: { anthropic: { client: new Anthropic() } },
+})
 ```
 
 **Interactive mode** - Returns a handle for ongoing interaction:
 
 ```tsx
-const agent = await run(<Agent>...</Agent>, { mode: 'interactive' })
+const agent = await run(<Agent provider="anthropic">...</Agent>, {
+  mode: 'interactive',
+  providers: { anthropic: { client: new Anthropic() } },
+})
 await agent.sendMessage('Hello')
 for await (const event of agent.stream('Tell me more')) {
   if (event.type === 'text') process.stdout.write(event.text)
@@ -158,7 +210,7 @@ agent.close()
 Create subagents using `<AgentTool>` with type-safe parameters:
 
 ```tsx
-<Agent name="manager" model="claude-haiku-4-5">
+<Agent name="manager" provider="anthropic" model="claude-haiku-4-5">
   <Tools>
     <AgentTool
       name="researcher"
@@ -184,7 +236,7 @@ The manager can call `researcher(topic="...")` and the framework spawns and runs
 Spawn agents programmatically from within tool handlers using `context.runAgent()`. This allows for conditional agent creation, parallel execution, and dynamic agent selection based on runtime data:
 
 ```tsx
-<Agent model="claude-haiku-4-5">
+<Agent provider="anthropic" model="claude-haiku-4-5">
   <Tools>
     <Tool
       name="analyze_code"
@@ -227,6 +279,42 @@ handler={async (input, context) => {
 }}
 ```
 
+### Cross-provider subagents
+
+`<AgentTool>` and `context.runAgent(...)` can run subagents on a different provider than the parent:
+
+```tsx
+import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
+import { createAI, Agent, AgentTool, Message, Tools } from 'agentry'
+import { z } from 'zod'
+
+const ai = createAI({
+  providers: {
+    openai: { client: new OpenAI() },
+    anthropic: { client: new Anthropic() },
+  },
+})
+
+await ai.run(
+  <Agent provider="openai" model="gpt-5-mini">
+    <Tools>
+      <AgentTool
+        name="claude_researcher"
+        description="Research with Anthropic"
+        parameters={z.object({ topic: z.string() })}
+        agent={({ topic }) => (
+          <Agent provider="anthropic" model="claude-sonnet-4-5">
+            <Message role="user">Research: {topic}</Message>
+          </Agent>
+        )}
+      />
+    </Tools>
+    <Message role="user">Use claude_researcher for React 19 updates.</Message>
+  </Agent>,
+)
+```
+
 ### State-Driven Tools
 
 Tools can be added/removed during execution using React state:
@@ -235,7 +323,7 @@ Tools can be added/removed during execution using React state:
 function DynamicAgent() {
   const [hasAdvanced, setHasAdvanced] = useState(false)
   return (
-    <Agent model="claude-haiku-4-5">
+    <Agent provider="anthropic" model="claude-haiku-4-5">
       <System>
         You are a helpful assistant that can analyze technical and business content.
         You can unlock advanced analysis tools by calling the unlock_advanced tool.
@@ -269,7 +357,7 @@ function AuthAgent() {
   const [isPremium, setIsPremium] = useState(false)
 
   return (
-    <Agent model="claude-haiku-4-5">
+    <Agent provider="anthropic" model="claude-haiku-4-5">
       {/* Boolean condition */}
       <Condition when={!isAuthenticated}>
         <System>Please authenticate first</System>
@@ -320,7 +408,7 @@ Conditions are evaluated before each API call:
 Use `cache="ephemeral"` on `<System>` or `<Context>` components to mark dynamic content that shouldn't be cached.
 
 ```tsx
-<Agent model="claude-sonnet-4-5">
+<Agent provider="anthropic" model="claude-sonnet-4-5">
   {/* Stable instructions - will be cached */}
   <System>You are a helpful assistant. Always be concise and accurate.</System>
 
@@ -340,6 +428,7 @@ For long-running conversations, you can enable automatic message compaction to m
 
 ```tsx
 <Agent
+  provider="anthropic"
   model="claude-haiku-4-5"
   compactionControl={{
     enabled: true,
@@ -368,40 +457,71 @@ Runs an agent and returns a result or handle.
 
 ```tsx
 // Batch mode
-const result: AgentResult = await run(<Agent>...</Agent>)
+const result: AgentResult = await run(<Agent provider="anthropic">...</Agent>, {
+  providers: { anthropic: { client: new Anthropic() } },
+})
 
 // Interactive mode
-const handle: AgentHandle = await run(<Agent>...</Agent>, {
+const handle: AgentHandle = await run(<Agent provider="anthropic">...</Agent>, {
   mode: 'interactive',
+  providers: { anthropic: { client: new Anthropic() } },
 })
 ```
 
 **Options:**
 
 - `mode?: 'batch' | 'interactive'` - Execution mode (default: `'batch'`)
-- `client?: Anthropic` - Custom Anthropic client
+- `providers?: { anthropic?: { client?: Anthropic }; openai?: { client?: OpenAI } }` - Provider client map
+  - provider is chosen from `<Agent provider=\"...\">`
+  - if omitted, provider clients are created from environment variables by default
+
+### `createAI(defaults)`
+
+Create a defaults-bound runner so you can use `ai.run(...)` and `ai.createAgent(...)`.
+
+```tsx
+import OpenAI from 'openai'
+import { createAI, Agent, Message } from 'agentry'
+
+const ai = createAI({
+  providers: { openai: { client: new OpenAI() } },
+})
+
+const result = await ai.run(
+  <Agent provider="openai" model="gpt-5-mini">
+    <Message role="user">Hello</Message>
+  </Agent>,
+)
+```
 
 ### Components
 
+Built-ins are provider-owned exports:
+
+- `WebSearch`, `CodeExecution`, `MCP` from `agentry/anthropic` or `agentry/openai`
+- `Memory` from `agentry/anthropic`
+
 #### `<Agent>`
 
-| Prop                 | Type                                   | Description                                                                                                                                                                                              |
-| -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `model`              | `string`                               | Claude model (e.g. `claude-sonnet-4-5`)                                                                                                                                                                  |
-| `name?`              | `string`                               | Agent identifier                                                                                                                                                                                         |
-| `description?`       | `string`                               | Agent description                                                                                                                                                                                        |
-| `maxTokens?`         | `number`                               | Max output tokens (default: `4096`)                                                                                                                                                                      |
-| `maxIterations?`     | `number`                               | Max tool call iterations (default: `20`)                                                                                                                                                                 |
-| `stopSequences?`     | `string[]`                             | Stop sequences                                                                                                                                                                                           |
-| `temperature?`       | `number`                               | Sampling temperature (0-1)                                                                                                                                                                               |
-| `stream?`            | `boolean`                              | Enable streaming (default: `true`)                                                                                                                                                                       |
-| `betas?`             | `string[]`                             | Additional Anthropic beta features to enable                                                                                                                                                             |
-| `thinking?`          | `ThinkingConfig`                       | Extended thinking config: `{ type: 'enabled', budget_tokens: number, interleaved?: boolean }`. When enabled, `interleaved` defaults to `true`. Set `interleaved: false` to disable interleaved thinking. |
-| `compactionControl?` | `CompactionControl`                    | Context compaction settings (see below)                                                                                                                                                                  |
-| `onMessage?`         | `(event: AgentStreamEvent) => void`    | Stream event callback                                                                                                                                                                                    |
-| `onComplete?`        | `(result: AgentResult) => void`        | Completion callback                                                                                                                                                                                      |
-| `onError?`           | `(error: Error) => void`               | Error callback                                                                                                                                                                                           |
-| `onStepFinish?`      | `(result: OnStepFinishResult) => void` | Step completion callback                                                                                                                                                                                 |
+| Prop                 | Type                                   | Description                                                                                                                                                                                                                                                                     |
+| -------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `provider?`          | `'anthropic' \| 'openai'`              | AI provider for this agent                                                                                                                                                                                                                                                      |
+| `model`              | `string`                               | Provider model id (e.g. `claude-sonnet-4-5`, `gpt-5-mini`)                                                                                                                                                                                                                      |
+| `name?`              | `string`                               | Agent identifier                                                                                                                                                                                                                                                                |
+| `description?`       | `string`                               | Agent description                                                                                                                                                                                                                                                               |
+| `maxTokens?`         | `number`                               | Max output tokens (default: `4096`)                                                                                                                                                                                                                                             |
+| `maxIterations?`     | `number`                               | Max tool call iterations (default: `20`)                                                                                                                                                                                                                                        |
+| `stopSequences?`     | `string[]`                             | Stop sequences                                                                                                                                                                                                                                                                  |
+| `temperature?`       | `number`                               | Sampling temperature (0-1)                                                                                                                                                                                                                                                      |
+| `stream?`            | `boolean`                              | Enable streaming (default: `true`)                                                                                                                                                                                                                                              |
+| `betas?`             | `string[]`                             | Additional Anthropic beta features to enable                                                                                                                                                                                                                                    |
+| `thinking?`          | `ThinkingConfig`                       | Extended thinking config (provider-dependent). Anthropic: `{ type: 'enabled', budget_tokens: number, interleaved?: boolean }`. OpenAI: `{ type: 'enabled', effort: 'low' \| 'medium' \| 'high', summary: 'auto' \| 'concise' \| 'detailed' }`. Disable: `{ type: 'disabled' }`. |
+| `websocket?`         | `boolean`                              | Enable WebSocket mode for OpenAI (reduces per-turn latency ~40% in multi-tool loops via persistent WebSocket connection                                                                                                                                                         |
+| `compactionControl?` | `CompactionControl`                    | Context compaction settings (see below)                                                                                                                                                                                                                                         |
+| `onMessage?`         | `(event: AgentStreamEvent) => void`    | Stream event callback                                                                                                                                                                                                                                                           |
+| `onComplete?`        | `(result: AgentResult) => void`        | Completion callback                                                                                                                                                                                                                                                             |
+| `onError?`           | `(error: Error) => void`               | Error callback                                                                                                                                                                                                                                                                  |
+| `onStepFinish?`      | `(result: OnStepFinishResult) => void` | Step completion callback                                                                                                                                                                                                                                                        |
 
 **CompactionControl:**
 
@@ -453,10 +573,12 @@ const handle: AgentHandle = await run(<Agent>...</Agent>, {
 
 #### `<Condition>`
 
-| Prop       | Type                | Description                                            |
-| ---------- | ------------------- | ------------------------------------------------------ |
-| `when`     | `boolean \| string` | Condition (boolean or NL description evaluated by LLM) |
-| `children` | `ReactNode`         | Content to render when condition is true               |
+| Prop        | Type                            | Description                                                                                   |
+| ----------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
+| `when`      | `boolean \| string`             | Condition (boolean or NL description evaluated by LLM)                                        |
+| `provider?` | `'anthropic' \| 'openai'`       | Override provider for NL evaluation (first NL condition's override applies to the batch)      |
+| `model?`    | `AnthropicModel \| OpenAIModel` | Override model for NL evaluation (defaults to `claude-haiku-4-5` / `gpt-4.1-mini` if not set) |
+| `children`  | `ReactNode`                     | Content to render when condition is true                                                      |
 
 #### `<WebSearch>`
 
@@ -493,11 +615,11 @@ No props. Enables sandboxed code execution.
 
 ### Hooks
 
-| Hook                  | Returns              | Description             |
-| --------------------- | -------------------- | ----------------------- |
-| `useExecutionState()` | `AgentState`         | Current execution state |
-| `useMessages()`       | `BetaMessageParam[]` | Conversation messages   |
-| `useAgentState()`     | `AgentStoreState`    | Full agent state        |
+| Hook                  | Returns               | Description             |
+| --------------------- | --------------------- | ----------------------- |
+| `useExecutionState()` | `AgentState`          | Current execution state |
+| `useMessages()`       | `AgentMessageParam[]` | Conversation messages   |
+| `useAgentState()`     | `AgentStoreState`     | Full agent state        |
 
 ### AgentHandle (Interactive Mode)
 
@@ -509,7 +631,7 @@ No props. Enables sandboxed code execution.
 | `abort()`              | `() => void`                                                | Abort current execution         |
 | `close()`              | `() => void`                                                | Clean up resources              |
 | `state`                | `AgentState`                                                | Current execution state         |
-| `messages`             | `BetaMessageParam[]`                                        | Conversation history            |
+| `messages`             | `AgentMessageParam[]`                                       | Conversation history            |
 | `isRunning`            | `boolean`                                                   | Whether agent is processing     |
 
 ### Utilities
@@ -527,27 +649,31 @@ Tool handlers receive a `context` object:
 | Property    | Type                                                                       | Description                   |
 | ----------- | -------------------------------------------------------------------------- | ----------------------------- |
 | `agentName` | `string`                                                                   | Name of the current agent     |
-| `client`    | `Anthropic`                                                                | Anthropic client instance     |
+| `provider`  | `'anthropic' \| 'openai'`                                                  | Current provider              |
+| `client?`   | `Anthropic \| OpenAI`                                                      | Current provider client       |
+| `clients?`  | `{ anthropic?: Anthropic; openai?: OpenAI }`                               | Provider client map           |
 | `model?`    | `string`                                                                   | Current agent's model         |
 | `signal?`   | `AbortSignal`                                                              | Abort signal for cancellation |
-| `metadata?` | `Record<string, unknown>`                                                  | Custom metadata               |
+| `metadata?` | `JsonObject`                                                               | Custom JSON-like metadata     |
 | `runAgent`  | `(agent: ReactElement, options?: RunAgentOptions) => Promise<AgentResult>` | Run an agent programmatically |
 
 **RunAgentOptions:**
 
-| Field          | Type          | Description             |
-| -------------- | ------------- | ----------------------- |
-| `model?`       | `string`      | Override parent's model |
-| `maxTokens?`   | `number`      | Override max tokens     |
-| `temperature?` | `number`      | Override temperature    |
-| `signal?`      | `AbortSignal` | Custom abort signal     |
+| Field          | Type                                         | Description             |
+| -------------- | -------------------------------------------- | ----------------------- |
+| `provider?`    | `'anthropic' \| 'openai'`                    | Override provider       |
+| `clients?`     | `{ anthropic?: Anthropic; openai?: OpenAI }` | Override client map     |
+| `model?`       | `string`                                     | Override parent's model |
+| `maxTokens?`   | `number`                                     | Override max tokens     |
+| `temperature?` | `number`                                     | Override temperature    |
+| `signal?`      | `AbortSignal`                                | Custom abort signal     |
 
 ## Requirements
 
 - Node.js 18+ or Bun
 - React 19+
 - TypeScript 5+
-- Anthropic API Key
+- Provider API key(s): Anthropic and/or OpenAI
 
 ## Development
 

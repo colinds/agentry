@@ -4,13 +4,20 @@ import type { AgentInstance } from '../instances'
 
 export interface ContainerInfo {
   container: AgentInstance
-  fiber: unknown
+  fiber: ReturnType<typeof reconciler.createContainer> | null
 }
 
 export function createContainer(agentInstance: AgentInstance): ContainerInfo {
-  const createContainerFn = reconciler.createContainer as unknown as (
-    ...args: unknown[]
-  ) => unknown
+  const createContainerFn = reconciler.createContainer as (
+    ...args: Array<
+      | AgentInstance
+      | number
+      | string
+      | boolean
+      | null
+      | ((error: Error) => void)
+    >
+  ) => ReturnType<typeof reconciler.createContainer>
 
   const fiber = createContainerFn(
     agentInstance,

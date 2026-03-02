@@ -1,11 +1,14 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { SubagentHandle } from '../handles'
 import type { AgentResult } from '../types'
 import type { SubagentInstance } from '../instances'
+import type { ProviderClientMap } from '../providers/types'
+import type { ProviderName } from '../types/provider'
 
 export interface RunSubagentOptions {
-  /** anthropic client instance */
-  client: Anthropic
+  /** provider clients */
+  clients?: Partial<ProviderClientMap>
+  /** provider for subagent execution */
+  provider?: ProviderName
   /** abort signal for cancellation */
   signal?: AbortSignal
 }

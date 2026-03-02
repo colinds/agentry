@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react'
-import type { MemoryHandlers, MemoryTool } from '../../types'
+import {
+  type MemoryHandlers,
+  type MemoryTool,
+  BuiltInToolType,
+} from '../../types'
 
 // Re-export MemoryHandlers for convenience
 export type { MemoryHandlers }
@@ -43,20 +47,11 @@ type MemoryProps = MemoryHandlers
  * ```
  */
 export function Memory(props: MemoryProps): ReactNode {
-  const handlers: MemoryHandlers = {
-    onView: props.onView,
-    onCreate: props.onCreate,
-    onStrReplace: props.onStrReplace,
-    onInsert: props.onInsert,
-    onDelete: props.onDelete,
-    onRename: props.onRename,
-  }
-
   const tool: MemoryTool = {
-    type: 'memory_20250818',
+    type: BuiltInToolType.Memory,
     name: 'memory',
-    memoryHandlers: handlers,
+    memoryHandlers: props,
   }
 
-  return <sdk_tool tool={tool} key="memory" />
+  return <built_in_tool tool={tool} key="memory" />
 }

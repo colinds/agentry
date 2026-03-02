@@ -1,7 +1,7 @@
 import type { Instance, AgentInstance } from '../instances'
 import {
   isToolInstance,
-  isSdkToolInstance,
+  isBuiltInToolInstance,
   isSystemInstance,
   isContextInstance,
   isMessageInstance,
@@ -41,8 +41,8 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
   } else if (isMessageInstance(child)) {
     // Write directly to store instead of agent.messages
     agent.store.getState().actions.pushMessage(child.message)
-  } else if (isSdkToolInstance(child)) {
-    agent.sdkTools.push(child.tool)
+  } else if (isBuiltInToolInstance(child)) {
+    agent.builtInTools.push(child.tool)
     debug('reconciler', `SDK tool added: ${child.tool.name}`)
   } else if (isMCPServerInstance(child)) {
     agent.mcpServers.push(child.config)
@@ -98,10 +98,10 @@ export function uncollectChild(agent: AgentInstance, child: Instance): void {
   } else if (isMessageInstance(child)) {
     // Remove from store
     agent.store.getState().actions.removeMessage(child.message)
-  } else if (isSdkToolInstance(child)) {
-    const index = agent.sdkTools.findIndex((t) => t === child.tool)
+  } else if (isBuiltInToolInstance(child)) {
+    const index = agent.builtInTools.findIndex((t) => t === child.tool)
     if (index >= 0) {
-      agent.sdkTools.splice(index, 1)
+      agent.builtInTools.splice(index, 1)
       debug('reconciler', `SDK tool removed: ${child.tool.name}`)
     }
   } else if (isMCPServerInstance(child)) {

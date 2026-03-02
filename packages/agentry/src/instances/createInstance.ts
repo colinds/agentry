@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type React from 'react'
 import type {
   Instance,
@@ -6,7 +5,7 @@ import type {
   SubagentInstance,
   AgentToolInstance,
   ToolInstance,
-  SdkToolInstance,
+  BuiltInToolInstance,
   SystemInstance,
   ContextInstance,
   MessageInstance,
@@ -16,7 +15,7 @@ import type {
   AgentComponentProps,
   AgentToolComponentProps,
   ToolComponentProps,
-  SdkToolComponentProps,
+  BuiltInToolComponentProps,
   SystemComponentProps,
   ContextComponentProps,
   MessageComponentProps,
@@ -24,20 +23,37 @@ import type {
   MCPServerComponentProps,
   ConditionComponentProps,
 } from './types'
-import { isAgentInstance, isInstance } from './types'
-import type { AgentProps, CompactionControl, Model } from '../types'
+import { InstanceType, isAgentInstance, isInstance } from './types'
+import type {
+  AgentProps,
+  BaseAgentProps,
+  CompactionControl,
+  Model,
+} from '../types'
 
-type RequiredAgentProps = { [K in keyof Required<AgentProps>]: AgentProps[K] }
+/** Requires all AgentProps keys, with variant fields distributed across the union. */
+type AgentPropsAllKeys = {
+  [K in keyof Required<BaseAgentProps>]: BaseAgentProps[K]
+} & {
+  provider: AgentProps['provider']
+  model: AgentProps['model']
+  thinking: AgentProps['thinking']
+  betas?: string[]
+  websocket?: boolean
+}
 
 interface SubagentCreationProps extends Omit<
   AgentComponentProps,
-  'children' | 'model'
+  'children' | 'model' | 'websocket'
 > {
   model?: AgentComponentProps['model']
   agentNode?: React.ReactNode
+  betas?: string[]
+  websocket?: boolean
 }
 
 interface PropagatedSettings {
+  provider?: AgentProps['provider']
   stream?: boolean
   temperature?: number
   stopSequences?: string[]
@@ -47,25 +63,14 @@ interface PropagatedSettings {
   model?: Model
   thinking?: AgentProps['thinking']
   betas?: string[]
+  websocket?: boolean
 }
-
-export type ElementType =
-  | 'agent'
-  | 'agent_tool'
-  | 'tool'
-  | 'sdk_tool'
-  | 'system'
-  | 'context'
-  | 'message'
-  | 'tools'
-  | 'mcp_server'
-  | 'condition'
 
 export type ElementProps =
   | AgentComponentProps
   | AgentToolComponentProps
   | ToolComponentProps
-  | SdkToolComponentProps
+  | BuiltInToolComponentProps
   | SystemComponentProps
   | ContextComponentProps
   | MessageComponentProps
@@ -73,33 +78,33 @@ export type ElementProps =
   | MCPServerComponentProps
   | ConditionComponentProps
 
+// oxlint-disable-next-line max-params -- called by reconciler host config with fixed arity
 export function createInstance(
-  type: ElementType,
+  type: InstanceType,
   props: ElementProps,
-  rootContainer: Instance | unknown,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  rootContainer: Instance | object | null,
   _hostContext: PropagatedSettings = {},
 ): Instance {
   switch (type) {
-    case 'agent':
+    case InstanceType.Agent:
       return createAgentInstance(props as AgentComponentProps, rootContainer)
-    case 'agent_tool':
+    case InstanceType.AgentTool:
       return createAgentToolInstance(props as AgentToolComponentProps)
-    case 'tool':
+    case InstanceType.Tool:
       return createToolInstance(props as ToolComponentProps)
-    case 'sdk_tool':
-      return createSdkToolInstance(props as SdkToolComponentProps)
-    case 'system':
+    case InstanceType.BuiltInTool:
+      return createBuiltInToolInstance(props as BuiltInToolComponentProps)
+    case InstanceType.System:
       return createSystemInstance(props as SystemComponentProps)
-    case 'context':
+    case InstanceType.Context:
       return createContextInstance(props as ContextComponentProps)
-    case 'message':
+    case InstanceType.Message:
       return createMessageInstance(props as MessageComponentProps)
-    case 'tools':
+    case InstanceType.Tools:
       return createToolsContainerInstance(props as ToolsContainerProps)
-    case 'mcp_server':
+    case InstanceType.McpServer:
       return createMCPServerInstance(props as MCPServerComponentProps)
-    case 'condition':
+    case InstanceType.Condition:
       return createConditionInstance(props as ConditionComponentProps)
     default:
       throw new Error(`Unknown element type: ${type}`)
@@ -108,7 +113,7 @@ export function createInstance(
 
 function createAgentInstance(
   props: AgentComponentProps,
-  rootContainer?: unknown,
+  rootContainer?: Instance | object | null,
 ): AgentInstance {
   if (
     !rootContainer ||
@@ -119,12 +124,14 @@ function createAgentInstance(
     throw new Error('No store found in root container.')
   }
 
-  const client = props.client ?? rootContainer.client ?? new Anthropic()
+  const provider = props.provider ?? rootContainer.props.provider
+  const client = props.client ?? rootContainer.client
   const store = rootContainer.store
 
   const instance: AgentInstance = {
-    type: 'agent',
+    type: InstanceType.Agent,
     props: {
+      provider,
       model: props.model,
       name: props.name,
       description: props.description,
@@ -135,29 +142,25 @@ function createAgentInstance(
       stream: props.stream ?? true,
       compactionControl: props.compactionControl,
       thinking: props.thinking,
-      betas: props.betas,
+      betas: props.provider === 'anthropic' ? props.betas : undefined,
+      websocket: props.provider === 'openai' ? props.websocket : undefined,
       onMessage: props.onMessage,
       onComplete: props.onComplete,
       onError: props.onError,
       onStepFinish: props.onStepFinish,
-    } satisfies RequiredAgentProps,
+    } satisfies AgentPropsAllKeys as AgentProps,
     client,
     engine: null,
     systemParts: [],
     tools: [],
-    sdkTools: [],
+    builtInTools: [],
     mcpServers: [],
     children: [],
     parent: null,
     store,
   }
 
-  if (
-    rootContainer &&
-    isInstance(rootContainer) &&
-    isAgentInstance(rootContainer) &&
-    props.model
-  ) {
+  if (props.model) {
     rootContainer.props.model = props.model
   }
 
@@ -166,7 +169,7 @@ function createAgentInstance(
 
 function createToolInstance(props: ToolComponentProps): ToolInstance {
   return {
-    type: 'tool',
+    type: InstanceType.Tool,
     tool: props.tool,
     parent: null,
   }
@@ -177,7 +180,7 @@ function createAgentToolInstance(
 ): AgentToolInstance {
   const { agentTool } = props
   return {
-    type: 'agent_tool',
+    type: InstanceType.AgentTool,
     name: agentTool.name,
     description: agentTool.description,
     parameters: agentTool.parameters,
@@ -187,9 +190,11 @@ function createAgentToolInstance(
   }
 }
 
-function createSdkToolInstance(props: SdkToolComponentProps): SdkToolInstance {
+function createBuiltInToolInstance(
+  props: BuiltInToolComponentProps,
+): BuiltInToolInstance {
   return {
-    type: 'sdk_tool',
+    type: InstanceType.BuiltInTool,
     tool: props.tool,
     parent: null,
   }
@@ -197,7 +202,7 @@ function createSdkToolInstance(props: SdkToolComponentProps): SdkToolInstance {
 
 function createSystemInstance(props: SystemComponentProps): SystemInstance {
   return {
-    type: 'system',
+    type: InstanceType.System,
     content: reactNodeToString(props.children),
     cache: props.cache,
     parent: null,
@@ -206,7 +211,7 @@ function createSystemInstance(props: SystemComponentProps): SystemInstance {
 
 function createContextInstance(props: ContextComponentProps): ContextInstance {
   return {
-    type: 'context',
+    type: InstanceType.Context,
     content: reactNodeToString(props.children),
     cache: props.cache,
     parent: null,
@@ -236,20 +241,20 @@ function createMessageInstance(props: MessageComponentProps): MessageInstance {
   const content = props.rawContent ?? reactNodeToString(props.children)
 
   return {
-    type: 'message',
+    type: InstanceType.Message,
     message: {
       role: props.role,
-      content: content,
+      content,
     },
     parent: null,
   }
 }
 
 function createToolsContainerInstance(
-  _props: ToolsContainerProps, // eslint-disable-line @typescript-eslint/no-unused-vars
+  _props: ToolsContainerProps,
 ): ToolsContainerInstance {
   return {
-    type: 'tools_container',
+    type: InstanceType.Tools,
     children: [],
     parent: null,
   }
@@ -259,7 +264,7 @@ function createMCPServerInstance(
   props: MCPServerComponentProps,
 ): MCPServerInstance {
   return {
-    type: 'mcp_server',
+    type: InstanceType.McpServer,
     config: {
       type: 'url',
       name: props.name,
@@ -275,9 +280,11 @@ function createConditionInstance(
   props: ConditionComponentProps,
 ): ConditionInstance {
   return {
-    type: 'condition',
+    type: InstanceType.Condition,
     when: props.when,
-    isActive: false,
+    model: props.model,
+    provider: props.provider,
+    isActive: typeof props.when === 'boolean' ? props.when : false,
     children: [],
     parent: null,
   }
@@ -288,21 +295,22 @@ export function createSubagentInstance(
   inherited: PropagatedSettings = {},
 ): SubagentInstance {
   if (!props.name) {
-    throw new Error('Child agents must have a name property')
+    throw new Error('Child agents must have a name.')
   }
 
   const model = props.model ?? inherited.model
   if (!model) {
     throw new Error(
-      `Subagent "${props.name}" requires a model. Either provide model in props or ensure parent agent has a model.`,
+      `Subagent "${props.name}" requires a model. Provide one on the subagent or parent agent.`,
     )
   }
 
   return {
-    type: 'subagent',
+    type: InstanceType.Subagent,
     name: props.name,
     description: props.description,
     props: {
+      provider: props.provider ?? inherited.provider,
       model,
       name: props.name,
       description: props.description,
@@ -320,16 +328,23 @@ export function createSubagentInstance(
       stream: props.stream ?? inherited.stream ?? true,
       compactionControl: props.compactionControl ?? inherited.compactionControl,
       thinking: props.thinking ?? inherited.thinking,
-      betas: props.betas ?? inherited.betas,
+      betas:
+        (props.provider ?? inherited.provider) === 'anthropic'
+          ? (props.betas ?? inherited.betas)
+          : undefined,
+      websocket:
+        (props.provider ?? inherited.provider) === 'openai'
+          ? (props.websocket ?? inherited.websocket)
+          : undefined,
       // callbacks never inherited
       onMessage: props.onMessage,
       onComplete: props.onComplete,
       onError: props.onError,
       onStepFinish: props.onStepFinish,
-    } satisfies RequiredAgentProps,
+    } satisfies AgentPropsAllKeys as AgentProps,
     systemParts: [],
     tools: [],
-    sdkTools: [],
+    builtInTools: [],
     mcpServers: [],
     children: [],
     parent: null,

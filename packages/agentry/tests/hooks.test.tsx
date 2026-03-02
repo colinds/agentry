@@ -12,7 +12,8 @@ import {
   useAgentState,
 } from '../src'
 import { createStepMockClient, mockText, mockToolUse } from './utils'
-import { TEST_MODEL } from '../src/constants'
+import { AgentStatus } from '../src/types'
+import { ANTHROPIC_TEST_MODEL } from '../src/constants'
 import { createStateWatcher, createMessageCollector } from './utils/testHelpers'
 
 test('useExecutionState tracks status transitions', async () => {
@@ -29,11 +30,16 @@ test('useExecutionState tracks status transitions', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+      maxIterations={5}
+    >
       <StateTracker />
       <Message role="user">Test</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -54,19 +60,26 @@ test('useExecutionState with createStateWatcher helper', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+      maxIterations={5}
+    >
       <watcher.Component />
       <Message role="user">Test</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
   const result = await runPromise
 
   expect(watcher.states.length).toBeGreaterThan(0)
-  expect(watcher.states[0]?.status).toBe('idle')
-  expect(watcher.states[watcher.states.length - 1]?.status).toBe('completed')
+  expect(watcher.states[0]?.status).toBe(AgentStatus.Idle)
+  expect(watcher.states[watcher.states.length - 1]?.status).toBe(
+    AgentStatus.Completed,
+  )
   expect(result.stopReason).toBe('end_turn')
 })
 
@@ -84,11 +97,11 @@ test('useMessages accumulates conversation history', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <MessageTracker />
       <Message role="user">Hello</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -108,11 +121,11 @@ test('useMessages with createMessageCollector helper', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <collector.Component />
       <Message role="user">Test message</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -134,7 +147,6 @@ test('useAgentState provides full state access', async () => {
 
   function FullStateTracker() {
     const state = useAgentState()
-    // eslint-disable-next-line react-hooks/immutability
     capturedStateRef.current = state
     return null
   }
@@ -144,11 +156,11 @@ test('useAgentState provides full state access', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <FullStateTracker />
       <Message role="user">Test</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -164,7 +176,6 @@ test('hooks throw error when used outside AgentProvider', () => {
   function InvalidComponent() {
     try {
       useExecutionState()
-      // eslint-disable-next-line react-hooks/error-boundaries
       return <div>Should not reach here</div>
     } catch (error: unknown) {
       const err = error as Error
@@ -189,12 +200,12 @@ test('multiple components can subscribe to same state', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <watcher1.Component />
       <watcher2.Component />
       <Message role="user">Test</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -235,14 +246,19 @@ test('state updates during tool execution', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+      maxIterations={5}
+    >
       <StateTracker />
       <Tools>
         <Tool {...testTool} />
       </Tools>
       <Message role="user">Use the tool</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()

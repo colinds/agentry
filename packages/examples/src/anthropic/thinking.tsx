@@ -1,6 +1,6 @@
 import { run, Agent, System, Message, Tools, Tool } from 'agentry'
 import { z } from 'zod'
-import { MODEL } from './constants'
+import { MODEL } from '../constants'
 
 /**
  * Extended Thinking with Interleaved Tool Use
@@ -26,12 +26,13 @@ let apiCallCount = 0
 
 const result = await run(
   <Agent
+    provider="anthropic"
     model={MODEL}
     maxTokens={8000}
     thinking={{
       type: 'enabled',
       budget_tokens: 4000,
-      // interleaved: true by default - allows thinking during tool execution
+      interleaved: true, // allows thinking during tool execution
     }}
     onStepFinish={(step) => {
       apiCallCount++

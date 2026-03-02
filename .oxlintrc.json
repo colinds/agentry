@@ -2,7 +2,11 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": null,
   "categories": {},
-  "rules": {},
+  "rules": {
+    "no-unused-vars": "error",
+    "unicorn/no-nested-ternary": "error",
+    "max-params": "error"
+  },
   "settings": {
     "jsx-a11y": {
       "polymorphicPropName": null,

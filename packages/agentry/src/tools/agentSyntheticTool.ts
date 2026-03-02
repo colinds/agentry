@@ -4,10 +4,11 @@ import type { SubagentInstance } from '../instances/types'
 import { parseToolInput, formatValidationError } from './defineTool'
 import { runSubagent } from '../run/subagent'
 import { createSubagentInstance } from '../instances/createInstance'
+import { debug } from '../debug'
 
-export const createAgentSyntheticTool = (
+export function createAgentSyntheticTool(
   agentTool: AgentToolInstance,
-): InternalTool => {
+): InternalTool {
   return {
     name: agentTool.name,
     description: agentTool.description,
@@ -31,23 +32,45 @@ export const createAgentSyntheticTool = (
 
       const agentElement = agentTool.agent(validatedInput)
 
+      // Extract stream from the JSX element's props, defaulting to false for subagents
+      const agentElementStream =
+        (agentElement.props as { stream?: boolean }).stream ?? false
+
       const subagent: SubagentInstance = createSubagentInstance(
         {
           name: agentTool.name,
           description: agentTool.description,
+          provider: toolContext.provider,
           agentNode: agentElement,
+          stream: agentElementStream,
         },
         {
+          provider: toolContext.provider,
           model: toolContext.model,
         },
       )
 
-      const result = await runSubagent(subagent, {
-        client: toolContext.client,
-        signal: toolContext.signal,
-      })
+      let result
+      try {
+        result = await runSubagent(subagent, {
+          provider: subagent.props.provider,
+          clients: toolContext.clients,
+          signal: toolContext.signal,
+        })
+      } catch (error) {
+        debug('agent', `Subagent "${agentTool.name}" failed:`, error as object)
+        throw error
+      }
 
-      return result.content
+      const content = result.content
+      if (!content) {
+        debug(
+          'agent',
+          `Subagent "${agentTool.name}" produced no text output. Stop reason: ${result.stopReason ?? 'unknown'}`,
+        )
+        return `Subagent "${agentTool.name}" completed but produced no text output. Stop reason: ${result.stopReason ?? 'unknown'}.`
+      }
+      return content
     },
   }
 }

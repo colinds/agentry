@@ -1,9 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { EventEmitter } from 'eventemitter3'
 import { createElement, type ReactNode } from 'react'
 import type { AgentInstance } from '../instances'
 import type { AgentResult, AgentStreamEvent } from '../types/agent'
-import type { BetaMessageParam } from '../types/messages'
+import type { AgentMessageParam } from '../types/messages'
 import type { AgentStore } from '../store'
 import type { OnStepFinishResult } from '../types/lifecycle'
 import {
@@ -20,8 +19,10 @@ import {
 import { isProcessing, type AgentState } from '../types/state'
 import { yieldToScheduler } from '../scheduler'
 import { AgentProvider } from '../context'
+import type { ProviderAdapter, ProviderClientMap } from '../providers/types'
+import type { ProviderName } from '../types/provider'
 
-export interface AgentHandleEvents {
+interface AgentHandleEvents {
   stateChange: (state: AgentState) => void
   stream: (event: AgentStreamEvent) => void
   complete: (result: AgentResult) => void
@@ -36,18 +37,26 @@ export interface AgentHandleEvents {
 export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents> {
   protected containerInfo: ContainerInfo
   protected engine: ExecutionEngine | null = null
-  protected client: Anthropic
+  protected clients: Partial<ProviderClientMap>
+  protected adapters: Record<string, ProviderAdapter<ProviderName>>
   protected running = false
   protected store: AgentStore
   protected instance: AgentInstance | null = null
 
-  constructor(
-    client: Anthropic,
-    containerInfo: ContainerInfo,
-    store: AgentStore,
-  ) {
+  constructor({
+    clients,
+    adapters,
+    containerInfo,
+    store,
+  }: {
+    clients: Partial<ProviderClientMap>
+    adapters: Record<string, ProviderAdapter<ProviderName>>
+    containerInfo: ContainerInfo
+    store: AgentStore
+  }) {
     super()
-    this.client = client
+    this.clients = clients
+    this.adapters = adapters
     this.containerInfo = containerInfo
     this.store = store
   }
@@ -56,7 +65,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     return this.store.getState().executionState
   }
 
-  get messages(): readonly BetaMessageParam[] {
+  get messages(): readonly AgentMessageParam[] {
     return this.store.getState().messages
   }
 
@@ -64,7 +73,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     return this.running
   }
 
-  protected pushMessage(message: BetaMessageParam): void {
+  protected pushMessage(message: AgentMessageParam): void {
     this.store.getState().actions.pushMessage(message)
   }
 
@@ -75,7 +84,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   protected abstract beforeExecution(
     agent: AgentInstance,
     config: ExecutionEngineConfig,
-    messages: readonly BetaMessageParam[],
+    messages: readonly AgentMessageParam[],
   ): void
 
   /**
@@ -92,7 +101,8 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
     const { config } = createEngineConfig({
       agent,
-      client: this.client,
+      clients: this.clients,
+      adapters: this.adapters,
       store: this.store,
     })
 
@@ -100,50 +110,37 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
     this.engine = new ExecutionEngine(config)
 
+    // Wire up async-aware onStepFinish so the engine awaits it before
+    // proceeding to the next iteration.
+    this.engine.onStepFinish = async (result: OnStepFinishResult) => {
+      try {
+        await agent.props.onStepFinish?.(result)
+      } catch (err) {
+        throw new Error('[agentry] onStepFinish callback threw', { cause: err })
+      }
+    }
+
     let onStateChange: ((state: AgentState) => void) | undefined
-    let onStream: ((event: AgentStreamEvent) => void) | undefined
-    let onError: ((error: Error) => void) | undefined
-    let onStepFinish: ((result: OnStepFinishResult) => void) | undefined
+    const onStream = (event: AgentStreamEvent) => {
+      if (emitEvents) this.emit('stream', event)
+      agent.props.onMessage?.(event)
+    }
+    const onError = (error: Error) => {
+      if (emitEvents) this.emit('error', error)
+      agent.props.onError?.(error)
+    }
+    const onStepFinish = (result: OnStepFinishResult) => {
+      if (emitEvents) this.emit('stepFinish', result)
+    }
 
     try {
       if (emitEvents) {
-        onStateChange = (state: AgentState) => {
-          // State is already updated in store by engine
-          this.emit('stateChange', state)
-        }
-        onStream = (event: AgentStreamEvent) => {
-          this.emit('stream', event)
-          agent.props.onMessage?.(event)
-        }
-        onError = (error: Error) => {
-          this.emit('error', error)
-          agent.props.onError?.(error)
-        }
-        onStepFinish = (result: OnStepFinishResult) => {
-          this.emit('stepFinish', result)
-          agent.props.onStepFinish?.(result)
-        }
-
+        onStateChange = (state: AgentState) => this.emit('stateChange', state)
         this.engine.on('stateChange', onStateChange)
-        this.engine.on('stream', onStream)
-        this.engine.on('error', onError)
-        this.engine.on('stepFinish', onStepFinish)
-      } else {
-        // Still wire up agent props callbacks even if not emitting events
-        onStream = (event: AgentStreamEvent) => {
-          agent.props.onMessage?.(event)
-        }
-        onError = (error: Error) => {
-          agent.props.onError?.(error)
-        }
-        onStepFinish = (result: OnStepFinishResult) => {
-          agent.props.onStepFinish?.(result)
-        }
-
-        this.engine.on('stream', onStream)
-        this.engine.on('error', onError)
-        this.engine.on('stepFinish', onStepFinish)
       }
+      this.engine.on('stream', onStream)
+      this.engine.on('error', onError)
+      this.engine.on('stepFinish', onStepFinish)
 
       const result = await this.engine.run()
 
@@ -277,9 +274,13 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     this.on('complete', onComplete)
     this.on('error', onError)
 
-    const runPromise = this.run(message).catch((e) => {
-      error = e
+    const runPromise = this.run(message).catch((e: unknown) => {
+      error = e instanceof Error ? e : new Error(String(e))
       done = true
+      if (resolveNext) {
+        resolveNext(null)
+        resolveNext = null
+      }
     })
 
     try {
@@ -338,9 +339,14 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   }
 
   /**
-   * Subclasses can override for additional cleanup
+   * Subclasses can override for additional cleanup.
+   * Base implementation calls close() on any adapters that support it.
    */
-  protected cleanup(): void {}
+  protected cleanup(): void {
+    for (const adapter of Object.values(this.adapters)) {
+      adapter.close?.()
+    }
+  }
 
   /**
    * Test-only method to access containerInfo for testing purposes

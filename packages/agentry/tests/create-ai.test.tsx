@@ -1,0 +1,229 @@
+import { test, expect } from 'bun:test'
+import { createAI, Agent, Message, AgentHandle } from '../src'
+import { createStepMockClient, mockText, createOpenAIMockClient } from './utils'
+import { ANTHROPIC_TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
+
+test('createAI default clients are used when no per-call override given', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Hello from default client')] },
+  ])
+
+  const ai = createAI({ providers: { anthropic: { client } } })
+
+  const runPromise = ai.run(
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
+      <Message role="user">Hello</Message>
+    </Agent>,
+  )
+
+  await controller.nextTurn()
+  const result = await runPromise
+  expect(result.content).toBe('Hello from default client')
+})
+
+test('createAI per-call clients override default clients', async () => {
+  const { client: defaultClient } = createStepMockClient([
+    { content: [mockText('Should not appear')] },
+  ])
+  const { client: overrideClient, controller } = createStepMockClient([
+    { content: [mockText('From override client')] },
+  ])
+
+  const ai = createAI({ providers: { anthropic: { client: defaultClient } } })
+
+  const runPromise = ai.run(
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
+      <Message role="user">Hello</Message>
+    </Agent>,
+    { providers: { anthropic: { client: overrideClient } } },
+  )
+
+  await controller.nextTurn()
+  const result = await runPromise
+  expect(result.content).toBe('From override client')
+})
+
+test('createAI per-call mode overrides default mode', async () => {
+  // batch override should return AgentResult, not AgentHandle
+  const { client: batchClient, controller } = createStepMockClient([
+    { content: [mockText('Batch result')] },
+  ])
+  const ai2 = createAI({ providers: { anthropic: { client: batchClient } } })
+  const runPromise = ai2.run(
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
+      <Message role="user">Run in batch</Message>
+    </Agent>,
+    { mode: 'batch' },
+  )
+  await controller.nextTurn()
+  const result = await runPromise
+  expect(result.content).toBe('Batch result')
+  expect(typeof result.content).toBe('string')
+})
+
+test('createAI interactive mode returns a handle', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('Interactive response')] },
+  ])
+
+  const ai = createAI({
+    providers: { anthropic: { client } },
+    mode: 'interactive',
+  })
+
+  const handlePromise = ai.run(
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+    ></Agent>,
+    { mode: 'interactive' },
+  )
+
+  const handle = await handlePromise
+  expect(handle).toBeDefined()
+  expect(typeof handle.sendMessage).toBe('function')
+
+  const sendPromise = handle.sendMessage('Hello')
+  await controller.nextTurn()
+  const result = await sendPromise
+  expect(result.content).toBe('Interactive response')
+
+  handle.close()
+})
+
+test('createAI createAgent uses merged clients', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('From createAgent')] },
+  ])
+
+  const ai = createAI({ providers: { anthropic: { client } } })
+
+  const agentHandle = ai.createAgent(
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
+      <Message role="user">Hello</Message>
+    </Agent>,
+  )
+
+  const runPromise = agentHandle.run()
+  await controller.nextTurn()
+  const result = await runPromise
+  expect(result.content).toBe('From createAgent')
+  agentHandle.close()
+})
+
+test('createAI default mode=interactive returns handle without explicit mode override', async () => {
+  const { client } = createStepMockClient([])
+
+  const ai = createAI({
+    providers: { anthropic: { client } },
+    mode: 'interactive',
+  })
+
+  // TypeScript types the return as AgentResult (no per-call mode override),
+  // but at runtime the merged defaults make it interactive → AgentHandle
+  const result = (await ai.run(
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      stream={false}
+    ></Agent>,
+  )) as unknown as AgentHandle
+
+  expect(result).toBeInstanceOf(AgentHandle)
+  expect(typeof result.sendMessage).toBe('function')
+  result.close()
+})
+
+test('AgentHandle throws on provider change between sendMessage calls', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('First response')] },
+  ])
+
+  const ai = createAI({
+    providers: { anthropic: { client } },
+    mode: 'interactive',
+  })
+
+  const handle = (await ai.run(
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false} />,
+    { mode: 'interactive' },
+  )) as AgentHandle
+
+  // First sendMessage — sets initialProps
+  const firstPromise = handle.sendMessage('Hello')
+  await controller.nextTurn()
+  await firstPromise
+
+  // Mutate to a different provider
+  handle.update(
+    <Agent provider="openai" model={ANTHROPIC_TEST_MODEL} stream={false} />,
+  )
+
+  // Second sendMessage — should throw at the call site
+  expect(handle.sendMessage('Hi again')).rejects.toThrow(
+    /Agent provider cannot change between runs/,
+  )
+
+  handle.close()
+})
+
+test('AgentHandle throws on model change between sendMessage calls', async () => {
+  const { client, controller } = createStepMockClient([
+    { content: [mockText('First response')] },
+  ])
+
+  const ai = createAI({
+    providers: { anthropic: { client } },
+    mode: 'interactive',
+  })
+
+  const handle = (await ai.run(
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false} />,
+    { mode: 'interactive' },
+  )) as AgentHandle
+
+  // First sendMessage — sets initialProps
+  const firstPromise = handle.sendMessage('Hello')
+  await controller.nextTurn()
+  await firstPromise
+
+  // Mutate to a different model
+  handle.update(
+    <Agent provider="anthropic" model="claude-opus-4-5" stream={false} />,
+  )
+
+  // Second sendMessage — should throw at the call site
+  expect(handle.sendMessage('Hi again')).rejects.toThrow(
+    /Agent model cannot change between runs/,
+  )
+
+  handle.close()
+})
+
+test('createAI multi-provider: per-call client overrides default for that provider', async () => {
+  const { client: anthropicDefault } = createStepMockClient([])
+  const { client: openaiClient } = createOpenAIMockClient([
+    {
+      output: [
+        {
+          type: 'message',
+          content: [{ type: 'output_text', text: 'OpenAI response' }],
+        },
+      ],
+    },
+  ])
+
+  const ai = createAI({
+    providers: { anthropic: { client: anthropicDefault } },
+  })
+
+  const result = await ai.run(
+    <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+      <Message role="user">Hello</Message>
+    </Agent>,
+    { providers: { openai: { client: openaiClient } } },
+  )
+
+  expect(result.content).toBe('OpenAI response')
+})

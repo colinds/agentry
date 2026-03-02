@@ -1,24 +1,45 @@
-import type { BetaMessage } from '@anthropic-ai/sdk/resources/beta'
+import type { AgentMessage } from './messages'
 import type { PendingToolCall, ToolExecutionResult } from './tools'
 
+export enum AgentStatus {
+  Idle = 'idle',
+  Streaming = 'streaming',
+  WaitingForTools = 'waiting_for_tools',
+  ExecutingTools = 'executing_tools',
+  Completed = 'completed',
+  Error = 'error',
+}
+
+export enum TransitionType {
+  StartStreaming = 'start_streaming',
+  ToolsRequested = 'tools_requested',
+  ToolsExecuting = 'tools_executing',
+  ToolsCompleted = 'tools_completed',
+  Completed = 'completed',
+  Error = 'error',
+}
+
 export type AgentState =
-  | { status: 'idle' }
-  | { status: 'streaming'; abortController: AbortController }
-  | { status: 'waiting_for_tools'; pendingTools: PendingToolCall[] }
-  | { status: 'executing_tools'; pendingTools: PendingToolCall[] }
-  | { status: 'completed'; finalMessage: BetaMessage }
-  | { status: 'error'; error: Error }
+  | { status: AgentStatus.Idle }
+  | { status: AgentStatus.Streaming; abortController: AbortController }
+  | { status: AgentStatus.WaitingForTools; pendingTools: PendingToolCall[] }
+  | { status: AgentStatus.ExecutingTools; pendingTools: PendingToolCall[] }
+  | { status: AgentStatus.Completed; finalMessage: AgentMessage }
+  | { status: AgentStatus.Error; error: Error }
 
 export type StateTransition =
-  | { type: 'start_streaming'; abortController: AbortController }
-  | { type: 'tools_requested'; pendingTools: PendingToolCall[] }
-  | { type: 'tools_executing'; pendingTools: PendingToolCall[] }
-  | { type: 'tools_completed'; results: ToolExecutionResult[] }
-  | { type: 'completed'; finalMessage: BetaMessage }
-  | { type: 'error'; error: Error }
+  | {
+      type: TransitionType.StartStreaming
+      abortController: AbortController
+    }
+  | { type: TransitionType.ToolsRequested; pendingTools: PendingToolCall[] }
+  | { type: TransitionType.ToolsExecuting; pendingTools: PendingToolCall[] }
+  | { type: TransitionType.ToolsCompleted; results: ToolExecutionResult[] }
+  | { type: TransitionType.Completed; finalMessage: AgentMessage }
+  | { type: TransitionType.Error; error: Error }
 
 export function initialState(): AgentState {
-  return { status: 'idle' }
+  return { status: AgentStatus.Idle }
 }
 
 export function transition(
@@ -26,38 +47,54 @@ export function transition(
   event: StateTransition,
 ): AgentState {
   switch (event.type) {
-    case 'start_streaming':
-      return { status: 'streaming', abortController: event.abortController }
+    case TransitionType.StartStreaming:
+      return {
+        status: AgentStatus.Streaming,
+        abortController: event.abortController,
+      }
 
-    case 'tools_requested':
-      return { status: 'waiting_for_tools', pendingTools: event.pendingTools }
+    case TransitionType.ToolsRequested:
+      return {
+        status: AgentStatus.WaitingForTools,
+        pendingTools: event.pendingTools,
+      }
 
-    case 'tools_executing':
-      return { status: 'executing_tools', pendingTools: event.pendingTools }
+    case TransitionType.ToolsExecuting:
+      return {
+        status: AgentStatus.ExecutingTools,
+        pendingTools: event.pendingTools,
+      }
 
-    case 'tools_completed':
+    case TransitionType.ToolsCompleted:
       // after tools complete, go back to idle for next iteration
-      return { status: 'idle' }
+      return { status: AgentStatus.Idle }
 
-    case 'completed':
-      return { status: 'completed', finalMessage: event.finalMessage }
+    case TransitionType.Completed:
+      return {
+        status: AgentStatus.Completed,
+        finalMessage: event.finalMessage,
+      }
 
-    case 'error':
-      return { status: 'error', error: event.error }
+    case TransitionType.Error:
+      return { status: AgentStatus.Error, error: event.error }
 
-    default:
+    default: {
+      const _exhaustive: never = event
       return state
+    }
   }
 }
 
 export function canAcceptMessages(state: AgentState): boolean {
-  return state.status === 'idle' || state.status === 'completed'
+  return (
+    state.status === AgentStatus.Idle || state.status === AgentStatus.Completed
+  )
 }
 
 export function isProcessing(state: AgentState): boolean {
   return (
-    state.status === 'streaming' ||
-    state.status === 'waiting_for_tools' ||
-    state.status === 'executing_tools'
+    state.status === AgentStatus.Streaming ||
+    state.status === AgentStatus.WaitingForTools ||
+    state.status === AgentStatus.ExecutingTools
   )
 }

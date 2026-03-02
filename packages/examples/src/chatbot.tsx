@@ -1,16 +1,31 @@
 import { z } from 'zod'
 import {
-  run,
+  createAI,
   defineTool,
   Agent,
   System,
   Tools,
   Tool,
-  WebSearch,
   AgentTool,
 } from 'agentry'
-import { MODEL } from './constants'
+import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
+import { WebSearch as AnthropicWebSearch } from 'agentry/anthropic'
+import { WebSearch as OpenAIWebSearch } from 'agentry/openai'
+import { MODEL, OPENAI_MODEL } from './constants'
 import { runInteractive } from './utils/interactive'
+
+const EXAMPLE_PROVIDER =
+  process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
+const WebSearch =
+  EXAMPLE_PROVIDER === 'openai' ? OpenAIWebSearch : AnthropicWebSearch
+const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
+const ai =
+  EXAMPLE_PROVIDER === 'openai'
+    ? createAI({ providers: { openai: { client: new OpenAI() } } })
+    : createAI({
+        providers: { anthropic: { client: new Anthropic() } },
+      })
 
 const ChatbotAgent = () => {
   // Calculator tool for basic math
@@ -66,7 +81,8 @@ const ChatbotAgent = () => {
   // Web search subagent that specializes in online research
   const WebSearchSubagent = () => (
     <Agent
-      model={MODEL}
+      provider={EXAMPLE_PROVIDER}
+      model={EXAMPLE_MODEL}
       name="web_researcher"
       description="Specialist subagent for web research using the web_search tool"
       maxTokens={2048}
@@ -83,7 +99,12 @@ const ChatbotAgent = () => {
   )
 
   return (
-    <Agent model={MODEL} maxTokens={2048} stream={true}>
+    <Agent
+      provider={EXAMPLE_PROVIDER}
+      model={EXAMPLE_MODEL}
+      maxTokens={2048}
+      stream={true}
+    >
       <System>
         You are a helpful AI assistant. Be concise and friendly. You have access
         to several tools: a calculator for math problems, a time tool for
@@ -107,7 +128,7 @@ const ChatbotAgent = () => {
 }
 
 async function main() {
-  const agent = await run(<ChatbotAgent />, { mode: 'interactive' })
+  const agent = await ai.run(<ChatbotAgent />, { mode: 'interactive' })
 
   runInteractive(agent, {
     title: '🤖 AI Chatbot',

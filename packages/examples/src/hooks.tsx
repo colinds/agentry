@@ -248,7 +248,7 @@ function ResearchAssistant() {
   }
 
   return (
-    <Agent model={MODEL} maxTokens={4096}>
+    <Agent provider="anthropic" model={MODEL} maxTokens={4096}>
       <System>
         You are a research assistant that discovers and unlocks capabilities.
         WORKFLOW: 1. Use research_topic to discover capabilities (weather, news,

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { CodeExecutionTool } from '../../types/tools'
+import { type CodeExecutionTool, BuiltInToolType } from '../../types/tools'
 
 /**
  * CodeExecution built-in tool - enables code execution capability
@@ -21,9 +21,9 @@ import type { CodeExecutionTool } from '../../types/tools'
  */
 export function CodeExecution(): ReactNode {
   const tool: CodeExecutionTool = {
-    type: 'code_execution_20250825',
+    type: BuiltInToolType.CodeExecution,
     name: 'code_execution',
   }
 
-  return <sdk_tool tool={tool} key="code_execution" />
+  return <built_in_tool tool={tool} key="code_execution" />
 }

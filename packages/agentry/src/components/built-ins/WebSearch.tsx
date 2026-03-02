@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { WebSearchTool } from '../../types'
+import { type WebSearchTool, BuiltInToolType } from '../../types'
 
 export interface WebSearchProps {
   /** maximum number of searches allowed */
@@ -44,7 +44,7 @@ export function WebSearch(props: WebSearchProps): ReactNode {
     : undefined
 
   const tool: WebSearchTool = {
-    type: 'web_search_20250305',
+    type: BuiltInToolType.WebSearch,
     name: 'web_search',
     max_uses: props.maxUses,
     allowed_domains: props.allowedDomains,
@@ -52,5 +52,5 @@ export function WebSearch(props: WebSearchProps): ReactNode {
     user_location: userLocation,
   }
 
-  return <sdk_tool tool={tool} key="web_search" />
+  return <built_in_tool tool={tool} key="web_search" />
 }

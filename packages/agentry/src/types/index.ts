@@ -1,11 +1,6 @@
 export {
-  type BetaMessage,
-  type BetaMessageParam,
-  type BetaContentBlock,
-  type BetaToolUseBlock,
-  type BetaTextBlock,
-  isToolUseBlock,
-  isTextBlock,
+  type AgentMessage,
+  type AgentMessageParam,
   extractText,
   extractToolUses,
 } from './messages'
@@ -13,19 +8,14 @@ export {
 export {
   type ToolResult,
   type ToolContext,
-  type RunnableTool,
   type InternalTool,
   type DefineToolOptions,
-  type ToolUnion,
   type PendingToolCall,
-  type ToolExecutionResult,
-  type SdkTool,
-  type CodeExecutionTool,
+  type BuiltInTool,
   type WebSearchTool,
   type MemoryTool,
   type MemoryHandlers,
-  type RunAgentOptions,
-  isCodeExecutionTool,
+  BuiltInToolType,
   isMemoryTool,
 } from './tools'
 
@@ -37,18 +27,27 @@ export {
 
 export {
   type AgentState,
-  type StateTransition,
+  AgentStatus,
+  TransitionType,
   initialState,
   transition,
   canAcceptMessages,
   isProcessing,
 } from './state'
 
+export { type ProviderName } from './provider'
+
 export {
   type Model,
+  type AnthropicModel,
+  type OpenAIModel,
   type AgentProps,
+  type BaseAgentProps,
   type ThinkingConfig,
+  type AnthropicThinkingEnabled,
+  type OpenAIThinkingEnabled,
   type CompactionControl,
+  type ProviderModelOverride,
   type AgentStreamEvent,
   type AgentResult,
 } from './agent'

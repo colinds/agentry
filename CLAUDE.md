@@ -2,235 +2,85 @@
 
 ## Overview
 
-Agentry is a React reconciler-based framework for declarative AI agent orchestration. It uses a custom React reconciler to translate JSX into agent execution plans, bringing React's declarative component model to AI agent systems.
+Agentry is a React reconciler-based framework for declarative AI agent orchestration.
+It supports multiple providers (Anthropic + OpenAI) through a shared core API with a single `run` plus `createAI` defaults.
 
 ## Development Commands
 
 ### Testing
 
-- `bun test` - Run all tests across packages
-- `bun test --timeout 100 ./packages/**/tests` - Full test suite (as configured)
-- `bun test packages/core/tests/tools.test.ts` - Run a specific test file
+- `bun test` - Run the full Agentry test suite (`packages/agentry/tests`)
+- `bun test packages/agentry/tests/openai-provider.test.tsx` - OpenAI provider tests
+- `bun test packages/agentry/tests/runtime.test.tsx` - Anthropic/core runtime coverage
 
 ### Type Checking & Linting
 
-- `bun run typecheck` - Type check all packages (runs `tsc --noEmit`)
-- `bun run lint` - Lint codebase with ESLint (max 0 warnings)
-- `bun run lint:fix` - Auto-fix linting issues
-- `bun run format` - Check formatting with Prettier
-- `bun run format:fix` - Auto-format with Prettier
+- `bun run typecheck` - Type check all workspace packages
+- `bun run lint` - Lint source and examples
+- `bun run lint:fix` - Auto-fix lint issues
+- `bun run format` - Check formatting
+- `bun run format:fix` - Auto-format
 
 ### Running Examples
 
-Examples are in `packages/examples/src/`. Run with:
+Examples live in `packages/examples/src/`.
 
 ```bash
 bun run example:<name>
-# e.g., bun run example:basic, bun run example:subagents
+# provider-agnostic: example:basic
+# provider-specific: example:anthropic:chatbot, example:openai:basic
 ```
 
-Or directly:
+## Repository Layout
 
-```bash
-bun run packages/examples/src/<example-name>.tsx
-```
+- `packages/agentry` - Framework package
+  - `src/reconciler` - custom React reconciler
+  - `src/execution` - execution loop and condition evaluation
+  - `src/handles` - agent/subagent handles
+  - `src/providers` - provider adapters (`anthropic`, `openai`)
+  - `src/components` - JSX API (`Agent`, `Tool`, `AgentTool`, etc.)
+  - `src/tools` - tool definition/parsing/execution helpers
+  - `src/run` - `run`, `createAgent`, `runAgent` wiring
+  - `tests` - unit/integration tests (including OpenAI provider tests)
+- `packages/examples` - runnable examples and DX references
 
-## Architecture
+## Current Architecture Notes
 
-### Package Structure (Monorepo with Bun Workspaces)
+### Providers and Exports
 
-- **`packages/core`** - Core reconciler and execution engine
-  - `src/reconciler/` - React reconciler implementation that translates JSX to agent instances
-  - `src/execution/` - ExecutionEngine that manages agent/API interaction lifecycle
-  - `src/handles/` - AgentHandle and SubagentHandle for controlling agent execution
-  - `src/instances/` - Instance types representing reconciled elements (AgentInstance, ToolInstance, etc.)
-  - `src/tools/` - Tool definition and execution utilities
-  - `src/run/` - Running functions: `agent.ts`, `subagent.ts`, `runAgentFunction.ts`
-  - `src/types/` - Shared TypeScript types
-  - `tests/` - Core functionality tests
+- Root `agentry` exports provider-agnostic primitives (`run`, `createAI`, `Agent`, `Tool`, hooks).
+- Provider modules:
+  - `agentry/anthropic` exports Anthropic client factory + Anthropic built-ins (`WebSearch`, `CodeExecution`, `Memory`, `MCP`)
+  - `agentry/openai` exports OpenAI client factory + OpenAI-compatible built-ins (`WebSearch`, `CodeExecution`, `MCP`)
+- Built-ins are treated as regular tools at runtime; there is no hardcoded per-provider capability matrix in the engine.
+- Provider selection is resolved from `<Agent provider=\"...\">` (and subagents), while `run`/`createAI` provide clients and runtime defaults.
 
-- **`packages/components`** - React components for agent orchestration
-  - JSX components: `<Agent>`, `<Tool>`, `<AgentTool>`, `<System>`, `<Context>`, `<Message>`, `<Tools>`, `<Condition>`
-  - Built-in tools: `<WebSearch>`, `<CodeExecution>`, `<Memory>`, `<MCP>`
-  - Hooks: `useExecutionState()`, `useMessages()`, `useAgentState()`
+### SDK Type Reuse
 
-- **`packages/agentry`** - Main entry point package
-  - Re-exports from `@agentry/core` and `@agentry/components`
-  - Single import point for users: `import { run, Agent, ... } from 'agentry'`
+- Prefer SDK-owned tool/request/response types where possible.
+- Avoid redefining provider-specific wire types when SDK types are available.
+- Keep framework-level normalized types focused on orchestration concerns only.
 
-- **`packages/shared`** - Shared constants
-  - `MODEL`, `TEST_MODEL` constants
+### Subagents
 
-- **`packages/examples`** - Example applications demonstrating framework features
+- `<AgentTool>` supports declarative subagents.
+- `context.runAgent(...)` supports programmatic subagent spawning.
+- Cross-provider subagents are supported (for example, OpenAI parent + Anthropic child, and vice versa).
 
-### Key Architectural Concepts
+### Conditions
 
-**React Reconciler Integration**
+- Boolean conditions evaluate synchronously before each API call.
+- Natural-language conditions are evaluated in a batched model call.
+- Conditions can be nested; active parent + active child is required for nested content.
 
-- The reconciler (`packages/core/src/reconciler/reconciler.ts`) translates JSX into instance objects
-- Instance types (`packages/core/src/instances/types.ts`) represent the reconciled tree structure
-- The `createInstance` function builds instances from element types and props
-- Instances contain both component configuration and runtime state
+## Workflow
 
-**Execution Flow**
+- After finishing a set of changes, always run `bun test`, `bun run typecheck`, `bun run lint`, and `bun run format` before considering the work done.
 
-1. `run()` creates an AgentHandle with the JSX element
-2. AgentHandle uses the reconciler to build an AgentInstance tree
-3. ExecutionEngine manages the conversation loop with the Anthropic API
-4. Tool calls trigger handler execution and potential re-renders (for dynamic tools)
-5. State updates via hooks can modify the instance tree mid-execution
+## Implementation Guidelines
 
-**Subagents (AgentTool)**
-
-- Subagents are created using `<AgentTool>` component, NOT by directly nesting `<Agent>` in `<Tools>`
-- AgentTool takes an `agent` prop - a function that receives parsed parameters and returns an `<Agent>` JSX element
-- When the parent calls the tool, the framework creates a SubagentHandle to execute the agent
-- SubagentHandle renders the JSX returned by the `agent` function and manages its lifecycle
-- Subagent results flow back as tool results to parent agent
-
-Example pattern:
-
-```tsx
-<AgentTool
-  name="researcher"
-  description="Research specialist"
-  parameters={z.object({ topic: z.string() })}
-  agent={(input) => (
-    <Agent name="researcher">
-      <System>You are a research expert.</System>
-      <Message role="user">Research the topic: {input.topic}</Message>
-    </Agent>
-  )}
-/>
-```
-
-**Programmatic Agent Spawning**
-
-- Tool handlers receive a `ToolContext` with a `runAgent()` function
-- `runAgent()` allows programmatically creating and executing agents from within tool handlers
-- Spawned agents run to completion and return their full `AgentResult` to the handler
-- Results are only visible to the tool handler (not to Claude in the parent conversation)
-- Supports conditional spawning, parallel execution, and custom configuration per spawned agent
-- Implemented via `createRunAgent()` which creates a bound function from execution context
-- The spawned agent is executed as a subagent using `SubagentHandle`
-
-Example pattern:
-
-```tsx
-<Tool
-  name="analyze"
-  handler={async (input, context) => {
-    const result = await context.runAgent(
-      <Agent name="analyst">
-        <System>You are an analyst</System>
-        <Message role="user">Analyze: {input.data}</Message>
-      </Agent>,
-      { maxTokens: 2048 }, // Optional config override
-    )
-    return result.content
-  }}
-/>
-```
-
-**Conditional Rendering (Condition)**
-
-- Condition components enable conditional rendering based on state or natural language intent
-- Conditions can wrap any agent components (System, Context, Tools, etc.)
-- Boolean conditions (`when={boolean}`) evaluated synchronously before each API call
-- Natural language conditions (`when="..."`) evaluated via LLM based on conversation context
-- Condition evaluation happens in `ExecutionEngine.evaluateAllConditions()` before building the API request
-- Multiple conditions can be active simultaneously (parallel evaluation)
-- Condition evaluation implemented in `evaluateConditions()` which:
-  - First checks all boolean conditions synchronously
-  - Then evaluates NL conditions via single batched LLM call
-  - Updates `isActive` state on each ConditionInstance
-- ConditionInstance tracks `isActive` which is checked by collectors
-- Collectors (`collectChild`) only collect children from conditions where `isActive === true`
-- Conditions can be nested - both parent and child must be active for grandchildren to be collected
-
-Example pattern:
-
-```tsx
-<Condition when={isAuthenticated}>
-  <System>You are authenticated</System>
-  <Tools><Tool name="protected_action" ... /></Tools>
-</Condition>
-
-<Condition when="user wants to do math">
-  <Tools><Tool name="calculate" ... /></Tools>
-</Condition>
-
-{/* Nested conditions */}
-<Condition when={isAuthenticated}>
-  <Condition when={isPremium}>
-    <Tools><Tool name="premium_feature" ... /></Tools>
-  </Condition>
-</Condition>
-```
-
-**Dynamic Tools**
-
-- Tools can be added/removed during execution using React state (useState)
-- State changes trigger reconciler updates, modifying the instance tree
-- Next API call includes the updated tool set
-
-**Batch vs Interactive Mode**
-
-- **Batch mode** (default): Runs to completion, returns AgentResult
-- **Interactive mode**: Returns AgentHandle for multi-turn conversations
-
-## Testing
-
-Tests use Bun's built-in test runner. Mock client available via `createStepMockClient` from `tests/utils`.
-
-Common test patterns:
-
-- Import test utilities: `import { createStepMockClient } from './utils'`
-- Use `expect` from `bun:test`
-- Mock Anthropic responses for deterministic testing
-
-## TypeScript Configuration
-
-- Target: ESNext with bundler module resolution
-- Strict mode enabled with additional checks (`noUncheckedIndexedAccess`, `noImplicitOverride`)
-- JSX runtime: `react-jsx` with React 19
-- Module: `Preserve` (uses TypeScript's new module preservation)
-- No emit mode (bundler handles compilation)
-
-## Important Implementation Notes
-
-**Tool Definition**
-
-- Use `defineTool()` for programmatic regular tool creation with Zod schemas
-- Use `<Tool>` JSX for inline declarative tool registration
-- Use `defineAgentTool()` for programmatic subagent tool creation
-- Use `<AgentTool>` JSX for inline declarative subagent registration
-- Handler/agent function params are automatically inferred from Zod schema types
-- Tool handlers receive `ToolContext` which includes `runAgent()` for programmatic agent running
-- `runAgent()` is created via `createRunAgent()` and bound to the execution context (client, model, signal)
-
-**Instance Tree Mutations**
-
-- The reconciler maintains an instance tree that can be mutated during execution
-- Always use the reconciler's update/append/remove methods (via collections handlers)
-- Manual instance modifications should go through proper reconciler channels
-
-**Agent State Management**
-
-- AgentStore (Zustand) manages global agent state
-- ExecutionEngine emits state change events
-- Hooks subscribe to store updates for reactive behavior
-
-**Error Handling**
-
-- Tools should return error strings rather than throw (allows agent to see and handle errors)
-- ExecutionEngine catches and transitions to 'error' state on critical failures
-- SubagentHandle automatically cleans up on completion or error
-- Run agents (via `runAgent()`) handle errors the same way - errors can be caught in the tool handler
-
-**Run Functions**
-
-- `run/agent.ts` - Main `run()` function and `createAgent()` utility
-- `run/subagent.ts` - Internal `runSubagent()` function for executing subagents
-- `run/runAgent.ts` - `createRunAgent()` function for programmatic agent running
-- All exports are re-exported from `run/index.ts` for backward compatibility
+- Keep strict typing (`no any` / `no unknown` type annotations in implementation code paths).
+- Prefer provider SDK types over duplicated local provider shapes.
+- Return tool errors as strings so the model can recover.
+- Preserve dynamic tool behavior (state-driven add/remove during execution).
+- Do not reintroduce provider capability flags for built-ins unless explicitly requested.

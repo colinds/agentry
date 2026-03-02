@@ -1,5 +1,6 @@
 import { test, expect } from 'bun:test'
 import { createSubagentInstance } from '../src/instances/createInstance'
+import { InstanceType } from '../src/instances/types'
 
 test('createSubagentInstance requires name', () => {
   expect(() => {
@@ -17,7 +18,7 @@ test('createSubagentInstance creates correct structure', () => {
     maxTokens: 1000,
   } as Parameters<typeof createSubagentInstance>[0])
 
-  expect(subagent.type).toBe('subagent')
+  expect(subagent.type).toBe(InstanceType.Subagent)
   expect(subagent.name).toBe('researcher')
   expect(subagent.description).toBe('A research agent')
   expect(subagent.props.model).toBe('claude-haiku-4-5')

@@ -1,19 +1,20 @@
 import type {
-  BetaMessage,
-  BetaMessageParam,
-  BetaToolResultBlockParam,
-} from '@anthropic-ai/sdk/resources/beta'
+  AgentMessage,
+  AgentMessageParam,
+  TextContentArray,
+} from './messages'
+import type { JsonObject } from './json'
 
 export interface StepToolCall {
   id: string
   name: string
-  input: unknown
+  input: JsonObject
 }
 
 export interface StepToolResult {
   toolCallId: string
   toolName: string
-  result: BetaToolResultBlockParam['content']
+  result: string | TextContentArray
   isError: boolean
   executionTime?: number // milliseconds
 }
@@ -51,11 +52,11 @@ export interface OnStepFinishResult {
   /** Token usage for this step */
   usage: StepUsage
 
-  /** Full message from Claude API (advanced use) */
-  message: BetaMessage
+  /** Full message from the provider API (advanced use) */
+  message: AgentMessage
 
   /** Immutable snapshot of full conversation history */
-  messages: readonly BetaMessageParam[]
+  messages: readonly AgentMessageParam[]
 
   /** Timestamp when step finished */
   timestamp: Date

@@ -13,7 +13,7 @@ import {
   useMessages,
 } from '../src'
 import { createStepMockClient, mockText, mockToolUse } from './utils'
-import { TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from '../src/constants'
 import { z } from 'zod'
 import { getRegisteredTools } from './utils/testHelpers'
 
@@ -22,15 +22,15 @@ test('subagent has isolated message context', async () => {
 
   function IsolatedAgent() {
     const messages = useMessages()
-    // eslint-disable-next-line react-hooks/immutability
     subagentMessageCountRef.current = messages.length
 
     return (
       <Agent
+        provider="anthropic"
         name="isolated"
         stream={false}
         description="Has isolated messages"
-        model={TEST_MODEL}
+        model={ANTHROPIC_TEST_MODEL}
       >
         <System>You are isolated</System>
         <Message role="user">Perform isolated task</Message>
@@ -45,7 +45,7 @@ test('subagent has isolated message context', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <System>Parent system prompt</System>
       <Tools>
         <AgentTool
@@ -57,7 +57,7 @@ test('subagent has isolated message context', async () => {
       </Tools>
       <Message role="user">Call the isolated agent</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -94,7 +94,8 @@ test('onStepFinish callback fires for subagent calls', async () => {
 
   const runPromise = run(
     <Agent
-      model={TEST_MODEL}
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
       stream={false}
       onStepFinish={(result) => {
         stepFinishCalled = true
@@ -111,7 +112,7 @@ test('onStepFinish callback fires for subagent calls', async () => {
       </Tools>
       <Message role="user">Call subagent</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -158,7 +159,7 @@ test('onComplete callback fires when agent finishes', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <Tools>
         <AgentTool
           name="completable"
@@ -169,7 +170,7 @@ test('onComplete callback fires when agent finishes', async () => {
       </Tools>
       <Message role="user">Run the completable agent</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   await controller.nextTurn()
@@ -197,7 +198,7 @@ test('conditionally hidden subagents are not available as tools', async () => {
   function OptionalSubagentTest() {
     const showHidden = false
     return (
-      <Agent model={TEST_MODEL} stream={false}>
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
         <Tools>
           {showHidden && (
             <AgentTool
@@ -217,7 +218,9 @@ test('conditionally hidden subagents are not available as tools', async () => {
     { content: [mockText('I cannot help with that')] },
   ])
 
-  const runPromise = run(<OptionalSubagentTest />, { client })
+  const runPromise = run(<OptionalSubagentTest />, {
+    providers: { anthropic: { client } },
+  })
 
   await controller.nextTurn()
 
@@ -253,7 +256,6 @@ test('tools can be mounted during execution via state change', async () => {
       description: 'Enable the helper tool',
       parameters: z.object({}),
       handler: async () => {
-        // eslint-disable-next-line react-hooks/immutability
         enablerCalledRef.current = true
         setMounted(true)
         return 'Helper tool is now enabled'
@@ -261,7 +263,12 @@ test('tools can be mounted during execution via state change', async () => {
     })
 
     return (
-      <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+      <Agent
+        provider="anthropic"
+        model={ANTHROPIC_TEST_MODEL}
+        stream={false}
+        maxIterations={5}
+      >
         <System>You manage tools</System>
         <Tools>
           <Tool {...enabler} />
@@ -295,7 +302,9 @@ test('tools can be mounted during execution via state change', async () => {
     { content: [mockText('Task completed')], stop_reason: 'end_turn' },
   ])
 
-  const agent = createAgent(<MountingToolTest />, { client })
+  const agent = createAgent(<MountingToolTest />, {
+    providers: { anthropic: { client } },
+  })
 
   try {
     // Start execution
@@ -360,7 +369,6 @@ test('subagents can be mounted during execution via state change', async () => {
       description: 'Start research phase',
       parameters: z.object({}),
       handler: async () => {
-        // eslint-disable-next-line react-hooks/immutability
         coordinatorCalledRef.current = true
         setHasResearcher(true)
         return 'Research phase activated'
@@ -368,7 +376,12 @@ test('subagents can be mounted during execution via state change', async () => {
     })
 
     return (
-      <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+      <Agent
+        provider="anthropic"
+        model={ANTHROPIC_TEST_MODEL}
+        stream={false}
+        maxIterations={5}
+      >
         <System>You coordinate work</System>
         <Tools>
           <Tool {...coordinator} />
@@ -402,7 +415,9 @@ test('subagents can be mounted during execution via state change', async () => {
     { content: [mockText('Work coordinated')], stop_reason: 'end_turn' },
   ])
 
-  const agent = createAgent(<MountingSubagentTest />, { client })
+  const agent = createAgent(<MountingSubagentTest />, {
+    providers: { anthropic: { client } },
+  })
 
   try {
     const runPromise = agent.run()
@@ -466,7 +481,7 @@ test('subagent sees pre-loaded JSX messages', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <System>You delegate tasks</System>
       <Tools>
         <AgentTool
@@ -480,7 +495,7 @@ test('subagent sees pre-loaded JSX messages', async () => {
       </Tools>
       <Message role="user">Call preloaded agent</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   // parent turn - calls preloaded
@@ -516,7 +531,6 @@ test('useMessages works inside subagent children', async () => {
   // component rendered inside subagent that uses useMessages
   function SubagentBody() {
     const messages = useMessages()
-    // eslint-disable-next-line react-hooks/immutability
     subagentMessagesRef.current = messages.map((m) => {
       if (typeof m.content === 'string') return m.content
       return JSON.stringify(m.content)
@@ -549,7 +563,7 @@ test('useMessages works inside subagent children', async () => {
   ])
 
   const runPromise = run(
-    <Agent model={TEST_MODEL} stream={false}>
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <System>Parent</System>
       <Tools>
         <AgentTool
@@ -563,7 +577,7 @@ test('useMessages works inside subagent children', async () => {
       </Tools>
       <Message role="user">Call the hooked agent</Message>
     </Agent>,
-    { client },
+    { providers: { anthropic: { client } } },
   )
 
   // parent turn
@@ -604,7 +618,6 @@ test('tools can be unmounted during execution via state change', async () => {
       description: 'Disable the temporary tool',
       parameters: z.object({}),
       handler: async () => {
-        // eslint-disable-next-line react-hooks/immutability
         disablerCalledRef.current = true
         setEnabled(false)
         return 'Tool disabled'
@@ -616,14 +629,18 @@ test('tools can be unmounted during execution via state change', async () => {
       description: 'Temporary tool that will be disabled',
       parameters: z.object({}),
       handler: async () => {
-        // eslint-disable-next-line react-hooks/immutability
         temporaryCalledRef.current = true
         return 'This runs'
       },
     })
 
     return (
-      <Agent model={TEST_MODEL} stream={false} maxIterations={5}>
+      <Agent
+        provider="anthropic"
+        model={ANTHROPIC_TEST_MODEL}
+        stream={false}
+        maxIterations={5}
+      >
         <System>Manage tool lifecycle</System>
         <Tools>
           <Tool {...disabler} />
@@ -642,7 +659,9 @@ test('tools can be unmounted during execution via state change', async () => {
     { content: [mockText('Done')] },
   ])
 
-  const agent = createAgent(<UnmountingToolTest />, { client })
+  const agent = createAgent(<UnmountingToolTest />, {
+    providers: { anthropic: { client } },
+  })
 
   try {
     const runPromise = agent.run()

@@ -1,13 +1,18 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type React from 'react'
 import { SubagentHandle } from '../handles'
 import type { AgentResult, Model } from '../types'
 import { createSubagentInstance } from '../instances/createInstance'
+import type { ProviderName } from '../types/provider'
+import type { ProviderClientMap } from '../providers/types'
 
 /**
  * Options for spawning an agent programmatically
  */
 export interface RunAgentOptions {
+  /** Override provider */
+  provider?: ProviderName
+  /** Override client set */
+  clients?: Partial<ProviderClientMap>
   /** Override parent's model */
   model?: Model
   /** Override maxTokens (defaults to half parent's) */
@@ -21,8 +26,9 @@ export interface RunAgentOptions {
 /**
  * Context for creating a spawn agent function
  */
-export interface RunAgentContext {
-  client: Anthropic
+interface RunAgentContext {
+  clients?: Partial<ProviderClientMap>
+  provider?: ProviderName
   model?: Model
   signal?: AbortSignal
 }
@@ -32,13 +38,13 @@ export interface RunAgentContext {
  * This function is attached to ToolContext and allows tool handlers to
  * programmatically spawn and execute agents on-demand.
  *
- * @param context - The execution context (client, model, signal)
+ * @param context - The execution context (clients, model, signal)
  * @returns A runAgent function that can execute React agent elements
  *
  * @example
  * ```tsx
  * const runSubagent = createRunAgent({
- *   client: anthropicClient,
+ *   clients: { anthropic: anthropicClient },
  *   model: 'claude-sonnet-4',
  *   signal: abortController.signal,
  * })
@@ -57,6 +63,12 @@ export function createRunAgent(context: RunAgentContext) {
     agentElement: React.ReactElement,
     options: RunAgentOptions = {},
   ): Promise<AgentResult> {
+    const provider = options.provider ?? context.provider
+    if (!provider) {
+      throw new Error('Provider is required for runAgent.')
+    }
+    const clients = options.clients ?? context.clients ?? {}
+
     const elementProps = agentElement.props as {
       name?: string
       maxTokens?: number
@@ -66,23 +78,25 @@ export function createRunAgent(context: RunAgentContext) {
       {
         name: elementProps.name || `spawned_${Date.now()}`,
         agentNode: agentElement,
+        provider,
         maxTokens: options.maxTokens ?? elementProps.maxTokens,
         temperature: options.temperature ?? elementProps.temperature,
         stream: false,
       },
       {
+        provider,
         model: options.model || context.model,
       },
     )
 
     const handle = new SubagentHandle(subagent, {
-      client: context.client,
+      provider,
+      clients,
       signal: options.signal || context.signal,
     })
 
     try {
-      const result = await handle.run()
-      return result
+      return await handle.run()
     } finally {
       handle.close()
     }

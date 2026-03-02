@@ -1,5 +1,6 @@
 import type { z } from 'zod'
 import type React from 'react'
+import type { JsonValue } from './json'
 
 /**
  * Function type that receives typed input and returns a React element
@@ -28,6 +29,6 @@ export interface InternalAgentTool<TInput = unknown> {
   name: string
   description: string
   parameters: z.ZodType<TInput>
-  jsonSchema: Record<string, unknown>
+  jsonSchema: Record<string, JsonValue>
   agent: AgentToolFunction<z.ZodType<TInput>>
 }

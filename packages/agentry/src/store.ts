@@ -1,15 +1,15 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
-import type { AgentState } from './types/state'
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
+import { AgentStatus, type AgentState } from './types/state'
+import type { AgentMessageParam } from './types/messages'
 
 export interface AgentStoreState {
   executionState: AgentState
-  messages: BetaMessageParam[]
+  messages: AgentMessageParam[]
   actions: {
     setExecutionState: (state: AgentState) => void
-    pushMessage: (message: BetaMessageParam) => void
-    removeMessage: (message: BetaMessageParam) => void
-    setMessages: (messages: BetaMessageParam[]) => void
+    pushMessage: (message: AgentMessageParam) => void
+    removeMessage: (message: AgentMessageParam) => void
+    setMessages: (messages: AgentMessageParam[]) => void
   }
 }
 
@@ -17,7 +17,7 @@ export type AgentStore = StoreApi<AgentStoreState>
 
 export function createAgentStore(): AgentStore {
   return createStore<AgentStoreState>((set) => ({
-    executionState: { status: 'idle' },
+    executionState: { status: AgentStatus.Idle },
     messages: [],
     actions: {
       setExecutionState: (state) => set({ executionState: state }),
@@ -26,7 +26,7 @@ export function createAgentStore(): AgentStore {
       removeMessage: ({ role, content }) =>
         set((s) => ({
           messages: s.messages.filter(
-            (m) => m.role !== role && m.content !== content,
+            (m) => m.role !== role || m.content !== content,
           ),
         })),
       setMessages: (messages) => set({ messages }),

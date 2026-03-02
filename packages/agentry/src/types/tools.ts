@@ -1,12 +1,10 @@
 import type { ReactElement } from 'react'
 import type { z } from 'zod'
-import type Anthropic from '@anthropic-ai/sdk'
-import type {
-  BetaToolResultBlockParam,
-  BetaWebSearchTool20250305,
-  BetaMemoryTool20250818,
-} from '@anthropic-ai/sdk/resources/beta'
 import type { Model, AgentResult } from './agent'
+import type { ProviderName } from './provider'
+import type { ProviderClientMap } from '../providers/types'
+import type { JsonObject, JsonValue } from './json'
+import type { TextContentArray } from './messages'
 
 export interface MemoryHandlers {
   /** Handler for viewing directory contents or file contents */
@@ -40,58 +38,76 @@ export interface MemoryHandlers {
   }) => Promise<string> | string
 }
 
-export type ToolResult = string | BetaToolResultBlockParam['content']
+export type ToolResult = string | TextContentArray
 
-/**
- * Code execution tool - enables code execution capability
- */
+export enum BuiltInToolType {
+  CodeExecution = 'code_execution',
+  WebSearch = 'web_search',
+  Memory = 'memory',
+}
+
 export interface CodeExecutionTool {
-  type: 'code_execution_20250825'
+  type: BuiltInToolType.CodeExecution
   name: 'code_execution'
 }
 
-/**
- * Web search tool - enables web search capability
- */
-export type WebSearchTool = BetaWebSearchTool20250305
+export interface WebSearchTool {
+  type: BuiltInToolType.WebSearch
+  name: 'web_search'
+  max_uses?: number
+  allowed_domains?: string[]
+  blocked_domains?: string[]
+  user_location?: {
+    type: 'approximate'
+    city?: string
+    region?: string
+    country?: string
+    timezone?: string
+  }
+}
 
-/**
- * Memory tool - enables memory capability with client-side handlers
- */
-export type MemoryTool = BetaMemoryTool20250818 & {
+export interface MemoryTool {
+  type: BuiltInToolType.Memory
+  name: 'memory'
   memoryHandlers?: MemoryHandlers
 }
 
 /**
- * Union of all supported SDK tools
+ * Union of all supported built-in tools
  */
-export type SdkTool = CodeExecutionTool | WebSearchTool | MemoryTool
+export type BuiltInTool = CodeExecutionTool | WebSearchTool | MemoryTool
 
 /**
  * Type guard for code execution tool
  */
-export function isCodeExecutionTool(tool: SdkTool): tool is CodeExecutionTool {
-  return 'type' in tool && tool.type === 'code_execution_20250825'
+export function isCodeExecutionTool(
+  tool: BuiltInTool,
+): tool is CodeExecutionTool {
+  return tool.type === BuiltInToolType.CodeExecution
 }
 
 /**
  * Type guard for web search tool
  */
-export function isWebSearchTool(tool: SdkTool): tool is WebSearchTool {
-  return 'type' in tool && tool.type === 'web_search_20250305'
+export function isWebSearchTool(tool: BuiltInTool): tool is WebSearchTool {
+  return tool.type === BuiltInToolType.WebSearch
 }
 
 /**
  * Type guard for memory tool
  */
-export function isMemoryTool(tool: SdkTool): tool is MemoryTool {
-  return 'type' in tool && tool.type === 'memory_20250818'
+export function isMemoryTool(tool: BuiltInTool): tool is MemoryTool {
+  return tool.type === BuiltInToolType.Memory
 }
 
 /**
  * Options for running an agent programmatically from a tool handler
  */
 export interface RunAgentOptions {
+  /** Override provider */
+  provider?: ProviderName
+  /** Override provider clients */
+  clients?: Partial<ProviderClientMap>
   /** Override parent's model */
   model?: Model
   /** Override maxTokens (defaults to half parent's) */
@@ -102,13 +118,23 @@ export interface RunAgentOptions {
   signal?: AbortSignal
 }
 
-export interface ToolContext {
+type ProviderContextFields =
+  | { provider: 'anthropic'; client: ProviderClientMap['anthropic'] }
+  | { provider: 'openai'; client: ProviderClientMap['openai'] }
+  | { provider?: undefined; client?: undefined }
+
+type BaseToolContext = {
   agentName: string
-  client: Anthropic
+  /**
+   * Map of all available provider clients. Unlike the narrowed `client` field
+   * from `ProviderContextFields` (which is typed to the current provider),
+   * `clients` gives access to every configured provider client — useful for
+   * cross-provider subagent spawning via `context.runAgent()`.
+   */
+  clients?: Partial<ProviderClientMap>
   model?: Model
-  // abort signal for cancellation
   signal?: AbortSignal
-  metadata?: Record<string, unknown>
+  metadata?: JsonObject
   /**
    * Programmatically run an agent from within a tool handler.
    * The spawned agent runs to completion and returns its result.
@@ -137,6 +163,8 @@ export interface ToolContext {
   ) => Promise<AgentResult>
 }
 
+export type ToolContext = BaseToolContext & ProviderContextFields
+
 export interface RunnableTool<TInput = unknown> {
   name: string
   description: string
@@ -148,7 +176,7 @@ export interface RunnableTool<TInput = unknown> {
 }
 
 export interface InternalTool<TInput = unknown> extends RunnableTool<TInput> {
-  jsonSchema: Record<string, unknown>
+  jsonSchema: Record<string, JsonValue>
   strict?: boolean
 }
 
@@ -160,16 +188,12 @@ export type DefineToolOptions<TSchema extends z.ZodType> = Omit<
   strict?: boolean
 }
 
-export type ToolUnion = InternalTool | SdkTool
-
-export function isRunnableTool(tool: ToolUnion): tool is InternalTool {
-  return 'handler' in tool && typeof tool.handler === 'function'
-}
+export type ToolUnion = InternalTool | BuiltInTool
 
 export interface PendingToolCall {
   id: string
   name: string
-  input: unknown
+  input: JsonObject
 }
 
 export interface ToolExecutionResult {

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { BetaRequestMCPServerToolConfiguration } from '@anthropic-ai/sdk/resources/beta'
+import type { MCPServerConfig } from '../instances/types'
 
 export interface MCPProps {
   /** Name of the MCP server */
@@ -9,7 +9,7 @@ export interface MCPProps {
   /** Authorization token for the MCP server */
   authorization_token?: string
   /** Tool configuration (allowed tools, enabled status) */
-  tool_configuration?: BetaRequestMCPServerToolConfiguration
+  tool_configuration?: MCPServerConfig['tool_configuration']
 }
 
 /**

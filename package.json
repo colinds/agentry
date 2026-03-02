@@ -3,10 +3,10 @@
   "author": "Colin D'Souza",
   "devDependencies": {
     "@types/bun": "1.3.9",
-    "@types/react": "^19.2.14",
-    "@typescript/native-preview": "^7.0.0-dev.20260214.1",
-    "oxfmt": "^0.32.0",
-    "oxlint": "^1.47.0",
+    "@types/react": "catalog:",
+    "@typescript/native-preview": "^7.0.0-dev.20260224.1",
+    "oxfmt": "^0.35.0",
+    "oxlint": "^1.50.0",
     "typescript": "^5"
   },
   "license": "MIT",
@@ -26,24 +26,40 @@
     "format": "oxfmt --check packages/agentry/src packages/examples/src",
     "format:fix": "oxfmt --write packages/agentry/src packages/examples/src",
     "example:basic": "bun run packages/examples/src/basic.tsx",
-    "example:chatbot": "bun run packages/examples/src/chatbot.tsx",
     "example:create-ephemeral-subagent": "bun run packages/examples/src/create-ephemeral-subagent.tsx",
     "example:create-subagent": "bun run packages/examples/src/create-subagent.tsx",
     "example:dynamic-tools": "bun run packages/examples/src/dynamic-tools.tsx",
     "example:hooks": "bun run packages/examples/src/hooks.tsx",
+    "example:subagents": "bun run packages/examples/src/subagents.tsx",
+    "example:ctf": "bun run packages/examples/src/ctf.tsx",
+    "example:anthropic:thinking": "bun run packages/examples/src/anthropic/thinking.tsx",
+    "example:programmatic-spawn": "bun run packages/examples/src/programmatic-spawn.tsx",
+    "example:openai:basic": "bun run packages/examples/src/openai/basic.tsx",
+    "example:openai:subtools": "bun run packages/examples/src/openai/subtools-smoke.tsx",
+    "example:openai:codex-subagent": "bun run packages/examples/src/openai/codex-subagent.tsx",
+    "example:openai:websocket": "bun run packages/examples/src/openai/websocket.tsx",
+    "example:openai:built-ins": "bun run packages/examples/src/openai/built-ins.tsx",
+    "example:cross-provider:subagents": "bun run packages/examples/src/cross-provider/subagents.tsx",
+    "example:anthropic:cache-ephemeral": "bun run packages/examples/src/anthropic/cache-ephemeral.tsx",
+    "example:compaction": "bun run packages/examples/src/compaction.tsx",
+    "example:chatbot": "bun run packages/examples/src/chatbot.tsx",
     "example:interactive": "bun run packages/examples/src/interactive.tsx",
     "example:mcp": "bun run packages/examples/src/mcp.tsx",
-    "example:subagents": "bun run packages/examples/src/subagents.tsx",
     "example:web-search": "bun run packages/examples/src/web-search.tsx",
-    "example:ctf": "bun run packages/examples/src/ctf.tsx",
     "example:demo": "bun run packages/examples/src/demo.tsx",
-    "example:thinking": "bun run packages/examples/src/thinking.tsx",
-    "example:programmatic-spawn": "bun run packages/examples/src/programmatic-spawn.tsx",
-    "example:cache-ephemeral": "bun run packages/examples/src/cache-ephemeral.tsx",
-    "example:router": "bun run packages/examples/src/router-demo.tsx"
+    "example:tweet": "bun run packages/examples/src/tweet.tsx"
   },
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ]
+  "workspaces": {
+    "packages": [
+      "packages/*"
+    ],
+    "catalog": {
+      "@anthropic-ai/sdk": "^0.71.2",
+      "@types/react": "^19.2.14",
+      "openai": "^6.23.0",
+      "react": "^19.0.0",
+      "zod": "^4.1.13"
+    }
+  }
 }

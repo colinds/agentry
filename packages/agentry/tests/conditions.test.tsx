@@ -10,7 +10,13 @@ import {
   Tool,
   Message,
 } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from './utils'
+import {
+  createStepMockClient,
+  createOpenAIMockClient,
+  mockText,
+  mockToolUse,
+} from './utils'
+import { OPENAI_TEST_MODEL } from '../src/constants'
 import { z } from 'zod'
 
 describe('Condition', () => {
@@ -19,7 +25,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isActive] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isActive}>
               <System>Active mode</System>
@@ -38,7 +44,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Hello')
@@ -48,7 +56,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isActive] = useState(false)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isActive}>
               <System>Active mode</System>
@@ -67,7 +75,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Hello')
@@ -78,7 +88,7 @@ describe('Condition', () => {
         const [condition1] = useState(true)
         const [condition2] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Test</Message>
             <Condition when={condition1}>
               <Context>Route 1 active</Context>
@@ -97,7 +107,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Both')
@@ -109,7 +121,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isAuthenticated] = useState(false)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Help me</Message>
             <Condition when={!isAuthenticated}>
               <Tools>
@@ -146,7 +158,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -157,7 +171,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isAuthenticated, setIsAuthenticated] = useState(false)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Authenticate me</Message>
             <Condition when={!isAuthenticated}>
               <Tools>
@@ -201,7 +215,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -214,7 +230,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [condition] = useState(false)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <System>Base system prompt</System>
             <Message role="user">Hello</Message>
             <Condition when={condition}>
@@ -231,7 +247,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('Hello')
@@ -243,7 +261,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isActive] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Test</Message>
             <Condition when={isActive}>
               <Context>Context 1</Context>
@@ -272,7 +290,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -285,7 +305,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isActive] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isActive}>
               <System>Route 1</System>
@@ -308,7 +328,10 @@ describe('Condition', () => {
       ])
 
       // Create agent in interactive mode
-      const handle = await run(<TestAgent />, { client, mode: 'interactive' })
+      const handle = await run(<TestAgent />, {
+        providers: { anthropic: { client } },
+        mode: 'interactive',
+      })
 
       // Trigger reconciler by starting execution (but abort immediately after first API call)
       const runPromise = handle.run()
@@ -326,7 +349,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isAuthenticated] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Can you calculate 5 times 8 for me?</Message>
             <Condition when={isAuthenticated}>
               <Context>User is authenticated</Context>
@@ -341,7 +364,6 @@ describe('Condition', () => {
                     expression: z.string(),
                   })}
                   handler={async ({ expression }) => {
-                    // eslint-disable-next-line react-hooks/unsupported-syntax
                     const result = eval(expression)
                     return `Result: ${result}`
                   }}
@@ -359,11 +381,11 @@ describe('Condition', () => {
             {
               type: 'tool_use',
               id: 'route_1',
-              name: 'select_routes',
-              input: { matchingRouteIndices: [1] }, // Route index 1 (math route)
+              name: 'evaluate_conditions',
+              input: { trueConditionIndices: [0] }, // NL condition index 0 (math route)
             },
           ],
-          stop_reason: 'tool_use',
+          stop_reason: 'end_turn',
         },
         // Second call: Agent's response with math tool
         {
@@ -377,7 +399,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn() // Route evaluation
       await controller.nextTurn() // Tool use
       await controller.nextTurn() // Final response
@@ -389,7 +413,7 @@ describe('Condition', () => {
     it('should activate multiple natural language routes simultaneously', async () => {
       const TestAgent = () => {
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Calculate 2+2 and tell me about math</Message>
             <Condition when="user wants to do math or calculations">
               <Context>Math mode</Context>
@@ -399,7 +423,6 @@ describe('Condition', () => {
                   description="Calculate"
                   parameters={z.object({ expr: z.string() })}
                   handler={async ({ expr }) => {
-                    // eslint-disable-next-line react-hooks/unsupported-syntax
                     return `Result: ${eval(expr)}`
                   }}
                 />
@@ -427,11 +450,11 @@ describe('Condition', () => {
             {
               type: 'tool_use',
               id: 'route_1',
-              name: 'select_routes',
-              input: { matchingRouteIndices: [0, 1] }, // Both routes active
+              name: 'evaluate_conditions',
+              input: { trueConditionIndices: [0, 1] }, // Both routes active
             },
           ],
-          stop_reason: 'tool_use',
+          stop_reason: 'end_turn',
         },
         // Agent uses both tools
         {
@@ -447,7 +470,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       await controller.nextTurn()
@@ -463,7 +488,7 @@ describe('Condition', () => {
         const [isAuthenticated] = useState(true)
         const [isPremium] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isAuthenticated}>
               <Context>User is authenticated</Context>
@@ -494,7 +519,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -506,7 +533,7 @@ describe('Condition', () => {
         const [isAuthenticated] = useState(true)
         const [isPremium] = useState(false)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isAuthenticated}>
               <Context>User is authenticated</Context>
@@ -544,7 +571,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -556,7 +585,7 @@ describe('Condition', () => {
         const [isAuthenticated] = useState(false)
         const [isPremium] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isAuthenticated}>
               <Condition when={isPremium}>
@@ -577,7 +606,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('authenticate')
@@ -589,7 +620,7 @@ describe('Condition', () => {
         const [isPremium] = useState(true)
         const [isAdmin] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Hello</Message>
             <Condition when={isAuthenticated}>
               <Context>Authenticated</Context>
@@ -623,7 +654,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
@@ -634,7 +667,7 @@ describe('Condition', () => {
       const TestAgent = () => {
         const [isAuthenticated] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">I want to calculate 10 + 5</Message>
             <Condition when={isAuthenticated}>
               <Context>User is authenticated</Context>
@@ -646,7 +679,6 @@ describe('Condition', () => {
                     description="Perform calculation"
                     parameters={z.object({ expression: z.string() })}
                     handler={async ({ expression }) => {
-                      // eslint-disable-next-line react-hooks/unsupported-syntax
                       const result = eval(expression)
                       return `Result: ${result}`
                     }}
@@ -665,11 +697,11 @@ describe('Condition', () => {
             {
               type: 'tool_use',
               id: 'route_1',
-              name: 'select_routes',
-              input: { matchingRouteIndices: [0] }, // Math route matches
+              name: 'evaluate_conditions',
+              input: { trueConditionIndices: [0] }, // NL condition index 0 (math route)
             },
           ],
-          stop_reason: 'tool_use',
+          stop_reason: 'end_turn',
         },
         // Agent uses calculate tool
         {
@@ -683,7 +715,9 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       await controller.nextTurn()
@@ -696,7 +730,7 @@ describe('Condition', () => {
         const [isAuthenticated, setIsAuthenticated] = useState(false)
         const [hasPermission] = useState(true)
         return (
-          <Agent model="claude-sonnet-4">
+          <Agent provider="anthropic" model="claude-sonnet-4">
             <Message role="user">Authenticate and perform action</Message>
             <Condition when={!isAuthenticated}>
               <Tools>
@@ -742,12 +776,295 @@ describe('Condition', () => {
         },
       ])
 
-      const runPromise = run(<TestAgent />, { client })
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
       await controller.nextTurn()
       await controller.nextTurn()
       await controller.nextTurn()
       const result = await runPromise
       expect(result.content).toContain('action')
     })
+  })
+})
+
+describe('NL Condition Evaluation', () => {
+  describe('Anthropic', () => {
+    it('should activate condition and make tool available when model returns trueConditionIndices', async () => {
+      const TestAgent = () => (
+        <Agent provider="anthropic" model="claude-sonnet-4">
+          <Message role="user">Calculate 6 times 7</Message>
+          <Condition when="user wants to do math or calculations">
+            <Tools>
+              <Tool
+                name="calculate"
+                description="Perform a calculation"
+                parameters={z.object({ expression: z.string() })}
+                handler={async ({ expression }) => {
+                  return `Result: ${eval(expression)}`
+                }}
+              />
+            </Tools>
+          </Condition>
+        </Agent>
+      )
+
+      const { client, controller } = createStepMockClient([
+        // Turn 1: NL eval — condition 0 is true
+        {
+          content: [
+            mockToolUse(
+              'evaluate_conditions',
+              { trueConditionIndices: [0] },
+              'eval_1',
+            ),
+          ],
+          stop_reason: 'end_turn',
+        },
+        // Turn 2: agent calls calculate (tool is available because condition activated)
+        {
+          content: [mockToolUse('calculate', { expression: '6 * 7' })],
+          stop_reason: 'tool_use',
+        },
+        // Turn 3: final response
+        {
+          content: [mockText('6 times 7 is 42.')],
+          stop_reason: 'end_turn',
+        },
+      ])
+
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
+      await controller.nextTurn() // NL eval
+      await controller.nextTurn() // agent calls calculate
+      await controller.nextTurn() // final response
+      const result = await runPromise
+
+      expect(result.content).toContain('42')
+    })
+
+    it('should keep condition false and skip tool when model returns no tool_use', async () => {
+      const TestAgent = () => (
+        <Agent provider="anthropic" model="claude-sonnet-4">
+          <Message role="user">Hello</Message>
+          <Condition when="user wants to do math or calculations">
+            <Tools>
+              <Tool
+                name="calculate"
+                description="Perform a calculation"
+                parameters={z.object({ expression: z.string() })}
+                handler={async ({ expression }) => {
+                  return `Result: ${eval(expression)}`
+                }}
+              />
+            </Tools>
+          </Condition>
+        </Agent>
+      )
+
+      const { client, controller } = createStepMockClient([
+        // Turn 1: NL eval returns plain text (no tool_use) — conditions stay false
+        {
+          content: [mockText('I cannot evaluate that')],
+          stop_reason: 'end_turn',
+        },
+        // Turn 2: agent responds without tools (condition is false, calculate not available)
+        {
+          content: [mockText('Default response without tools.')],
+          stop_reason: 'end_turn',
+        },
+      ])
+
+      const runPromise = run(<TestAgent />, {
+        providers: { anthropic: { client } },
+      })
+      await controller.nextTurn() // NL eval (no tool_use — fallback)
+      await controller.nextTurn() // agent response
+      const result = await runPromise
+
+      expect(result.content).toContain('Default')
+      expect(result.content).not.toContain('Result:')
+    })
+  })
+
+  describe('OpenAI', () => {
+    it('should activate condition and make tool available when model returns trueConditionIndices', async () => {
+      const { client } = createOpenAIMockClient([
+        // Turn 1: NL eval (stream: false) — condition 0 is true
+        {
+          output: [
+            {
+              type: 'function_call',
+              call_id: 'cond_1',
+              name: 'evaluate_conditions',
+              arguments: JSON.stringify({ trueConditionIndices: [0] }),
+            },
+          ],
+        },
+        // Turn 2: agent calls calculate (tool available because condition activated)
+        {
+          output: [
+            {
+              type: 'function_call',
+              call_id: 'calc_1',
+              name: 'calculate',
+              arguments: JSON.stringify({ expression: '6 * 7' }),
+            },
+          ],
+        },
+        // Turn 3: final response
+        {
+          output: [
+            {
+              type: 'message',
+              content: [{ type: 'output_text', text: '6 times 7 is 42.' }],
+            },
+          ],
+        },
+      ])
+
+      const result = await run(
+        <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+          <Message role="user">Calculate 6 times 7</Message>
+          <Condition when="user wants to do math or calculations">
+            <Tools>
+              <Tool
+                name="calculate"
+                description="Perform a calculation"
+                parameters={z.object({ expression: z.string() })}
+                handler={async ({ expression }) => {
+                  return `Result: ${eval(expression)}`
+                }}
+              />
+            </Tools>
+          </Condition>
+        </Agent>,
+        { providers: { openai: { client } } },
+      )
+
+      expect(result.content).toContain('42')
+    })
+
+    it('should keep condition false and skip tool when model returns no function_call', async () => {
+      const { client } = createOpenAIMockClient([
+        // Turn 1: NL eval returns a plain message (no function_call) — conditions stay false
+        {
+          output: [
+            {
+              type: 'message',
+              content: [
+                { type: 'output_text', text: 'I cannot evaluate that' },
+              ],
+            },
+          ],
+        },
+        // Turn 2: agent responds without tools (condition is false)
+        {
+          output: [
+            {
+              type: 'message',
+              content: [{ type: 'output_text', text: 'Default response.' }],
+            },
+          ],
+        },
+      ])
+
+      const result = await run(
+        <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+          <Message role="user">Hello</Message>
+          <Condition when="user wants to do math or calculations">
+            <Tools>
+              <Tool
+                name="calculate"
+                description="Perform a calculation"
+                parameters={z.object({ expression: z.string() })}
+                handler={async ({ expression }) => {
+                  return `Result: ${eval(expression)}`
+                }}
+              />
+            </Tools>
+          </Condition>
+        </Agent>,
+        { providers: { openai: { client } } },
+      )
+
+      expect(result.content).toContain('Default')
+      expect(result.content).not.toContain('Result:')
+    })
+  })
+})
+
+describe('OpenAI Natural Language Conditions', () => {
+  it('should evaluate NL conditions via OpenAI function calling', async () => {
+    const { client } = createOpenAIMockClient([
+      // First call: NL condition evaluation — model returns evaluate_conditions tool call
+      {
+        output: [
+          {
+            type: 'function_call',
+            call_id: 'cond_1',
+            name: 'evaluate_conditions',
+            arguments: JSON.stringify({ trueConditionIndices: [0] }),
+          },
+        ],
+      },
+      // Second call: agent response
+      {
+        output: [
+          {
+            type: 'message',
+            content: [{ type: 'output_text', text: 'Math mode active: 42' }],
+          },
+        ],
+      },
+    ])
+
+    const result = await run(
+      <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+        <Message role="user">Calculate 6 times 7</Message>
+        <Condition when="user wants to do math">
+          <Context>Math mode active</Context>
+        </Condition>
+      </Agent>,
+      { providers: { openai: { client } } },
+    )
+
+    expect(result.content).toContain('42')
+  })
+
+  it('should default all NL conditions to false when model returns no function call', async () => {
+    const { client } = createOpenAIMockClient([
+      // NL condition evaluation — model returns a plain message instead of function_call
+      {
+        output: [
+          {
+            type: 'message',
+            content: [{ type: 'output_text', text: 'I cannot evaluate that' }],
+          },
+        ],
+      },
+      // Agent response (conditions stayed false)
+      {
+        output: [
+          {
+            type: 'message',
+            content: [{ type: 'output_text', text: 'Default response' }],
+          },
+        ],
+      },
+    ])
+
+    const result = await run(
+      <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
+        <Message role="user">Hello</Message>
+        <Condition when="user wants something special">
+          <Context>Special mode</Context>
+        </Condition>
+      </Agent>,
+      { providers: { openai: { client } } },
+    )
+
+    expect(result.content).toContain('Default')
   })
 })

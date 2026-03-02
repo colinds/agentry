@@ -1,5 +1,5 @@
-export const MODEL = 'claude-haiku-4-5'
-export const TEST_MODEL = 'claude-3-5-haiku-20241022'
+export const ANTHROPIC_TEST_MODEL = 'claude-3-5-haiku-20241022'
+export const OPENAI_TEST_MODEL = 'gpt-5-mini'
 
 /**
  * Anthropic API beta feature flags
@@ -19,6 +19,3 @@ export const ANTHROPIC_BETAS = {
   /** Interleaved thinking for thinking blocks interleaved with tool calls */
   INTERLEAVED_THINKING: 'interleaved-thinking-2025-05-14',
 } as const
-
-export type AnthropicBeta =
-  (typeof ANTHROPIC_BETAS)[keyof typeof ANTHROPIC_BETAS]

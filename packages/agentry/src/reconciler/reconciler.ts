@@ -13,12 +13,13 @@ import {
   isToolInstance,
   isConditionInstance,
 } from '../instances'
-import {
-  createInstance,
-  type ElementType,
-  type ElementProps,
-} from '../instances'
-import type { AgentProps, CompactionControl, Model } from '../types'
+import { createInstance, InstanceType, type ElementProps } from '../instances'
+import type {
+  AgentProps,
+  CompactionControl,
+  Model,
+  ProviderModelOverride,
+} from '../types'
 import { debug } from '../debug'
 import { diffProps, disposeOnIdle } from './utils'
 import { collectChild, uncollectChild } from './collectors'
@@ -64,13 +65,19 @@ function createReconciler<
   PublicInstance
 > {
   // Type assertion needed due to complex generic types in react-reconciler
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const reconciler = ReactReconciler(config as any)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return reconciler as any
+  const reconciler = ReactReconciler(config as never)
+  return reconciler as ReactReconciler.Reconciler<
+    Container,
+    Instance,
+    TextInstance,
+    SuspenseInstance,
+    FormInstance,
+    PublicInstance
+  >
 }
 
 interface PropagatedSettings {
+  provider?: AgentProps['provider']
   stream?: boolean
   temperature?: number
   stopSequences?: string[]
@@ -82,7 +89,7 @@ interface PropagatedSettings {
 }
 
 interface HostConfig {
-  type: ElementType
+  type: InstanceType
   props: ElementProps
   container: AgentInstance
   instance: Instance
@@ -127,7 +134,7 @@ export const reconciler = createReconciler<
   // so we have to cast from the public React.Context type
   HostTransitionContext: createContext<HostConfig['TransitionStatus']>(
     null,
-  ) as unknown as ReactReconciler.ReactContext<HostConfig['TransitionStatus']>,
+  ) as never as ReactReconciler.ReactContext<HostConfig['TransitionStatus']>,
   setCurrentUpdatePriority() {},
   // todo(investigate): why not 32 / DefaultEventPriority?
   getCurrentUpdatePriority: () => 1,
@@ -143,6 +150,7 @@ export const reconciler = createReconciler<
   startSuspendingCommit() {},
   suspendInstance() {},
   waitForCommitToBeReady: () => null,
+  // oxlint-disable-next-line max-params -- React reconciler host config callback signature
   createInstance(type, props, rootContainer, hostContext, _internalHandle) {
     void _internalHandle
     return createInstance(type, props, rootContainer, hostContext)
@@ -157,6 +165,7 @@ export const reconciler = createReconciler<
   shouldSetTextContent: () => false,
   getRootHostContext(rootContainer) {
     return {
+      provider: rootContainer.props.provider,
       stream: rootContainer.props.stream,
       temperature: rootContainer.props.temperature,
       stopSequences: rootContainer.props.stopSequences,
@@ -214,6 +223,7 @@ export const reconciler = createReconciler<
   resetTextContent() {},
   commitTextUpdate() {},
   commitMount() {},
+  // oxlint-disable-next-line max-params -- React reconciler host config callback signature
   commitUpdate(instance, _type, prevProps, nextProps, _internalHandle) {
     void _internalHandle
     const { changes, hasChanges } = diffProps(prevProps, nextProps)
@@ -346,7 +356,7 @@ function removeChild(parent: Instance, child: Instance): void {
   disposeOnIdle(() => {
     if (isSubagentInstance(child)) {
       child.tools = []
-      child.sdkTools = []
+      child.builtInTools = []
       child.systemParts = []
       child.mcpServers = []
       child.children = []
@@ -417,9 +427,17 @@ function applyUpdate(
       }
     }
   } else if (isConditionInstance(instance)) {
-    const payload = updatePayload as { when?: boolean | string }
+    const payload = updatePayload as Partial<
+      { when: boolean | string } & ProviderModelOverride
+    >
     if (payload.when !== undefined) {
       instance.when = payload.when
+    }
+    if (payload.model !== undefined) {
+      instance.model = payload.model
+    }
+    if (payload.provider !== undefined) {
+      instance.provider = payload.provider
     }
   }
 }

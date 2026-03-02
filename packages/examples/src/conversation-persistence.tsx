@@ -1,8 +1,16 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { run, defineTool, Agent, System, Tools, Tool, Message } from 'agentry'
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
+import {
+  run,
+  defineTool,
+  Agent,
+  System,
+  Tools,
+  Tool,
+  Message,
+  type AgentMessageParam,
+} from 'agentry'
 import { MODEL } from './constants'
 
 // Storage directory
@@ -10,7 +18,7 @@ const CONVERSATIONS_DIR = join(__dirname, '.conversations')
 
 // Simple storage format
 interface ConversationData {
-  messages: BetaMessageParam[]
+  messages: AgentMessageParam[]
   savedAt: string
 }
 
@@ -18,7 +26,7 @@ interface ConversationData {
  * Save conversation to JSON file
  */
 async function saveConversation(
-  messages: readonly BetaMessageParam[],
+  messages: readonly AgentMessageParam[],
   filename: string,
 ): Promise<void> {
   // Ensure directory exists
@@ -37,7 +45,9 @@ async function saveConversation(
 /**
  * Load conversation from JSON file
  */
-async function loadConversation(filename: string): Promise<BetaMessageParam[]> {
+async function loadConversation(
+  filename: string,
+): Promise<AgentMessageParam[]> {
   const filepath = join(CONVERSATIONS_DIR, filename)
   const content = await readFile(filepath, 'utf-8')
   const data = JSON.parse(content) as ConversationData
@@ -85,14 +95,14 @@ function createTools() {
  * Agent component that can be initialized with saved messages
  */
 interface DemoAgentProps {
-  initialMessages?: BetaMessageParam[]
+  initialMessages?: AgentMessageParam[]
 }
 
 const DemoAgent = ({ initialMessages = [] }: DemoAgentProps) => {
   const tools = createTools()
 
   return (
-    <Agent model={MODEL} maxTokens={2048} stream={false}>
+    <Agent provider="anthropic" model={MODEL} maxTokens={2048} stream={false}>
       <System>
         You are a helpful assistant with calculator and time tools. You can
         remember previous conversations if they are loaded.
@@ -176,7 +186,7 @@ async function main() {
   console.log('✓ Demonstration complete!')
   console.log()
   console.log('Key points:')
-  console.log('  • Messages are serializable (BetaMessageParam[])')
+  console.log('  • Messages are serializable (AgentMessageParam[])')
   console.log('  • Use <Message> components to pre-load conversation history')
   console.log('  • Tools must be defined identically for save and load')
   console.log('  • Agent remembers full context from saved conversation')

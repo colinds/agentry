@@ -2,9 +2,9 @@ import { test, expect } from 'bun:test'
 import { ExecutionEngine } from '../src/execution'
 import { createAgentStore } from '../src/store'
 import { createStepMockClient, mockText } from './utils'
-import { TEST_MODEL } from '../src/constants'
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta'
-import type { AgentInstance } from '../src/instances'
+import { ANTHROPIC_TEST_MODEL } from '../src/constants'
+import { AgentStatus, type AgentMessageParam } from '../src/types'
+import { InstanceType, type AgentInstance } from '../src/instances'
 
 test('compactionControl compacts messages when threshold is exceeded', async () => {
   const { client, controller } = createStepMockClient([
@@ -12,30 +12,34 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
   ])
 
   const store = createAgentStore()
-  const originalMessages: BetaMessageParam[] = [
+  const originalMessages: AgentMessageParam[] = [
     {
       role: 'user',
-      content: [{ type: 'text', text: 'First message', citations: null }],
+      content: [{ type: 'text', text: 'First message' }],
     },
     {
       role: 'assistant',
-      content: [{ type: 'text', text: 'Second message', citations: null }],
+      content: [{ type: 'text', text: 'Second message' }],
     },
   ]
 
   store.setState(() => ({
-    executionState: { status: 'idle' },
+    executionState: { status: AgentStatus.Idle },
     messages: originalMessages,
   }))
 
   const agentInstance: AgentInstance = {
-    type: 'agent',
-    props: { model: TEST_MODEL, maxTokens: 100 },
+    type: InstanceType.Agent,
+    props: {
+      provider: 'anthropic',
+      model: ANTHROPIC_TEST_MODEL,
+      maxTokens: 100,
+    },
     client,
     engine: null,
     systemParts: [],
     tools: [],
-    sdkTools: [],
+    builtInTools: [],
     mcpServers: [],
     children: [],
     parent: null,
@@ -43,15 +47,16 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
   }
 
   const engine = new ExecutionEngine({
+    provider: 'anthropic',
     client,
-    model: TEST_MODEL,
+    model: ANTHROPIC_TEST_MODEL,
     maxTokens: 100,
     store,
     agentInstance,
     compactionControl: {
       enabled: true,
       contextTokenThreshold: 10,
-      model: TEST_MODEL,
+      model: ANTHROPIC_TEST_MODEL,
       summaryPrompt: 'Please summarize the conversation so far',
     },
   })
@@ -66,7 +71,7 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
     type: 'message',
     role: 'assistant',
     content: [],
-    model: TEST_MODEL,
+    model: ANTHROPIC_TEST_MODEL,
     stop_reason: 'end_turn',
     stop_sequence: null,
     container: null,
@@ -92,9 +97,7 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
   const lastMessage = params.messages[params.messages.length - 1]
   expect(lastMessage).toMatchObject({
     role: 'user',
-    content: [
-      { type: 'text', text: 'Please summarize the conversation so far' },
-    ],
+    content: 'Please summarize the conversation so far',
   })
 
   await controller.nextTurn()
@@ -117,30 +120,34 @@ test('compactionControl does nothing when under threshold', async () => {
   ])
 
   const store = createAgentStore()
-  const originalMessages: BetaMessageParam[] = [
+  const originalMessages: AgentMessageParam[] = [
     {
       role: 'user',
-      content: [{ type: 'text', text: 'Short exchange', citations: null }],
+      content: [{ type: 'text', text: 'Short exchange' }],
     },
     {
       role: 'assistant',
-      content: [{ type: 'text', text: 'Still short', citations: null }],
+      content: [{ type: 'text', text: 'Still short' }],
     },
   ]
 
   store.setState(() => ({
-    executionState: { status: 'idle' },
+    executionState: { status: AgentStatus.Idle },
     messages: originalMessages,
   }))
 
   const agentInstance: AgentInstance = {
-    type: 'agent',
-    props: { model: TEST_MODEL, maxTokens: 100 },
+    type: InstanceType.Agent,
+    props: {
+      provider: 'anthropic',
+      model: ANTHROPIC_TEST_MODEL,
+      maxTokens: 100,
+    },
     client,
     engine: null,
     systemParts: [],
     tools: [],
-    sdkTools: [],
+    builtInTools: [],
     mcpServers: [],
     children: [],
     parent: null,
@@ -148,15 +155,16 @@ test('compactionControl does nothing when under threshold', async () => {
   }
 
   const engine = new ExecutionEngine({
+    provider: 'anthropic',
     client,
-    model: TEST_MODEL,
+    model: ANTHROPIC_TEST_MODEL,
     maxTokens: 100,
     store,
     agentInstance,
     compactionControl: {
       enabled: true,
       contextTokenThreshold: 1_000_000,
-      model: TEST_MODEL,
+      model: ANTHROPIC_TEST_MODEL,
       summaryPrompt: 'Please summarize the conversation so far',
     },
   })
@@ -171,7 +179,7 @@ test('compactionControl does nothing when under threshold', async () => {
     type: 'message',
     role: 'assistant',
     content: [],
-    model: TEST_MODEL,
+    model: ANTHROPIC_TEST_MODEL,
     stop_reason: 'end_turn',
     stop_sequence: null,
     container: null,

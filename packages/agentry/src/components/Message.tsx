@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import type { BetaContentBlockParam } from '@anthropic-ai/sdk/resources/beta'
+import type { AgentContentBlock } from '../types/messages'
 
 export interface MessageProps {
   role: 'user' | 'assistant'
   children?: ReactNode
-  content?: string | BetaContentBlockParam[]
+  content?: string | AgentContentBlock[]
 }
 
 /**

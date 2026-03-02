@@ -1,18 +1,33 @@
 import { useState } from 'react'
 import { z } from 'zod'
 import {
-  run,
+  createAI,
   Agent,
   System,
   Tools,
   Tool,
   Context,
-  WebSearch,
   useMessages,
   Message,
   AgentTool,
 } from 'agentry'
-import { MODEL } from './constants'
+import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
+import { WebSearch as AnthropicWebSearch } from 'agentry/anthropic'
+import { WebSearch as OpenAIWebSearch } from 'agentry/openai'
+import { MODEL, OPENAI_MODEL } from './constants'
+
+const EXAMPLE_PROVIDER =
+  process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
+const WebSearch =
+  EXAMPLE_PROVIDER === 'openai' ? OpenAIWebSearch : AnthropicWebSearch
+const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
+const ai =
+  EXAMPLE_PROVIDER === 'openai'
+    ? createAI({ providers: { openai: { client: new OpenAI() } } })
+    : createAI({
+        providers: { anthropic: { client: new Anthropic() } },
+      })
 
 function CompanyResearcherAgent({
   company,
@@ -70,7 +85,7 @@ function Coordinator() {
   console.log(`There are ${messages.length} messages.`)
 
   return (
-    <Agent model={MODEL}>
+    <Agent provider={EXAMPLE_PROVIDER} model={EXAMPLE_MODEL}>
       <System>
         You help with lightweight startup research. You can spawn subagents to
         help with your research.
@@ -106,6 +121,6 @@ function Coordinator() {
   )
 }
 
-const agent = await run(<Coordinator />, { mode: 'interactive' })
+const agent = await ai.run(<Coordinator />, { mode: 'interactive' })
 const result = await agent.sendMessage('Tell me more about Cursor.')
 console.log('Result:', result.content)

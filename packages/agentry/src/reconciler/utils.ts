@@ -1,4 +1,5 @@
 import { scheduleOnIdle } from '../scheduler'
+import type { JsonValue } from '../types/json'
 
 const RESERVED_PROPS = [
   'children',
@@ -11,8 +12,8 @@ const RESERVED_PROPS = [
 ] as const
 
 function deepEqual(
-  a: unknown,
-  b: unknown,
+  a: JsonValue | undefined,
+  b: JsonValue | undefined,
   seen = new WeakSet<object>(),
 ): boolean {
   if (a === b) return true
@@ -34,8 +35,8 @@ function deepEqual(
   }
 
   if (typeof a === 'object' && typeof b === 'object') {
-    const aObj = a as Record<string, unknown>
-    const bObj = b as Record<string, unknown>
+    const aObj = a as Record<string, JsonValue>
+    const bObj = b as Record<string, JsonValue>
     const aKeys = Object.keys(aObj)
     const bKeys = Object.keys(bObj)
 
@@ -58,11 +59,11 @@ export function diffProps<T>(
   oldProps: T,
   newProps: T,
 ): { changes: Partial<T>; hasChanges: boolean } {
-  const changes: Record<string, unknown> = {}
+  const changes: Record<string, JsonValue | undefined> = {}
   let hasChanges = false
 
-  const oldRecord = oldProps as Record<string, unknown>
-  const newRecord = newProps as Record<string, unknown>
+  const oldRecord = oldProps as Record<string, JsonValue>
+  const newRecord = newProps as Record<string, JsonValue>
 
   for (const key of Object.keys(newRecord)) {
     if ((RESERVED_PROPS as readonly string[]).includes(key)) continue

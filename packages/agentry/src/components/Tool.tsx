@@ -36,10 +36,10 @@ export function Tool<TSchema extends z.ZodType>(
   props: ToolProps<TSchema>,
 ): ReactNode {
   if ('parameters' in props && 'jsonSchema' in props) {
-    return <tool tool={props as InternalTool<unknown>} key={props.name} />
+    return <tool tool={props as InternalTool} key={props.name} />
   }
 
   const tool = defineTool(props)
 
-  return <tool tool={tool as InternalTool<unknown>} key={tool.name} />
+  return <tool tool={tool as InternalTool} key={tool.name} />
 }
