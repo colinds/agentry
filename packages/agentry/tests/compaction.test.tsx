@@ -190,9 +190,9 @@ describe('cut point', () => {
     userMessage([{ type: 'text', text }])
 
   test('never separates a tool call from its result', () => {
-    // An assistant turn with a toolCall, followed by its toolResult. Cutting
-    // between them yields a transcript providers reject (a tool_use with no
-    // matching tool_result), so the cut must skip past the pair.
+    // The kept tail is prefixed by the summary, which is a *user* message — so
+    // the tail may legally open with an assistant turn. The one illegal opener
+    // is a tool result, whose matching call would have been summarized away.
     const messages: AgentMessageParam[] = [
       msg('old one'),
       msg('old two'),
@@ -208,19 +208,54 @@ describe('cut point', () => {
         content: 'results',
         isError: false,
       }),
-      msg('after'),
     ]
 
-    for (const budget of [1, 5, 10, 20, 40]) {
+    for (const budget of [1, 5, 10, 20, 40, 1000]) {
       const index = findCutIndex(messages, budget)
-      const at = messages[index]
-      if (!at) continue
 
-      expect(at.role).not.toBe('toolResult')
-      if (at.role === 'assistant') {
-        expect(extractToolCalls(at).length).toBe(0)
+      // index 0 means nothing is summarized, so no transcript is rewritten.
+      if (index === 0) continue
+
+      expect(messages[index]!.role).not.toBe('toolResult')
+
+      // And every tool result in the kept tail must still have its call.
+      const kept = messages.slice(index)
+      const callIds = new Set(
+        kept.flatMap((m) =>
+          m.role === 'assistant' ? extractToolCalls(m).map((c) => c.id) : [],
+        ),
+      )
+      for (const m of kept) {
+        if (m.role === 'toolResult') expect(callIds.has(m.toolCallId)).toBe(true)
       }
     }
+  })
+
+  test('keeps a conversation that ends mid-tool-use rather than wiping it', () => {
+    // Walking forward past the pair would run off the end here and keep
+    // nothing — which is the behaviour the rewrite exists to remove.
+    const messages: AgentMessageParam[] = [
+      msg('a'),
+      msg('b'),
+      msg('c'),
+      {
+        ...assistantSeedMessage([]),
+        content: [
+          { type: 'toolCall', id: 'call_1', name: 'search', arguments: {} },
+        ],
+      },
+      toolResultMessage({
+        toolCallId: 'call_1',
+        toolName: 'search',
+        content: 'results',
+        isError: false,
+      }),
+    ]
+
+    const index = findCutIndex(messages, 1)
+    expect(index).toBeLessThan(messages.length)
+    expect(messages.slice(index).length).toBeGreaterThan(0)
+    expect(messages[index]!.role).toBe('assistant')
   })
 
   test('keeps the whole transcript when the budget covers it', () => {

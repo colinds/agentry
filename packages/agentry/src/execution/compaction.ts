@@ -1,13 +1,11 @@
 import type { Api, Model, Models } from '@earendil-works/pi-ai'
 import {
-  isAssistantMessage,
   isTextBlock,
   isToolResultMessage,
   userMessage,
   type AgentMessage,
   type AgentMessageParam,
 } from '../types/messages'
-import { extractToolCalls } from '../types/messages'
 import { createTurn } from '../pi/turn'
 import { debug } from '../debug'
 
@@ -77,16 +75,18 @@ export function findCutIndex(
     index = i
   }
 
-  // Walk forward to the next message that can legally start a conversation:
-  // never a tool result (its call would be gone), and never an assistant turn
-  // that itself has unanswered tool calls.
-  while (index < messages.length) {
-    const message = messages[index]!
-    const opensTurn =
-      !isToolResultMessage(message) &&
-      !(isAssistantMessage(message) && extractToolCalls(message).length > 0)
-    if (opensTurn) break
-    index++
+  // The kept tail is prefixed by the summary, which is itself a user message —
+  // so the tail may legally begin with an assistant turn, tool calls and all.
+  // The one thing it must not begin with is a tool result, whose matching call
+  // would have been summarized away.
+  //
+  // Walk *backward* to fix that, pulling the assistant turn that owns those
+  // results into the tail. Walking forward instead would skip past the pair and,
+  // whenever a conversation ends mid-tool-use — which is most of the time —
+  // run off the end and keep nothing at all.
+  while (index > 0 && index < messages.length) {
+    if (!isToolResultMessage(messages[index]!)) break
+    index--
   }
 
   return index
