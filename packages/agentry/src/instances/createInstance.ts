@@ -5,25 +5,22 @@ import type {
   SubagentInstance,
   AgentToolInstance,
   ToolInstance,
-  BuiltInToolInstance,
   SystemInstance,
   ContextInstance,
   MessageInstance,
   ToolsContainerInstance,
-  MCPServerInstance,
   ConditionInstance,
   AgentComponentProps,
   AgentToolComponentProps,
   ToolComponentProps,
-  BuiltInToolComponentProps,
   SystemComponentProps,
   ContextComponentProps,
   MessageComponentProps,
   ToolsContainerProps,
-  MCPServerComponentProps,
   ConditionComponentProps,
 } from './types'
 import { InstanceType, isAgentInstance, isInstance } from './types'
+import { assistantSeedMessage, userMessage } from '../types/messages'
 import type {
   AgentProps,
   BaseAgentProps,
@@ -38,44 +35,35 @@ type AgentPropsAllKeys = {
   provider: AgentProps['provider']
   model: AgentProps['model']
   thinking: AgentProps['thinking']
-  betas?: string[]
-  websocket?: boolean
 }
 
 interface SubagentCreationProps extends Omit<
   AgentComponentProps,
-  'children' | 'model' | 'websocket'
+  'children' | 'model'
 > {
   model?: AgentComponentProps['model']
   agentNode?: React.ReactNode
-  betas?: string[]
-  websocket?: boolean
 }
 
 interface PropagatedSettings {
   provider?: AgentProps['provider']
   stream?: boolean
   temperature?: number
-  stopSequences?: string[]
   compactionControl?: CompactionControl
   maxTokens?: number
   maxIterations?: number
   model?: Model
   thinking?: AgentProps['thinking']
-  betas?: string[]
-  websocket?: boolean
 }
 
 export type ElementProps =
   | AgentComponentProps
   | AgentToolComponentProps
   | ToolComponentProps
-  | BuiltInToolComponentProps
   | SystemComponentProps
   | ContextComponentProps
   | MessageComponentProps
   | ToolsContainerProps
-  | MCPServerComponentProps
   | ConditionComponentProps
 
 // oxlint-disable-next-line max-params -- called by reconciler host config with fixed arity
@@ -92,8 +80,6 @@ export function createInstance(
       return createAgentToolInstance(props as AgentToolComponentProps)
     case InstanceType.Tool:
       return createToolInstance(props as ToolComponentProps)
-    case InstanceType.BuiltInTool:
-      return createBuiltInToolInstance(props as BuiltInToolComponentProps)
     case InstanceType.System:
       return createSystemInstance(props as SystemComponentProps)
     case InstanceType.Context:
@@ -102,8 +88,6 @@ export function createInstance(
       return createMessageInstance(props as MessageComponentProps)
     case InstanceType.Tools:
       return createToolsContainerInstance(props as ToolsContainerProps)
-    case InstanceType.McpServer:
-      return createMCPServerInstance(props as MCPServerComponentProps)
     case InstanceType.Condition:
       return createConditionInstance(props as ConditionComponentProps)
     default:
@@ -125,7 +109,6 @@ function createAgentInstance(
   }
 
   const provider = props.provider ?? rootContainer.props.provider
-  const client = props.client ?? rootContainer.client
   const store = rootContainer.store
 
   const instance: AgentInstance = {
@@ -137,24 +120,18 @@ function createAgentInstance(
       description: props.description,
       maxTokens: props.maxTokens ?? 4096,
       maxIterations: props.maxIterations,
-      stopSequences: props.stopSequences,
       temperature: props.temperature,
       stream: props.stream ?? true,
       compactionControl: props.compactionControl,
       thinking: props.thinking,
-      betas: props.provider === 'anthropic' ? props.betas : undefined,
-      websocket: props.provider === 'openai' ? props.websocket : undefined,
       onMessage: props.onMessage,
       onComplete: props.onComplete,
       onError: props.onError,
       onStepFinish: props.onStepFinish,
     } satisfies AgentPropsAllKeys as AgentProps,
-    client,
     engine: null,
     systemParts: [],
     tools: [],
-    builtInTools: [],
-    mcpServers: [],
     children: [],
     parent: null,
     store,
@@ -186,16 +163,6 @@ function createAgentToolInstance(
     parameters: agentTool.parameters,
     jsonSchema: agentTool.jsonSchema,
     agent: agentTool.agent,
-    parent: null,
-  }
-}
-
-function createBuiltInToolInstance(
-  props: BuiltInToolComponentProps,
-): BuiltInToolInstance {
-  return {
-    type: InstanceType.BuiltInTool,
-    tool: props.tool,
     parent: null,
   }
 }
@@ -242,10 +209,10 @@ function createMessageInstance(props: MessageComponentProps): MessageInstance {
 
   return {
     type: InstanceType.Message,
-    message: {
-      role: props.role,
-      content,
-    },
+    message:
+      props.role === 'user'
+        ? userMessage(content)
+        : assistantSeedMessage(content),
     parent: null,
   }
 }
@@ -256,22 +223,6 @@ function createToolsContainerInstance(
   return {
     type: InstanceType.Tools,
     children: [],
-    parent: null,
-  }
-}
-
-function createMCPServerInstance(
-  props: MCPServerComponentProps,
-): MCPServerInstance {
-  return {
-    type: InstanceType.McpServer,
-    config: {
-      type: 'url',
-      name: props.name,
-      url: props.url,
-      authorization_token: props.authorization_token,
-      tool_configuration: props.tool_configuration,
-    },
     parent: null,
   }
 }
@@ -323,19 +274,10 @@ export function createSubagentInstance(
         (inherited.maxIterations
           ? Math.floor(inherited.maxIterations / 2)
           : undefined),
-      stopSequences: props.stopSequences ?? inherited.stopSequences,
       temperature: props.temperature ?? inherited.temperature,
       stream: props.stream ?? inherited.stream ?? true,
       compactionControl: props.compactionControl ?? inherited.compactionControl,
       thinking: props.thinking ?? inherited.thinking,
-      betas:
-        (props.provider ?? inherited.provider) === 'anthropic'
-          ? (props.betas ?? inherited.betas)
-          : undefined,
-      websocket:
-        (props.provider ?? inherited.provider) === 'openai'
-          ? (props.websocket ?? inherited.websocket)
-          : undefined,
       // callbacks never inherited
       onMessage: props.onMessage,
       onComplete: props.onComplete,
@@ -344,8 +286,6 @@ export function createSubagentInstance(
     } satisfies AgentPropsAllKeys as AgentProps,
     systemParts: [],
     tools: [],
-    builtInTools: [],
-    mcpServers: [],
     children: [],
     parent: null,
     agentNode: props.agentNode ?? null,

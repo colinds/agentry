@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
-import { z } from 'zod'
+import type { TSchema } from 'typebox'
 import { defineTool } from '../tools'
-import type { InternalTool, DefineToolOptions } from '../types'
+import type { AnyInternalTool, InternalTool, DefineToolOptions } from '../types'
 
-export type ToolProps<TSchema extends z.ZodType = z.ZodType> =
-  | InternalTool<z.output<TSchema>>
-  | DefineToolOptions<TSchema>
+export type ToolProps<TParameters extends TSchema = TSchema> =
+  | AnyInternalTool
+  | DefineToolOptions<TParameters>
 
 /**
  * tool component - registers a tool with the parent agent
@@ -15,7 +15,7 @@ export type ToolProps<TSchema extends z.ZodType = z.ZodType> =
  * const searchTool = defineTool({
  *   name: 'search',
  *   description: 'Search documents',
- *   parameters: z.object({ query: z.string() }),
+ *   parameters: Type.Object({ query: Type.String() }),
  *   handler: async ({ query }) => `Results for ${query}`,
  * });
  *
@@ -27,13 +27,19 @@ export type ToolProps<TSchema extends z.ZodType = z.ZodType> =
  * <Tool
  *   name="search"
  *   description="Search documents"
- *   parameters={z.object({ query: z.string() })}
+ *   parameters={Type.Object({ query: Type.String() })}
  *   handler={async ({ query }) => `Results for ${query}`}
  * />
  * ```
  */
-export function Tool<TSchema extends z.ZodType>(
-  props: ToolProps<TSchema>,
+// Overloads keep handler-parameter inference working for the inline form while
+// still accepting an already-defined tool spread in as `{...someTool}`.
+export function Tool(props: AnyInternalTool): ReactNode
+export function Tool<TParameters extends TSchema>(
+  props: DefineToolOptions<TParameters>,
+): ReactNode
+export function Tool<TParameters extends TSchema>(
+  props: ToolProps<TParameters>,
 ): ReactNode {
   if ('parameters' in props && 'jsonSchema' in props) {
     return <tool tool={props as InternalTool} key={props.name} />

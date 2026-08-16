@@ -1,5 +1,14 @@
-import type { MemoryTool } from '../types'
+import type { MemoryHandlers } from '../types'
 import type { JsonObject } from '../types/json'
+
+/**
+ * Memory is no longer a provider-native tool. The handlers are retained so a
+ * client-side `<Memory>` tool can be rebuilt on top of them.
+ */
+export interface MemoryTool {
+  name: 'memory'
+  memoryHandlers?: MemoryHandlers
+}
 import { debug } from '../debug'
 
 const MEMORY_COMMANDS = [

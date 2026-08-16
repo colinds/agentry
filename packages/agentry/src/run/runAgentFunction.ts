@@ -3,7 +3,7 @@ import { SubagentHandle } from '../handles'
 import type { AgentResult, Model } from '../types'
 import { createSubagentInstance } from '../instances/createInstance'
 import type { ProviderName } from '../types/provider'
-import type { ProviderClientMap } from '../providers/types'
+import type { Models } from '@earendil-works/pi-ai'
 
 /**
  * Options for spawning an agent programmatically
@@ -11,8 +11,8 @@ import type { ProviderClientMap } from '../providers/types'
 export interface RunAgentOptions {
   /** Override provider */
   provider?: ProviderName
-  /** Override client set */
-  clients?: Partial<ProviderClientMap>
+  /** Override the pi model collection */
+  models?: Models
   /** Override parent's model */
   model?: Model
   /** Override maxTokens (defaults to half parent's) */
@@ -27,7 +27,7 @@ export interface RunAgentOptions {
  * Context for creating a spawn agent function
  */
 interface RunAgentContext {
-  clients?: Partial<ProviderClientMap>
+  models: Models
   provider?: ProviderName
   model?: Model
   signal?: AbortSignal
@@ -67,7 +67,7 @@ export function createRunAgent(context: RunAgentContext) {
     if (!provider) {
       throw new Error('Provider is required for runAgent.')
     }
-    const clients = options.clients ?? context.clients ?? {}
+    const models = options.models ?? context.models
 
     const elementProps = agentElement.props as {
       name?: string
@@ -91,7 +91,7 @@ export function createRunAgent(context: RunAgentContext) {
 
     const handle = new SubagentHandle(subagent, {
       provider,
-      clients,
+      models,
       signal: options.signal || context.signal,
     })
 

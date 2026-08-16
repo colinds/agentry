@@ -1,18 +1,18 @@
 import type { ReactNode } from 'react'
+import type { Models } from '@earendil-works/pi-ai'
 import { AgentHandle } from '../handles'
 import type { AgentResult } from '../types'
-import type { ProvidersConfig } from '../providers/types'
 
 export interface RunOptions {
-  /** per-provider client and options */
-  providers?: ProvidersConfig
+  /** pi model collection; defaults to pi's full built-in catalog */
+  models?: Models
   /** execution mode */
   mode?: 'batch' | 'interactive'
 }
 
 export interface CreateAgentOptions {
-  /** per-provider client and options */
-  providers?: ProvidersConfig
+  /** pi model collection; defaults to pi's full built-in catalog */
+  models?: Models
 }
 
 /**
@@ -66,11 +66,7 @@ export async function run(
 ): Promise<AgentResult | AgentHandle> {
   const { mode = 'batch' } = options
 
-  const handle = new AgentHandle(
-    element,
-    { providers: options.providers },
-    mode,
-  )
+  const handle = new AgentHandle(element, { models: options.models }, mode)
 
   if (mode === 'interactive') {
     return handle
@@ -92,5 +88,5 @@ export function createAgent(
   element: ReactNode,
   options?: CreateAgentOptions,
 ): AgentHandle {
-  return new AgentHandle(element, { providers: options?.providers })
+  return new AgentHandle(element, { models: options?.models })
 }

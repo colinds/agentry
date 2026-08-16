@@ -168,7 +168,6 @@ export const reconciler = createReconciler<
       provider: rootContainer.props.provider,
       stream: rootContainer.props.stream,
       temperature: rootContainer.props.temperature,
-      stopSequences: rootContainer.props.stopSequences,
       compactionControl: rootContainer.props.compactionControl,
       maxTokens: rootContainer.props.maxTokens,
       maxIterations: rootContainer.props.maxIterations,
@@ -356,9 +355,7 @@ function removeChild(parent: Instance, child: Instance): void {
   disposeOnIdle(() => {
     if (isSubagentInstance(child)) {
       child.tools = []
-      child.builtInTools = []
       child.systemParts = []
-      child.mcpServers = []
       child.children = []
     }
   })

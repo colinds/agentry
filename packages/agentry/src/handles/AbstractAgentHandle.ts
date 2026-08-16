@@ -19,8 +19,9 @@ import {
 import { isProcessing, type AgentState } from '../types/state'
 import { yieldToScheduler } from '../scheduler'
 import { AgentProvider } from '../context'
-import type { ProviderAdapter, ProviderClientMap } from '../providers/types'
-import type { ProviderName } from '../types/provider'
+import { userMessage } from '../types/messages'
+import { getDefaultModels } from '../pi/models'
+import type { Models } from '@earendil-works/pi-ai'
 
 interface AgentHandleEvents {
   stateChange: (state: AgentState) => void
@@ -37,28 +38,38 @@ interface AgentHandleEvents {
 export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents> {
   protected containerInfo: ContainerInfo
   protected engine: ExecutionEngine | null = null
-  protected clients: Partial<ProviderClientMap>
-  protected adapters: Record<string, ProviderAdapter<ProviderName>>
+  protected models: Models | undefined
   protected running = false
   protected store: AgentStore
   protected instance: AgentInstance | null = null
+  /** Per-handle identifier used by pi for prompt-cache affinity. */
+  protected sessionId: string
 
   constructor({
-    clients,
-    adapters,
+    models,
     containerInfo,
     store,
+    sessionId,
   }: {
-    clients: Partial<ProviderClientMap>
-    adapters: Record<string, ProviderAdapter<ProviderName>>
+    models?: Models
     containerInfo: ContainerInfo
     store: AgentStore
+    sessionId?: string
   }) {
     super()
-    this.clients = clients
-    this.adapters = adapters
+    this.models = models
     this.containerInfo = containerInfo
     this.store = store
+    this.sessionId = sessionId ?? crypto.randomUUID()
+  }
+
+  /**
+   * Resolves the model collection, falling back to pi's full built-in catalog.
+   * Lazy so that `createAgent()` can stay synchronous.
+   */
+  protected async ensureModels(): Promise<Models> {
+    this.models ??= await getDefaultModels()
+    return this.models
   }
 
   get state(): AgentState {
@@ -101,9 +112,9 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
     const { config } = createEngineConfig({
       agent,
-      clients: this.clients,
-      adapters: this.adapters,
+      models: await this.ensureModels(),
       store: this.store,
+      sessionId: this.sessionId,
     })
 
     this.beforeExecution(agent, config, this.store.getState().messages)
@@ -202,7 +213,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
       this.instance = agent
 
       if (firstMessage) {
-        this.pushMessage({ role: 'user', content: firstMessage })
+        this.pushMessage(userMessage(firstMessage))
       }
 
       return await this.executeAgent(agent, {
@@ -340,13 +351,9 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
   /**
    * Subclasses can override for additional cleanup.
-   * Base implementation calls close() on any adapters that support it.
+   * pi is stateless per turn, so there is nothing to close by default.
    */
-  protected cleanup(): void {
-    for (const adapter of Object.values(this.adapters)) {
-      adapter.close?.()
-    }
-  }
+  protected cleanup(): void {}
 
   /**
    * Test-only method to access containerInfo for testing purposes

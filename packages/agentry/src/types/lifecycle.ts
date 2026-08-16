@@ -1,7 +1,9 @@
 import type {
   AgentMessage,
   AgentMessageParam,
-  TextContentArray,
+  ImageContent,
+  StopReason,
+  TextContent,
 } from './messages'
 import type { JsonObject } from './json'
 
@@ -14,7 +16,7 @@ export interface StepToolCall {
 export interface StepToolResult {
   toolCallId: string
   toolName: string
-  result: string | TextContentArray
+  result: string | Array<TextContent | ImageContent>
   isError: boolean
   executionTime?: number // milliseconds
 }
@@ -46,8 +48,8 @@ export interface OnStepFinishResult {
   /** Results from tool execution */
   toolResults: StepToolResult[]
 
-  /** Reason the step finished ('tool_use' | 'end_turn' | 'max_tokens' | etc.) */
-  finishReason: string | null
+  /** Reason the step finished ('toolUse' | 'stop' | 'length' | etc.) */
+  finishReason: StopReason | null
 
   /** Token usage for this step */
   usage: StepUsage

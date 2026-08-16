@@ -1,4 +1,11 @@
 import { EventEmitter } from 'eventemitter3'
+import type {
+  Api,
+  CacheRetention,
+  Model,
+  Models,
+  ThinkingLevel,
+} from '@earendil-works/pi-ai'
 import { yieldToSchedulerImmediate } from '../scheduler'
 import type {
   AgentState,
@@ -6,11 +13,9 @@ import type {
   AgentResult,
   PendingToolCall,
   ToolContext,
-  Model,
   OnStepFinishResult,
   StepToolCall,
   StepToolResult,
-  ThinkingConfig,
 } from '../types'
 import type { AgentInstance } from '../instances'
 import { isMessageInstance } from '../instances'
@@ -19,12 +24,10 @@ import {
   transition,
   TransitionType,
   AgentStatus,
-  extractToolUses,
+  extractToolCalls,
   extractText,
-  isMemoryTool,
 } from '../types'
 import { executeTool } from '../tools'
-import { executeMemoryTool, isMemoryToolInput } from '../tools/memoryTool'
 import { createRunAgent } from '../run/runAgentFunction'
 import { debug } from '../debug'
 import { buildSystemPrompt } from './createEngineConfig'
@@ -33,19 +36,17 @@ import type { AgentStore } from '../store'
 import { collectChild } from '../reconciler/collectors'
 import {
   isThinkingBlock,
+  isTextBlock,
+  toolResultMessage,
+  userMessage,
   type AgentMessage,
   type AgentMessageParam,
-  type ToolResultContentBlock,
+  type ToolCall,
+  type ToolResultMessage,
 } from '../types/messages'
-import type { ProviderName } from '../types/provider'
-import type {
-  ProviderAdapter,
-  ProviderClientMap,
-  SystemBlock,
-} from '../providers/types'
-import { createDefaultAdapters } from '../providers'
-import { isTextBlock } from '../types/messages'
-import type { JsonObject } from '../types/json'
+import { createTurn } from '../pi/turn'
+import { resolveModel } from '../pi/models'
+import { toPiTools } from '../pi/tools'
 
 interface ExecutionEngineEvents {
   stateChange: (state: AgentState) => void
@@ -56,7 +57,8 @@ interface ExecutionEngineEvents {
   stepFinish: (result: OnStepFinishResult) => void
 }
 
-export type SystemPrompt = string | SystemBlock[]
+/** System prompts are a single string under pi; caching is a provider concern. */
+export type SystemPrompt = string
 
 const DEFAULT_TOKEN_THRESHOLD = 100_000
 
@@ -70,11 +72,9 @@ Be concise but complete. Write in a way that enables immediate resumption of the
 Wrap your summary in <summary></summary> tags.`
 
 export interface ExecutionEngineConfig {
-  provider: ProviderName
-  client: ProviderClientMap[ProviderName]
-  clients?: Partial<ProviderClientMap>
-  adapters?: Record<ProviderName, ProviderAdapter<ProviderName>>
-  model: Model
+  models: Models
+  provider: string
+  model: string
   maxTokens: number
   system?: SystemPrompt
   stream?: boolean
@@ -82,64 +82,46 @@ export interface ExecutionEngineConfig {
   compactionControl?: {
     enabled: boolean
     contextTokenThreshold?: number
-    model?: Model
+    model?: string
     summaryPrompt?: string
   }
-  stopSequences?: string[]
   temperature?: number
   agentName?: string
   agentInstance: AgentInstance
   store: AgentStore
-  thinking?: ThinkingConfig
-  betas?: string[]
+  reasoning?: ThinkingLevel
+  cacheRetention?: CacheRetention
+  /** Per-run identifier used by providers for prompt-cache affinity. */
+  sessionId?: string
 }
 
 function buildToolContext(
   config: ExecutionEngineConfig,
-  client: ProviderClientMap[ProviderName],
   signal: AbortSignal,
 ): ToolContext {
-  const base = {
+  return {
     agentName: config.agentName ?? 'agent',
-    clients: config.clients,
+    models: config.models,
+    provider: config.provider,
     model: config.model,
     signal,
     runAgent: createRunAgent({
+      models: config.models,
       provider: config.provider,
-      clients: config.clients,
       model: config.model,
       signal,
     }),
   }
-  if (config.provider === 'anthropic') {
-    return {
-      ...base,
-      provider: 'anthropic',
-      client: client as ProviderClientMap['anthropic'],
-    }
-  }
-  if (config.provider === 'openai') {
-    return {
-      ...base,
-      provider: 'openai',
-      client: client as ProviderClientMap['openai'],
-    }
-  }
-  const _exhaustive: never = config.provider
-  throw new Error(
-    `[agentry] buildToolContext: unhandled provider "${String(_exhaustive)}". Add a branch for this provider.`,
-  )
 }
 
 /**
- * Handles the conversation loop with the configured AI provider via a ProviderAdapter.
+ * Handles the conversation loop with the configured provider via pi.
  * Manages state transitions, tool execution, condition evaluation, and compaction.
  */
 export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
-  private client: ProviderClientMap[ProviderName]
-  private adapter: ProviderAdapter<ProviderName>
   private config: ExecutionEngineConfig
   private store: AgentStore
+  private resolvedModel: Model<Api>
   private iterationCount = 0
   private lastMessage: AgentMessage | null = null
   private aborted = false
@@ -156,24 +138,20 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
   constructor(config: ExecutionEngineConfig) {
     super()
-    this.client = config.client
     if (!config.provider) {
       throw new Error('Provider is required in execution engine config.')
     }
-    const provider = config.provider
-    const adapters = config.adapters ?? createDefaultAdapters()
-    this.adapter = adapters[provider]
-    if (!this.adapter) {
+    if (!config.models) {
       throw new Error(
-        `[agentry] No adapter registered for provider "${provider}". Available: ${Object.keys(adapters).join(', ')}.`,
+        'A pi Models collection is required in execution engine config.',
       )
     }
-    this.config = {
-      ...config,
-      provider,
-      adapters,
-      clients: config.clients ?? {},
-    }
+    this.config = config
+    this.resolvedModel = resolveModel(
+      config.models,
+      config.provider,
+      config.model,
+    )
     this.store = config.store
     this.agentInstance = config.agentInstance
   }
@@ -188,6 +166,13 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
   updateConfig(updates: Partial<ExecutionEngineConfig>): void {
     this.config = { ...this.config, ...updates }
+    if (updates.model || updates.provider || updates.models) {
+      this.resolvedModel = resolveModel(
+        this.config.models,
+        this.config.provider,
+        this.config.model,
+      )
+    }
   }
 
   pushMessage(message: AgentMessageParam): void {
@@ -208,7 +193,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       const changed = await evaluateConditions({
         root: this.agentInstance,
         messages: this.messages as AgentMessageParam[],
-        clients: this.config.clients ?? {},
+        models: this.config.models,
         provider: this.config.provider,
         signal,
         evaluateNL: options?.evaluateNL,
@@ -247,8 +232,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private recollectAll(): void {
     this.agentInstance.tools = []
     this.agentInstance.systemParts = []
-    this.agentInstance.builtInTools = []
-    this.agentInstance.mcpServers = []
 
     for (const child of this.agentInstance.children) {
       if (isMessageInstance(child)) {
@@ -296,19 +279,14 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         const message = await this.makeApiCall(abortController)
         this.lastMessage = message
         this.emit('message', message)
+        this.pushMessage(message)
 
-        const assistantMessage: AgentMessageParam = {
-          role: 'assistant',
-          content: message.content,
-        }
-        this.pushMessage(assistantMessage)
-
-        const toolUses = extractToolUses(message)
-        if (toolUses.length > 0 && message.stop_reason === 'tool_use') {
-          const pendingTools: PendingToolCall[] = toolUses.map((tu) => ({
-            id: tu.id,
-            name: tu.name,
-            input: tu.input,
+        const toolCalls = extractToolCalls(message)
+        if (toolCalls.length > 0 && message.stopReason === 'toolUse') {
+          const pendingTools: PendingToolCall[] = toolCalls.map((tc) => ({
+            id: tc.id,
+            name: tc.name,
+            input: tc.arguments,
           }))
 
           this.transition({ type: TransitionType.ToolsRequested, pendingTools })
@@ -318,11 +296,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
             abortController,
           )
 
-          const toolResultMessage: AgentMessageParam = {
-            role: 'user',
-            content: toolResults,
+          // pi models each tool result as its own message rather than batching
+          // them into a single user turn.
+          for (const result of toolResults) {
+            this.pushMessage(result)
           }
-          this.pushMessage(toolResultMessage)
 
           this.transition({ type: TransitionType.ToolsCompleted, results: [] })
 
@@ -333,7 +311,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
           const stepResult = this.buildStepFinishResult(
             message,
-            toolUses,
+            toolCalls,
             toolResults,
           )
           this.emit('stepFinish', stepResult)
@@ -370,42 +348,42 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   ): Promise<AgentMessage> {
     const system = buildSystemPrompt(this.agentInstance)
     const startTime = performance.now()
-    const response = await this.adapter.createTurn(this.client, {
-      model: this.config.model,
+    const message = await createTurn(this.config.models, {
+      model: this.resolvedModel,
+      context: {
+        systemPrompt: system,
+        messages: this.messages as AgentMessageParam[],
+        tools: toPiTools(this.agentInstance.tools),
+      },
       maxTokens: this.config.maxTokens,
-      system,
-      messages: this.messages as AgentMessageParam[],
-      tools: this.agentInstance.tools,
-      builtInTools: this.agentInstance.builtInTools,
-      mcpServers: this.agentInstance.mcpServers,
-      stopSequences: this.config.stopSequences,
       temperature: this.config.temperature,
-      thinking: this.config.thinking,
-      betas: this.config.betas,
-      stream: this.config.stream,
+      reasoning: this.config.reasoning,
+      cacheRetention: this.config.cacheRetention,
+      sessionId: this.config.sessionId,
+      stream: this.config.stream ?? false,
       signal: abortController.signal,
       onStream: (event) => this.emit('stream', event),
     })
     const durationMs = Math.round(performance.now() - startTime)
     debug('api', `Response #${this.iterationCount}`, {
       durationMs,
-      stopReason: response.message.stop_reason,
-      toolUses: extractToolUses(response.message).map((t) => t.name),
-      textLength: extractText(response.message).length,
+      stopReason: message.stopReason,
+      toolUses: extractToolCalls(message).map((t) => t.name),
+      textLength: extractText(message).length,
     })
-    return response.message
+    return message
   }
 
   private async executeTools(
     pendingTools: PendingToolCall[],
     abortController: AbortController,
-  ): Promise<ToolResultContentBlock[]> {
+  ): Promise<ToolResultMessage[]> {
     this.transition({ type: TransitionType.ToolsExecuting, pendingTools })
 
     const signal = abortController.signal
-    const context = buildToolContext(this.config, this.client, signal)
+    const context = buildToolContext(this.config, signal)
 
-    const { tools: internalTools = [], builtInTools = [] } = this.agentInstance
+    const { tools: internalTools = [] } = this.agentInstance
 
     const results = await Promise.all(
       pendingTools.map(async (toolCall) => {
@@ -438,46 +416,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           })
         }
 
-        // check if it's a built-in tool
-        const sdkTool = builtInTools.find((t) => t.name === toolCall.name)
-
-        if (sdkTool) {
-          // Memory tool requires client-side handlers
-          if (isMemoryTool(sdkTool) && sdkTool.memoryHandlers) {
-            if (!isMemoryToolInput(toolCall.input)) {
-              return this.buildToolResult({
-                toolCall,
-                startTime,
-                result: 'Error: Invalid memory tool input payload',
-                isError: true,
-              })
-            }
-            const { result, isError } = await executeMemoryTool(
-              sdkTool,
-              toolCall.input,
-            )
-
-            return this.buildToolResult({
-              toolCall,
-              startTime,
-              result,
-              isError,
-            })
-          }
-
-          // Non-memory SDK tools (web_search, code_interpreter) are dispatched to the provider and handled server-side
-          debug(
-            'tool',
-            `Server-side tool "${toolCall.name}" cannot be executed locally`,
-          )
-          return this.buildToolResult({
-            toolCall,
-            startTime,
-            result: `Tool '${toolCall.name}' is a server-side tool and cannot be executed locally`,
-            isError: true,
-          })
-        }
-
         debug('tool', `Tool "${toolCall.name}" not found`, {
           available: internalTools.map((t) => t.name),
         })
@@ -496,9 +434,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private buildToolResult(opts: {
     toolCall: PendingToolCall
     startTime: number
-    result: ToolResultContentBlock['content']
+    result: ToolResultMessage['content'] | string
     isError: boolean
-  }): ToolResultContentBlock {
+  }): ToolResultMessage {
     const { toolCall, startTime, result, isError } = opts
     const executionTime = performance.now() - startTime
     this.toolExecutionTimes.set(toolCall.id, executionTime)
@@ -510,53 +448,49 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       isError,
     })
 
-    return {
-      type: 'tool_result',
-      tool_use_id: toolCall.id,
+    return toolResultMessage({
+      toolCallId: toolCall.id,
+      toolName: toolCall.name,
       content: result,
-      is_error: isError,
-    }
+      isError,
+    })
   }
 
   private buildStepFinishResult(
     message: AgentMessage,
-    toolUses: Array<{ id: string; name: string; input: JsonObject }>,
-    toolResults: ToolResultContentBlock[],
+    toolCalls: ToolCall[],
+    toolResults: ToolResultMessage[],
   ): OnStepFinishResult {
     const text = extractText(message)
     const thinking = message.content.find(isThinkingBlock)?.thinking
 
-    const toolCalls: StepToolCall[] = toolUses.map((tu) => ({
-      id: tu.id,
-      name: tu.name,
-      input: tu.input,
+    const stepToolCalls: StepToolCall[] = toolCalls.map((tc) => ({
+      id: tc.id,
+      name: tc.name,
+      input: tc.arguments,
     }))
 
-    const toolResultsWithTimes: StepToolResult[] = toolResults.map((tr) => {
-      const toolUse = toolUses.find((tu) => tu.id === tr.tool_use_id)
-      return {
-        toolCallId: tr.tool_use_id,
-        toolName: toolUse?.name ?? 'unknown',
-        result: tr.content,
-        isError: tr.is_error,
-        executionTime: this.toolExecutionTimes.get(tr.tool_use_id),
-      }
-    })
+    const toolResultsWithTimes: StepToolResult[] = toolResults.map((tr) => ({
+      toolCallId: tr.toolCallId,
+      toolName: tr.toolName,
+      result: tr.content,
+      isError: tr.isError,
+      executionTime: this.toolExecutionTimes.get(tr.toolCallId),
+    }))
 
     return {
       stepNumber: this.iterationCount,
       text,
       thinking,
-      toolCalls,
+      toolCalls: stepToolCalls,
       toolResults: toolResultsWithTimes,
-      finishReason: message.stop_reason,
+      finishReason: message.stopReason,
       usage: {
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens,
-        cacheCreationTokens:
-          message.usage.cache_creation_input_tokens ?? undefined,
-        cacheReadTokens: message.usage.cache_read_input_tokens ?? undefined,
-        totalTokens: message.usage.input_tokens + message.usage.output_tokens,
+        inputTokens: message.usage.input,
+        outputTokens: message.usage.output,
+        cacheCreationTokens: message.usage.cacheWrite,
+        cacheReadTokens: message.usage.cacheRead,
+        totalTokens: message.usage.totalTokens,
       },
       message,
       messages: [...this.messages],
@@ -575,15 +509,14 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       content: extractText(this.lastMessage),
       messages: [...this.messages],
       usage: {
-        inputTokens: this.lastMessage.usage.input_tokens,
-        outputTokens: this.lastMessage.usage.output_tokens,
-        cacheCreationInputTokens:
-          this.lastMessage.usage.cache_creation_input_tokens ?? undefined,
-        cacheReadInputTokens:
-          this.lastMessage.usage.cache_read_input_tokens ?? undefined,
+        inputTokens: this.lastMessage.usage.input,
+        outputTokens: this.lastMessage.usage.output,
+        cacheCreationInputTokens: this.lastMessage.usage.cacheWrite,
+        cacheReadInputTokens: this.lastMessage.usage.cacheRead,
+        costUSD: this.lastMessage.usage.cost.total,
       },
       thinking,
-      stopReason: this.lastMessage.stop_reason,
+      stopReason: this.lastMessage.stopReason,
     }
   }
 
@@ -605,11 +538,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       return false
     }
 
-    const totalTokens =
-      this.lastMessage.usage.input_tokens +
-      this.lastMessage.usage.output_tokens +
-      (this.lastMessage.usage.cache_creation_input_tokens ?? 0) +
-      (this.lastMessage.usage.cache_read_input_tokens ?? 0)
+    const totalTokens = this.lastMessage.usage.totalTokens
 
     const threshold =
       compactionControl.contextTokenThreshold ?? DEFAULT_TOKEN_THRESHOLD
@@ -623,23 +552,27 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const currentMessages = [...this.messages] as AgentMessageParam[]
 
     try {
-      const response = await this.adapter.createTurn(this.client, {
-        model: compactionControl.model ?? this.config.model,
+      const compactionModel = compactionControl.model
+        ? resolveModel(
+            this.config.models,
+            this.config.provider,
+            compactionControl.model,
+          )
+        : this.resolvedModel
+
+      const message = await createTurn(this.config.models, {
+        model: compactionModel,
+        context: {
+          messages: [...currentMessages, userMessage(summaryPrompt)],
+          tools: [],
+        },
         maxTokens: this.config.maxTokens,
-        messages: [
-          ...currentMessages,
-          { role: 'user', content: summaryPrompt },
-        ],
-        tools: [],
-        builtInTools: [],
-        mcpServers: [],
-        betas: this.config.betas,
         stream: false,
         signal: signal ?? AbortSignal.timeout(60_000),
         onStream: () => {},
       })
 
-      const summaryText = response.message.content
+      const summaryText = message.content
         .filter(isTextBlock)
         .map((block) => block.text)
         .join('')
@@ -656,9 +589,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       this.store
         .getState()
         .actions.setMessages([
-          { role: 'user', content: [{ type: 'text', text: summaryText }] },
+          userMessage([{ type: 'text', text: summaryText }]),
         ])
-      this.adapter.resetChain?.()
       return true
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
@@ -678,9 +610,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         throw err
       }
       const compactionModel = compactionControl.model ?? this.config.model
-      const tokenCount =
-        (this.lastMessage?.usage.input_tokens ?? 0) +
-        (this.lastMessage?.usage.output_tokens ?? 0)
+      const tokenCount = this.lastMessage?.usage.totalTokens ?? 0
       console.warn(
         `[agentry] Compaction failed for agent "${this.config.agentName ?? 'unknown'}" ` +
           `(model: ${compactionModel}, tokens: ${tokenCount}): ${err.message}. ` +
