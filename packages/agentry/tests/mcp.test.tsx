@@ -2,7 +2,18 @@ import { describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
 import { connectMcpServer, mcpToolName } from '../src/mcp'
 import type { MCPServerConfig } from '../src/mcp'
-import { run, Agent, System, Message, MCP } from '../src'
+import { useState } from 'react'
+import {
+  run,
+  createAgent,
+  Type,
+  Agent,
+  System,
+  Tools,
+  Tool,
+  Message,
+  MCP,
+} from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
 import { ANTHROPIC_TEST_MODEL } from './constants'
 import type { ToolContext } from '../src/types'
@@ -158,5 +169,88 @@ describe('<MCP> in an agent', () => {
     await controller.nextTurn()
     const result = await runPromise
     expect(result.content).toBe('The answer is 5')
+  })
+})
+
+describe('MCP connection lifecycle', () => {
+  test('a server leaving the tree is disconnected and its tools withdrawn', async () => {
+    // A <Condition> deactivating removes the server from the tree. The engine
+    // must drop the connection and stop offering its tools, or the model keeps
+    // seeing tools that can no longer be executed.
+    const { models, controller } = createStepMockModels([
+      { content: [fauxToolCall('toggle', {})] },
+      { content: [fauxText('done')] },
+    ])
+
+    function App() {
+      const [mcpOn, setMcpOn] = useState(true)
+      return (
+        <Agent
+          provider="anthropic"
+          model={ANTHROPIC_TEST_MODEL}
+          maxTokens={100}
+          stream={false}
+        >
+          <System>Test</System>
+          <Tools>
+            <Tool
+              name="toggle"
+              description="Turn the MCP server off"
+              parameters={Type.Object({})}
+              handler={() => {
+                setMcpOn(false)
+                return 'off'
+              }}
+            />
+          </Tools>
+          {mcpOn ? <MCP {...SERVER} /> : null}
+          <Message role="user">Toggle it</Message>
+        </Agent>
+      )
+    }
+
+    const runPromise = run(<App />, { models })
+
+    await controller.waitForNextCall()
+    expect(
+      controller.peekNextCall()!.context.tools!.map((t) => t.name),
+    ).toContain('test__add')
+
+    await controller.nextTurn()
+
+    await controller.waitForNextCall()
+    const names = controller.peekNextCall()!.context.tools!.map((t) => t.name)
+    expect(names).not.toContain('test__add')
+    expect(names).toContain('toggle')
+
+    await controller.nextTurn()
+    await runPromise
+  })
+
+  test('closing the handle tears down connections', async () => {
+    const { models, controller } = createStepMockModels([
+      { content: [fauxText('ok')] },
+    ])
+
+    const handle = createAgent(
+      <Agent
+        provider="anthropic"
+        model={ANTHROPIC_TEST_MODEL}
+        maxTokens={100}
+        stream={false}
+      >
+        <System>Test</System>
+        <MCP {...SERVER} />
+        <Message role="user">Hi</Message>
+      </Agent>,
+      { models },
+    )
+
+    const runPromise = handle.run()
+    await controller.nextTurn()
+    await runPromise
+
+    handle.close()
+    expect(true).toBe(true)
   })
 })

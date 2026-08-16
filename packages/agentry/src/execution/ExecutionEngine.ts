@@ -371,6 +371,13 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     for (const [name, connection] of this.mcpConnections) {
       if (!declaredNames.has(name)) {
         this.mcpConnections.delete(name)
+        // Withdraw the tools too. The reconciler removes the <MCP> element
+        // from `mcpServers`, but the tools derived from it were written
+        // straight into the tool map and would otherwise keep being offered
+        // to the model after the server they proxy to is gone.
+        for (const tool of connection.tools) {
+          this.agentInstance.tools.delete(tool.name)
+        }
         await connection.close().catch(() => {})
         debug('mcp', `Disconnected from "${name}" (no longer in tree)`)
       }
