@@ -224,6 +224,19 @@ function throwIfFailed(
       model.id,
     )
   }
+
+  // `deferred` and `pending` carry no content and no tool calls, so letting
+  // them through would end the run with empty output and no error at all.
+  // agentry never requests deferred responses, but failing loudly beats a
+  // silent empty result if that ever changes.
+  if (message.stopReason === 'deferred' || message.stopReason === 'pending') {
+    throw new AgentryProviderError(
+      `Provider returned an unsupported stop reason "${message.stopReason}". ` +
+        `agentry does not support deferred responses.`,
+      model.provider,
+      model.id,
+    )
+  }
 }
 
 /**

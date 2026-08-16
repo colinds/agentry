@@ -133,6 +133,30 @@ Both are client-side, because pi models only client-executed tools.
 - Both consequently work on every provider, not just those with a native
   connector.
 
+### Concurrent subagents
+
+Subagents are already safe to run in parallel — each `SubagentHandle` gets its
+own zustand store and its own reconciler container, and each run gets its own
+`sessionId`. Nothing is shared but the module-level model-catalog memo.
+
+```ts
+const [tech, biz] = await Promise.all([
+  context.runAgent(<Agent name="tech">…</Agent>),
+  context.runAgent(<Agent name="biz">…</Agent>),
+])
+```
+
+This already happens implicitly: `executeTools` runs a turn's tool calls under
+`Promise.all`, so two `<AgentTool>` calls in one assistant turn are two
+concurrent subagent runs.
+
+What is **not** supported is deferring a subagent *across* turns — starting one
+in turn N and collecting it in turn N+2. Subagent runs are awaited within the
+turn that starts them, and nothing survives the process. Durable background runs
+would need a serializable agent identity, but `<AgentTool agent={...}>` is a
+closure over lexical scope — which is the point of the JSX API. A caller who
+needs durability owns the process and should queue `run(<Agent …>)` themselves.
+
 ### Conditions
 
 - Boolean conditions evaluate synchronously before each API call.

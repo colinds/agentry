@@ -349,3 +349,24 @@ describe('tool results may carry images', () => {
     await runPromise
   })
 })
+
+describe('unsupported stop reasons', () => {
+  test('a deferred response fails loudly rather than returning empty', async () => {
+    // `deferred` carries no content and no tool calls; without a guard the
+    // engine would end the run with empty output and no error.
+    const { models, model, controller } = createStepMockModels([
+      { content: '', stopReason: 'deferred' },
+    ])
+
+    const turn = createTurn(models, {
+      model,
+      context: userTurn,
+      stream: false,
+      signal: new AbortController().signal,
+      onStream: () => {},
+    })
+
+    await controller.nextTurn()
+    await expect(turn).rejects.toThrow(/unsupported stop reason "deferred"/)
+  })
+})
