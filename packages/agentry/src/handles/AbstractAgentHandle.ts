@@ -21,6 +21,10 @@ import { yieldToScheduler } from '../scheduler'
 import { AgentProvider } from '../context'
 import { userMessage } from '../types/messages'
 import { describeMissingAuth, getDefaultModels } from '../pi/models'
+import {
+  describeContextUsage,
+  type ContextUsage,
+} from '../execution/contextUsage'
 import { cleanupSessionResources, type Models } from '@earendil-works/pi-ai'
 
 interface AgentHandleEvents {
@@ -203,6 +207,44 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
     // yield to React's scheduler for pending effects
     await yieldToScheduler()
+  }
+
+  /**
+   * Reports what is filling the context window: the assembled system prompt,
+   * each tool's definition, and the message history, against the model's
+   * window.
+   *
+   * Available once the agent has been prepared (after the first `run()`), since
+   * the tool set is only known after a render.
+   */
+  describeContext(): ContextUsage | undefined {
+    if (!this.instance) return undefined
+
+    const provider = this.instance.props.provider
+    const modelId = this.instance.props.model
+    let contextWindow: number | undefined
+
+    if (this.models && provider && modelId) {
+      contextWindow = this.models.getModel(provider, modelId)?.contextWindow
+    }
+
+    // The most recent assistant turn carries what the provider actually
+    // charged, which is the only trustworthy absolute figure.
+    const messages = this.store.getState().messages
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === 'assistant')
+    const reportedInputTokens =
+      lastAssistant && 'usage' in lastAssistant
+        ? lastAssistant.usage.input
+        : undefined
+
+    return describeContextUsage({
+      agent: this.instance,
+      messages,
+      contextWindow,
+      reportedInputTokens,
+    })
   }
 
   /**

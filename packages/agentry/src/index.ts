@@ -30,6 +30,12 @@ export type {
 } from './mcp'
 
 export type {
+  ContextUsage,
+  ContextSection,
+  ToolUsage,
+} from './execution/contextUsage'
+
+export type {
   AgentResult,
   AgentMessageParam,
   AgentStreamEvent,
