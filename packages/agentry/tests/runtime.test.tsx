@@ -955,3 +955,50 @@ test('thinking blocks with signatures survive in replayed history', async () => 
   await controller.nextTurn()
   await runPromise
 })
+
+test('usage totals cover the whole run, not just the final turn', async () => {
+  // A tool loop makes one provider call per turn. Reporting only the last
+  // message's usage under-reported a long run by roughly its turn count.
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('noop', {})] },
+    { content: [fauxToolCall('noop', {})] },
+    { content: [fauxText('done')] },
+  ])
+
+  const steps: number[] = []
+
+  const runPromise = run(
+    <Agent
+      provider="anthropic"
+      model={ANTHROPIC_TEST_MODEL}
+      maxTokens={100}
+      stream={false}
+      onStepFinish={(step) => {
+        steps.push(step.usage.outputTokens)
+      }}
+    >
+      <System>Test</System>
+      <Tools>
+        <Tool
+          name="noop"
+          description="Does nothing"
+          parameters={Type.Object({})}
+          handler={() => 'ok'}
+        />
+      </Tools>
+      <Message role="user">Go</Message>
+    </Agent>,
+    { models },
+  )
+
+  await controller.nextTurn()
+  await controller.nextTurn()
+  await controller.nextTurn()
+  const result = await runPromise
+
+  expect(steps).toHaveLength(3)
+  const summed = steps.reduce((a, b) => a + b, 0)
+  expect(result.usage.outputTokens).toBe(summed)
+  // Guard against the sum coincidentally matching the last turn alone.
+  expect(summed).toBeGreaterThan(steps[2]!)
+})

@@ -98,6 +98,10 @@ export type AgentStreamEvent =
 export interface AgentResult {
   content: string
   messages: AgentMessageParam[]
+  /**
+   * Totals for the whole run, summed over every provider call it made — a tool
+   * loop is many turns, not one.
+   */
   usage: {
     inputTokens: number
     outputTokens: number

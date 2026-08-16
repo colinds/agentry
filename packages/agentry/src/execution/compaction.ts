@@ -34,7 +34,6 @@ Wrap your summary in <summary></summary> tags.`
 export interface RequestOptions {
   headers?: ProviderHeaders
   timeoutMs?: number
-  maxRetries?: number
 }
 
 export interface CompactionSettings {
@@ -163,7 +162,6 @@ export async function compactMessages(options: {
     maxTokens,
     headers: request?.headers,
     timeoutMs: request?.timeoutMs,
-    maxRetries: request?.maxRetries,
     stream: false,
     // A one-off summary prompt is never reused, so caching it only evicts
     // entries that would have been hit. A fresh id keeps it out of the run's

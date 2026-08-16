@@ -71,8 +71,6 @@ export interface TurnRequest {
   headers?: ProviderHeaders
   /** Request timeout. Without this, provider SDK defaults apply (10 minutes). */
   timeoutMs?: number
-  maxRetries?: number
-  maxRetryDelayMs?: number
   /** Retry policy for transient provider failures. */
   retry?: RetryPolicy
   stream: boolean
@@ -146,8 +144,6 @@ export async function createTurn(
     samplingParams: request.samplingParams,
     headers: request.headers,
     timeoutMs: request.timeoutMs,
-    maxRetries: request.maxRetries,
-    maxRetryDelayMs: request.maxRetryDelayMs,
     signal: request.signal,
   }
 

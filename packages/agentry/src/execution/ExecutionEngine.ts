@@ -54,6 +54,7 @@ import {
 import { resolveModel } from '../pi/models'
 import { toPiTools } from '../pi/tools'
 import { AgentSession } from './session'
+import { addUsage, emptyRunUsage } from './usage'
 import {
   diffResources,
   hasResourceChanges,
@@ -129,6 +130,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private aborted = false
   private agentInstance: AgentInstance
   private toolExecutionTimes = new Map<string, number>()
+  /** Usage summed over every turn of this run, not just the last. */
+  private runUsage = emptyRunUsage()
   /**
    * Cross-run state. Owned by the handle when there is one, so MCP connections
    * and the narration baseline survive `sendMessage`.
@@ -303,6 +306,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
         const message = await this.callWithOverflowRecovery(abortController)
         this.lastMessage = message
+        addUsage(this.runUsage, message.usage)
         this.emit('message', message)
         this.pushMessage(message)
 
@@ -623,14 +627,16 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     return {
       content: extractText(this.lastMessage),
       messages: [...this.messages],
+      // Summed across the run. A tool loop makes several provider calls, and
+      // reporting only the final one under-reports by roughly the turn count.
       usage: {
-        inputTokens: this.lastMessage.usage.input,
-        outputTokens: this.lastMessage.usage.output,
-        cacheCreationInputTokens: this.lastMessage.usage.cacheWrite,
-        cacheReadInputTokens: this.lastMessage.usage.cacheRead,
-        reasoningTokens: this.lastMessage.usage.reasoning,
-        costUSD: this.lastMessage.usage.cost.total,
-        cost: this.lastMessage.usage.cost,
+        inputTokens: this.runUsage.input,
+        outputTokens: this.runUsage.output,
+        cacheCreationInputTokens: this.runUsage.cacheWrite,
+        cacheReadInputTokens: this.runUsage.cacheRead,
+        reasoningTokens: this.runUsage.reasoning,
+        costUSD: this.runUsage.cost.total,
+        cost: this.runUsage.cost,
       },
       thinking,
       stopReason: this.lastMessage.stopReason,
