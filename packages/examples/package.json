@@ -7,10 +7,7 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "catalog:",
-    "openai": "catalog:",
-    "agentry": "workspace:*",
-    "zod": "catalog:"
+    "agentry": "workspace:*"
   },
   "peerDependencies": {
     "react": "^19.0.0"

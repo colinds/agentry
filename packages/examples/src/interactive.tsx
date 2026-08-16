@@ -1,31 +1,20 @@
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { createAI, defineTool, Agent, System, Tools, Tool } from 'agentry'
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
-import { WebSearch as AnthropicWebSearch } from 'agentry/anthropic'
-import { WebSearch as OpenAIWebSearch } from 'agentry/openai'
 import { MODEL, OPENAI_MODEL } from './constants'
 
 const EXAMPLE_PROVIDER =
   process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
-const WebSearch =
-  EXAMPLE_PROVIDER === 'openai' ? OpenAIWebSearch : AnthropicWebSearch
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
-const ai =
-  EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ providers: { openai: { client: new OpenAI() } } })
-    : createAI({
-        providers: { anthropic: { client: new Anthropic() } },
-      })
+const ai = EXAMPLE_PROVIDER === 'openai' ? createAI() : createAI()
 
 const InteractiveAgent = () => {
   const docsSearchTool = defineTool({
     name: 'search_docs',
     description: 'search through documentation',
     strict: true,
-    parameters: z.object({
-      query: z.string().describe('search query'),
-      limit: z.number().optional().default(5).describe('max results'),
+    parameters: Type.Object({
+      query: Type.String({ description: 'search query' }),
+      limit: Type.Optional(Type.Number({ default: 5 })),
     }),
     handler: async ({ query, limit }) => {
       return `Found ${limit} results for "${query}":\n1. Getting Started\n2. API Reference\n3. Examples`
@@ -44,7 +33,6 @@ const InteractiveAgent = () => {
       </System>
       <Tools>
         <Tool {...docsSearchTool} />
-        <WebSearch maxUses={3} />
       </Tools>
     </Agent>
   )

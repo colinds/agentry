@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { run, Agent, System, Context, Tools, Tool } from 'agentry'
 import { MODEL } from './constants'
 import { runInteractive } from './utils/interactive'
@@ -90,8 +90,11 @@ function AuthWorkflowAgent() {
           <Tool
             name="submit_email"
             description="Submit user's email address for authentication"
-            parameters={z.object({
-              email: z.string().email().describe("the user's email address"),
+            parameters={Type.Object({
+              email: Type.String({
+                format: 'email',
+                description: "the user's email address",
+              }),
             })}
             handler={async ({ email }) => {
               const result = await lookupEmail(email)
@@ -110,8 +113,10 @@ function AuthWorkflowAgent() {
             name="submit_secret_word"
             description="Submit the secret word to complete authentication"
             strict
-            parameters={z.object({
-              secretWord: z.string().describe("the user's secret word"),
+            parameters={Type.Object({
+              secretWord: Type.String({
+                description: "the user's secret word",
+              }),
             })}
             handler={async ({ secretWord }) => {
               const result = await verifySecretWord(auth.email, secretWord)
@@ -134,7 +139,7 @@ function AuthWorkflowAgent() {
             <Tool
               name="get_account_balance"
               description="Get the current account balance"
-              parameters={z.object({})}
+              parameters={Type.Object({})}
               handler={async () => {
                 const balance = (Math.random() * 10000).toFixed(2)
                 return `Account balance for ${auth.name}: $${balance}`
@@ -143,9 +148,9 @@ function AuthWorkflowAgent() {
             <Tool
               name="transfer_funds"
               description="Transfer funds to another account"
-              parameters={z.object({
-                toEmail: z.string().describe('recipient email'),
-                amount: z.number().positive().describe('amount to transfer'),
+              parameters={Type.Object({
+                toEmail: Type.String({ description: 'recipient email' }),
+                amount: Type.Number({ exclusiveMinimum: 0 }),
               })}
               handler={async ({ toEmail, amount }) => {
                 return `Successfully transferred $${amount.toFixed(2)} to ${toEmail}. Transaction ID: TXN-${Date.now()}`
@@ -154,22 +159,21 @@ function AuthWorkflowAgent() {
             <Tool
               name="get_transaction_history"
               description="Get recent transaction history"
-              parameters={z.object({
-                limit: z
-                  .number()
-                  .optional()
-                  .default(5)
-                  .describe('number of transactions'),
+              parameters={Type.Object({
+                limit: Type.Optional(Type.Number({ default: 5 })),
               })}
               handler={async ({ limit }) => {
-                const transactions = Array.from({ length: limit }, (_, i) => ({
-                  id: `TXN-${Date.now() - i * 100000}`,
-                  type: i % 2 === 0 ? 'credit' : 'debit',
-                  amount: (Math.random() * 500).toFixed(2),
-                  date: new Date(Date.now() - i * 86400000)
-                    .toISOString()
-                    .split('T')[0],
-                }))
+                const transactions = Array.from(
+                  { length: limit ?? 5 },
+                  (_, i) => ({
+                    id: `TXN-${Date.now() - i * 100000}`,
+                    type: i % 2 === 0 ? 'credit' : 'debit',
+                    amount: (Math.random() * 500).toFixed(2),
+                    date: new Date(Date.now() - i * 86400000)
+                      .toISOString()
+                      .split('T')[0],
+                  }),
+                )
                 return JSON.stringify(transactions, null, 2)
               }}
             />

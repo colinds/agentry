@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import {
   run,
   defineTool,
@@ -63,8 +63,10 @@ function createTools() {
     name: 'calculate',
     description: 'Perform basic math calculations',
     strict: true,
-    parameters: z.object({
-      expression: z.string().describe('Mathematical expression to evaluate'),
+    parameters: Type.Object({
+      expression: Type.String({
+        description: 'Mathematical expression to evaluate',
+      }),
     }),
     handler: async ({ expression }) => {
       try {
@@ -81,7 +83,7 @@ function createTools() {
   const timeTool = defineTool({
     name: 'get_time',
     description: 'Get the current time in ISO format',
-    parameters: z.object({}),
+    parameters: Type.Object({}),
     handler: async () => {
       const now = new Date()
       return `Current time: ${now.toISOString()}`
@@ -109,9 +111,15 @@ const DemoAgent = ({ initialMessages = [] }: DemoAgentProps) => {
       </System>
 
       {/* Pre-load saved messages if provided */}
-      {initialMessages.map((msg, idx) => (
-        <Message key={idx} role={msg.role} content={msg.content} />
-      ))}
+      {initialMessages
+        .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
+        .map((msg, idx) => (
+          <Message
+            key={idx}
+            role={msg.role as 'user' | 'assistant'}
+            content={typeof msg.content === 'string' ? msg.content : ''}
+          />
+        ))}
 
       <Tools>
         <Tool {...tools[0]} />

@@ -1,17 +1,11 @@
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { run, Agent, AgentTool, Message, System, Tools } from 'agentry'
-import OpenAI from 'openai'
 
 const ORCHESTRATOR_MODEL = 'gpt-5.2'
 const CODEX_MODEL = 'gpt-5.3-codex'
 
 const result = await run(
-  <Agent
-    provider="openai"
-    model={ORCHESTRATOR_MODEL}
-    maxTokens={4096}
-    websocket={true}
-  >
+  <Agent provider="openai" model={ORCHESTRATOR_MODEL} maxTokens={4096}>
     <System>
       You are a senior engineering lead. When you need code written or reviewed,
       delegate to the codex subagent. Synthesize its output into a final answer.
@@ -21,12 +15,11 @@ const result = await run(
       <AgentTool
         name="codex"
         description="A code generation specialist. Use for writing, reviewing, or refactoring code."
-        parameters={z.object({
-          task: z.string().describe('What the codex agent should do'),
-          language: z
-            .string()
-            .optional()
-            .describe('Programming language, if relevant'),
+        parameters={Type.Object({
+          task: Type.String({ description: 'What the codex agent should do' }),
+          language: Type.Optional(
+            Type.String({ description: 'Programming language, if relevant' }),
+          ),
         })}
         agent={({ task, language }) => {
           console.log(`[codex] spawning subagent with model=${CODEX_MODEL}`)
@@ -35,7 +28,6 @@ const result = await run(
               provider="openai"
               model={CODEX_MODEL}
               name="codex"
-              websocket={true}
               onComplete={(result) => {
                 console.log(
                   `[codex] subagent complete — ${result.usage.inputTokens} in / ${result.usage.outputTokens} out tokens (model=${CODEX_MODEL})`,
@@ -60,11 +52,6 @@ const result = await run(
       requests. Include unit tests.
     </Message>
   </Agent>,
-  {
-    providers: {
-      openai: { client: new OpenAI() },
-    },
-  },
 )
 
 console.log(result.content)

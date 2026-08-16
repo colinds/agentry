@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { run, Agent, System, Tools, Tool, Context } from 'agentry'
 import { MODEL } from './constants'
 
@@ -18,8 +18,8 @@ function CTFGame() {
           name="guess"
           description="Guess a number between 1 and 100."
           strict
-          parameters={z.object({
-            number: z.number().describe('Your guess (1-100)'),
+          parameters={Type.Object({
+            number: Type.Number({ description: 'Your guess (1-100)' }),
           })}
           handler={async ({ number }) => {
             console.log('Guess:', number)
@@ -34,7 +34,7 @@ function CTFGame() {
           <Tool
             name="claim_flag"
             description="Claim your victory flag!"
-            parameters={z.object({})}
+            parameters={Type.Object({})}
             handler={async () => 'you win'}
           />
         )}

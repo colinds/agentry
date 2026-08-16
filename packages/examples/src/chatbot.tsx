@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { Type } from 'agentry'
 import {
   createAI,
   defineTool,
@@ -8,24 +8,13 @@ import {
   Tool,
   AgentTool,
 } from 'agentry'
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
-import { WebSearch as AnthropicWebSearch } from 'agentry/anthropic'
-import { WebSearch as OpenAIWebSearch } from 'agentry/openai'
 import { MODEL, OPENAI_MODEL } from './constants'
 import { runInteractive } from './utils/interactive'
 
 const EXAMPLE_PROVIDER =
   process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
-const WebSearch =
-  EXAMPLE_PROVIDER === 'openai' ? OpenAIWebSearch : AnthropicWebSearch
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
-const ai =
-  EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ providers: { openai: { client: new OpenAI() } } })
-    : createAI({
-        providers: { anthropic: { client: new Anthropic() } },
-      })
+const ai = EXAMPLE_PROVIDER === 'openai' ? createAI() : createAI()
 
 const ChatbotAgent = () => {
   // Calculator tool for basic math
@@ -33,10 +22,10 @@ const ChatbotAgent = () => {
     name: 'calculate',
     description: 'Perform basic math calculations',
     strict: true,
-    parameters: z.object({
-      expression: z
-        .string()
-        .describe('Mathematical expression to evaluate (e.g., "2 + 2")'),
+    parameters: Type.Object({
+      expression: Type.String({
+        description: 'Mathematical expression to evaluate (e.g., "2 + 2")',
+      }),
     }),
     handler: async ({ expression }) => {
       try {
@@ -55,7 +44,7 @@ const ChatbotAgent = () => {
   const timeTool = defineTool({
     name: 'get_time',
     description: 'Get the current date and time in ISO format',
-    parameters: z.object({}), // no parameters needed
+    parameters: Type.Object({}), // no parameters needed
     handler: async () => {
       return new Date().toISOString()
     },
@@ -65,7 +54,7 @@ const ChatbotAgent = () => {
   const jokeTool = defineTool({
     name: 'tell_joke',
     description: 'Tell a short, family-friendly programming joke',
-    parameters: z.object({}), // no parameters needed
+    parameters: Type.Object({}), // no parameters needed
     handler: async () => {
       const jokes = [
         'Why do programmers prefer dark mode? Because light attracts bugs.',
@@ -92,9 +81,7 @@ const ChatbotAgent = () => {
         find up-to-date information on the internet, then synthesize concise,
         source-backed answers. Prefer official and reputable sources.
       </System>
-      <Tools>
-        <WebSearch maxUses={5} />
-      </Tools>
+      <Tools></Tools>
     </Agent>
   )
 
@@ -119,7 +106,7 @@ const ChatbotAgent = () => {
         <AgentTool
           name="web_researcher"
           description="Specialist subagent for web research using the web_search tool"
-          parameters={z.object({})}
+          parameters={Type.Object({})}
           agent={() => <WebSearchSubagent />}
         />
       </Tools>

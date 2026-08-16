@@ -1,6 +1,6 @@
 import { run, Agent, System, Tools, Tool, Message, useMessages } from 'agentry'
 import { MODEL } from './constants'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import type React from 'react'
 
 /**
@@ -208,11 +208,16 @@ const result = await run(
         name="analyze_code"
         description="Analyze code by spawning the appropriate specialist agent based on programming language"
         strict
-        parameters={z.object({
-          code: z.string().describe('The code to analyze'),
-          language: z
-            .enum(['python', 'typescript', 'rust'])
-            .describe('Programming language'),
+        parameters={Type.Object({
+          code: Type.String({ description: 'The code to analyze' }),
+          language: Type.Union(
+            [
+              Type.Literal('python'),
+              Type.Literal('typescript'),
+              Type.Literal('rust'),
+            ],
+            { description: 'Programming language' },
+          ),
         })}
         handler={async (input, context) => {
           console.log(`\n📝 Spawning ${input.language} specialist agent...`)
@@ -242,11 +247,16 @@ const result = await run(
         name="multi_perspective_analysis"
         description="Analyze content from multiple perspectives in parallel by spawning multiple expert agents concurrently"
         strict
-        parameters={z.object({
-          content: z.string().describe('Content to analyze'),
-          perspectives: z
-            .array(z.enum(['technical', 'business', 'creative', 'security']))
-            .describe('Which perspectives to analyze from'),
+        parameters={Type.Object({
+          content: Type.String({ description: 'Content to analyze' }),
+          perspectives: Type.Array(
+            Type.Union([
+              Type.Literal('technical'),
+              Type.Literal('business'),
+              Type.Literal('creative'),
+              Type.Literal('security'),
+            ]),
+          ),
         })}
         handler={async (input, context) => {
           console.log(
@@ -301,11 +311,16 @@ const result = await run(
         name="research_with_depth"
         description="Conduct research with configurable depth level by spawning agents with different token limits"
         strict
-        parameters={z.object({
-          topic: z.string().describe('Research topic'),
-          depth: z
-            .enum(['shallow', 'medium', 'deep'])
-            .describe('Research depth'),
+        parameters={Type.Object({
+          topic: Type.String({ description: 'Research topic' }),
+          depth: Type.Union(
+            [
+              Type.Literal('shallow'),
+              Type.Literal('medium'),
+              Type.Literal('deep'),
+            ],
+            { description: 'Research depth' },
+          ),
         })}
         handler={async (input, context) => {
           console.log(
@@ -338,8 +353,10 @@ const result = await run(
         name="research_and_summarize"
         description="First spawn a research agent, then spawn a summarizer agent with the research results"
         strict
-        parameters={z.object({
-          topic: z.string().describe('Topic to research and summarize'),
+        parameters={Type.Object({
+          topic: Type.String({
+            description: 'Topic to research and summarize',
+          }),
         })}
         handler={async (input, context) => {
           console.log(`\n📚 Step 1: Researching ${input.topic}...`)

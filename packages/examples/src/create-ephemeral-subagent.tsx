@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { run, Agent, System, Message, Tools, Tool, AgentTool } from 'agentry'
 import { MODEL } from './constants'
 
@@ -71,8 +71,8 @@ function EphemeralSubagent({
     <AgentTool
       name={config.name}
       description={config.description}
-      parameters={z.object({
-        task: z.string().describe('Task for the subagent to perform'),
+      parameters={Type.Object({
+        task: Type.String({ description: 'Task for the subagent to perform' }),
       })}
       agent={(input) => (
         <EphemeralAgent config={config} task={input.task} onRemove={onRemove} />
@@ -93,20 +93,18 @@ function CreateSubagentTool({
       name="create_subagent"
       description="Create a new temporary subagent that will automatically remove itself when done. Requires: name (lowercase with underscores), description (what it does), systemPrompt (full instructions)."
       strict
-      parameters={z.object({
-        name: z
-          .string()
-          .describe(
+      parameters={Type.Object({
+        name: Type.String({
+          description:
             'Subagent name in lowercase with underscores, e.g. "calculator" (required)',
-          ),
-        description: z
-          .string()
-          .describe('Brief description of what the subagent does (required)'),
-        systemPrompt: z
-          .string()
-          .describe(
+        }),
+        description: Type.String({
+          description: 'Brief description of what the subagent does (required)',
+        }),
+        systemPrompt: Type.String({
+          description:
             "Complete system prompt/instructions that define the subagent's behavior (required)",
-          ),
+        }),
       })}
       handler={async (input) => {
         const { name, description, systemPrompt } = input

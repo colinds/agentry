@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { run, Agent, System, Tools, Tool, Message, AgentTool } from 'agentry'
 import { MODEL } from './constants'
 
@@ -36,24 +36,21 @@ function CreateSubagentTool({
       name="create_subagent"
       description="Create a new specialist subagent. The subagent will be available as a tool in the next step."
       strict
-      parameters={z.object({
-        name: z
-          .string()
-          .describe(
+      parameters={Type.Object({
+        name: Type.String({
+          description:
             'Subagent name in lowercase with underscores (e.g., "coder_agent")',
-          ),
-        description: z
-          .string()
-          .describe('Brief description of what the subagent does'),
-        systemPrompt: z
-          .string()
-          .describe(
+        }),
+        description: Type.String({
+          description: 'Brief description of what the subagent does',
+        }),
+        systemPrompt: Type.String({
+          description:
             "Complete system prompt that defines the subagent's behavior",
-          ),
-        temperature: z
-          .number()
-          .optional()
-          .describe('Temperature between 0 and 2, optional'),
+        }),
+        temperature: Type.Optional(
+          Type.Number({ description: 'Temperature between 0 and 2, optional' }),
+        ),
       })}
       handler={async (input) => {
         const { name, description, systemPrompt, temperature } = input
@@ -131,8 +128,8 @@ function SubagentComponent({ config }: { config: Subagent }) {
     <AgentTool
       name={config.name}
       description={config.description}
-      parameters={z.object({
-        task: z.string().describe('Task for the subagent to perform'),
+      parameters={Type.Object({
+        task: Type.String({ description: 'Task for the subagent to perform' }),
       })}
       agent={(input) => (
         <DynamicAgent

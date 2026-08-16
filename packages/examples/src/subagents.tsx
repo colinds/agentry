@@ -1,6 +1,6 @@
 import { run, Agent, System, Tools, Message, AgentTool } from 'agentry'
 import { MODEL } from './constants'
-import { z } from 'zod'
+import { Type } from 'agentry'
 
 // Example showing the new AgentTool component for explicit agent nesting
 // AgentTool replaces implicit nesting and provides type-safe parameter passing
@@ -51,8 +51,8 @@ const result = await run(
       <AgentTool
         name="researcher"
         description="Research specialist who finds information about a specific topic"
-        parameters={z.object({
-          topic: z.string().describe('The topic to research'),
+        parameters={Type.Object({
+          topic: Type.String({ description: 'The topic to research' }),
         })}
         agent={(input) => <ResearcherAgent topic={input.topic} />}
       />
@@ -61,11 +61,16 @@ const result = await run(
       <AgentTool
         name="coder"
         description="Code generation specialist who writes code in a specific language"
-        parameters={z.object({
-          task: z.string().describe('What code to write'),
-          language: z
-            .enum(['javascript', 'typescript', 'python'])
-            .describe('Programming language to use'),
+        parameters={Type.Object({
+          task: Type.String({ description: 'What code to write' }),
+          language: Type.Union(
+            [
+              Type.Literal('javascript'),
+              Type.Literal('typescript'),
+              Type.Literal('python'),
+            ],
+            { description: 'Programming language to use' },
+          ),
         })}
         agent={(input) => (
           <CoderAgent task={input.task} language={input.language} />

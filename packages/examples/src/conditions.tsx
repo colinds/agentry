@@ -17,7 +17,7 @@
 import { useState } from 'react'
 import { run, Agent, System, Context, Condition, Tools, Tool } from 'agentry'
 import { MODEL } from './constants'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { runInteractive } from './utils/interactive'
 
 function ConditionDemoAgent() {
@@ -55,12 +55,16 @@ function ConditionDemoAgent() {
           <Tool
             name="authenticate"
             description="Authenticate the user with their email address"
-            parameters={z.object({
-              email: z.string().email().describe("User's email address"),
-              isAdmin: z
-                .boolean()
-                .optional()
-                .describe('Whether this user has admin privileges'),
+            parameters={Type.Object({
+              email: Type.String({
+                format: 'email',
+                description: "User's email address",
+              }),
+              isAdmin: Type.Optional(
+                Type.Boolean({
+                  description: 'Whether this user has admin privileges',
+                }),
+              ),
             })}
             handler={async ({ email, isAdmin: admin }) => {
               console.log(
@@ -86,7 +90,7 @@ function ConditionDemoAgent() {
           <Tool
             name="get_status"
             description="Get current system status and available features"
-            parameters={z.object({})}
+            parameters={Type.Object({})}
             handler={async () => {
               return `System Status: ✅ Operational
 User: Authenticated${isAdmin ? ' (Admin)' : ''}
@@ -102,7 +106,7 @@ ${isAdmin ? '- Access admin functions' : ''}`
           <Tool
             name="logout"
             description="Log out the current user"
-            parameters={z.object({})}
+            parameters={Type.Object({})}
             handler={async () => {
               console.log('\n🔓 [AUTH] User logged out\n')
               setIsAuthenticated(false)
@@ -114,7 +118,7 @@ ${isAdmin ? '- Access admin functions' : ''}`
           <Tool
             name="upgrade_to_premium"
             description="Upgrade the authenticated user to premium tier"
-            parameters={z.object({})}
+            parameters={Type.Object({})}
             handler={async () => {
               console.log('\n⭐ [PREMIUM] User upgraded to premium\n')
               setIsPremium(true)
@@ -133,10 +137,15 @@ ${isAdmin ? '- Access admin functions' : ''}`
             <Tool
               name="advanced_analytics"
               description="Run advanced analytics and generate insights"
-              parameters={z.object({
-                dataType: z
-                  .enum(['user', 'system', 'performance'])
-                  .describe('Type of data to analyze'),
+              parameters={Type.Object({
+                dataType: Type.Union(
+                  [
+                    Type.Literal('user'),
+                    Type.Literal('system'),
+                    Type.Literal('performance'),
+                  ],
+                  { description: 'Type of data to analyze' },
+                ),
               })}
               handler={async ({ dataType }) => {
                 return `📊 Advanced Analytics Report (${dataType}):
@@ -169,10 +178,10 @@ Insights: [Premium insights would appear here]`
           <Tool
             name="admin_reset"
             description="Admin function to reset the system"
-            parameters={z.object({
-              confirm: z
-                .boolean()
-                .describe('Confirmation that user wants to reset'),
+            parameters={Type.Object({
+              confirm: Type.Boolean({
+                description: 'Confirmation that user wants to reset',
+              }),
             })}
             handler={async ({ confirm }) => {
               if (!confirm) {
@@ -201,12 +210,11 @@ Insights: [Premium insights would appear here]`
             name="calculate"
             description="Perform mathematical calculations and evaluate expressions"
             strict
-            parameters={z.object({
-              expression: z
-                .string()
-                .describe(
+            parameters={Type.Object({
+              expression: Type.String({
+                description:
                   'Mathematical expression to evaluate (e.g., "2 + 2", "15 * 7")',
-                ),
+              }),
             })}
             handler={async ({ expression }) => {
               try {
@@ -234,10 +242,11 @@ Insights: [Premium insights would appear here]`
             name="search_info"
             description="Search for information about a topic"
             strict
-            parameters={z.object({
-              topic: z
-                .string()
-                .describe('Topic to search for and retrieve information about'),
+            parameters={Type.Object({
+              topic: Type.String({
+                description:
+                  'Topic to search for and retrieve information about',
+              }),
             })}
             handler={async ({ topic }) => {
               // Simulate a knowledge base lookup
