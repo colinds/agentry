@@ -53,7 +53,7 @@ import {
 } from './compaction'
 import { resolveModel } from '../pi/models'
 import { toPiTools } from '../pi/tools'
-import { connectMcpServer, type McpConnection } from '../mcp'
+import { McpConnectionSet } from '../mcp'
 import {
   diffResources,
   hasResourceChanges,
@@ -125,8 +125,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private aborted = false
   private agentInstance: AgentInstance
   private toolExecutionTimes = new Map<string, number>()
-  /** Live MCP connections, keyed by server name. */
-  private mcpConnections = new Map<string, McpConnection>()
+  /** Live MCP connections for this run. */
+  private mcpConnections = new McpConnectionSet()
   /** Last resource set narrated to the model, for turn-boundary diffing. */
   private lastNarratedResources: ResourceSnapshot | null = null
 
@@ -364,36 +364,16 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
    * across turns; a server that leaves the tree (for example when a
    * `<Condition>` deactivates) is disconnected.
    */
+  /**
+   * Reconciles MCP connections with the `<MCP>` elements currently in the tree.
+   * The set owns both the sockets and the tools they contribute.
+   */
   private async syncMcpConnections(signal: AbortSignal): Promise<void> {
-    const declared = this.agentInstance.mcpServers
-    const declaredNames = new Set(declared.map((server) => server.name))
-
-    for (const [name, connection] of this.mcpConnections) {
-      if (!declaredNames.has(name)) {
-        this.mcpConnections.delete(name)
-        // Withdraw the tools too. The reconciler removes the <MCP> element
-        // from `mcpServers`, but the tools derived from it were written
-        // straight into the tool map and would otherwise keep being offered
-        // to the model after the server they proxy to is gone.
-        for (const tool of connection.tools) {
-          this.agentInstance.tools.delete(tool.name)
-        }
-        await connection.close().catch(() => {})
-        debug('mcp', `Disconnected from "${name}" (no longer in tree)`)
-      }
-    }
-
-    for (const server of declared) {
-      if (this.mcpConnections.has(server.name)) continue
-      const connection = await connectMcpServer(server, signal)
-      this.mcpConnections.set(server.name, connection)
-    }
-
-    for (const connection of this.mcpConnections.values()) {
-      for (const tool of connection.tools) {
-        this.agentInstance.tools.set(tool.name, tool)
-      }
-    }
+    await this.mcpConnections.sync(
+      this.agentInstance.mcpServers,
+      this.agentInstance.tools,
+      signal,
+    )
   }
 
   /**
@@ -438,10 +418,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   }
 
   /** Closes every live MCP connection. Called when the owning handle closes. */
+  /** Closes every live MCP connection. Called when the owning handle closes. */
   async closeMcpConnections(): Promise<void> {
-    const connections = [...this.mcpConnections.values()]
-    this.mcpConnections.clear()
-    await Promise.all(connections.map((c) => c.close().catch(() => {})))
+    await this.mcpConnections.closeAll()
   }
 
   /**
