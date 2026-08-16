@@ -9,15 +9,19 @@ export interface AIDefaults {
   /** pi model collection; defaults to pi's full built-in catalog */
   models?: Models
   mode?: 'batch' | 'interactive'
+  /** Stable identifier for prompt-cache affinity across runs. */
+  sessionId?: string
 }
 
 export interface AIBoundRunOptions {
   models?: Models
   mode?: 'batch' | 'interactive'
+  sessionId?: string
 }
 
 export interface AIBoundCreateAgentOptions {
   models?: Models
+  sessionId?: string
 }
 
 export interface AI {
@@ -42,6 +46,7 @@ function mergeRunOptions(
   return {
     models: options?.models ?? defaults.models,
     mode: options?.mode ?? defaults.mode,
+    sessionId: options?.sessionId ?? defaults.sessionId,
   }
 }
 
@@ -51,6 +56,7 @@ function mergeCreateAgentOptions(
 ): CreateAgentOptions {
   return {
     models: options?.models ?? defaults.models,
+    sessionId: options?.sessionId ?? defaults.sessionId,
   }
 }
 

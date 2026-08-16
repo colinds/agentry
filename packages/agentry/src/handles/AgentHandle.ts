@@ -26,7 +26,7 @@ export class AgentHandle extends AbstractAgentHandle {
 
   constructor(
     element: ReactNode,
-    options: { models?: Models } = {},
+    options: { models?: Models; sessionId?: string } = {},
     mode: 'batch' | 'interactive' = 'batch',
   ) {
     const store = createAgentStore()
@@ -54,6 +54,7 @@ export class AgentHandle extends AbstractAgentHandle {
       models: options.models,
       containerInfo,
       store,
+      sessionId: options.sessionId,
     })
     this.element = element
     this.mode = mode

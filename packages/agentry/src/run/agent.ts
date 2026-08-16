@@ -8,11 +8,19 @@ export interface RunOptions {
   models?: Models
   /** execution mode */
   mode?: 'batch' | 'interactive'
+  /**
+   * Stable identifier for prompt-cache affinity. Reuse it across runs of the
+   * same logical agent so providers can hit their cache; omit it and each run
+   * gets a fresh id, which is correct for unrelated work.
+   */
+  sessionId?: string
 }
 
 export interface CreateAgentOptions {
   /** pi model collection; defaults to pi's full built-in catalog */
   models?: Models
+  /** Stable identifier for prompt-cache affinity across runs. */
+  sessionId?: string
 }
 
 /**
@@ -66,7 +74,11 @@ export async function run(
 ): Promise<AgentResult | AgentHandle> {
   const { mode = 'batch' } = options
 
-  const handle = new AgentHandle(element, { models: options.models }, mode)
+  const handle = new AgentHandle(
+    element,
+    { models: options.models, sessionId: options.sessionId },
+    mode,
+  )
 
   if (mode === 'interactive') {
     return handle
@@ -88,5 +100,8 @@ export function createAgent(
   element: ReactNode,
   options?: CreateAgentOptions,
 ): AgentHandle {
-  return new AgentHandle(element, { models: options?.models })
+  return new AgentHandle(element, {
+    models: options?.models,
+    sessionId: options?.sessionId,
+  })
 }

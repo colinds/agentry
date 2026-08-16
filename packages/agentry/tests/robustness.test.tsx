@@ -370,3 +370,34 @@ describe('unsupported stop reasons', () => {
     await expect(turn).rejects.toThrow(/unsupported stop reason "deferred"/)
   })
 })
+
+describe('sessionId', () => {
+  test('a caller-supplied id reaches pi, enabling cache affinity across runs', async () => {
+    // Without this the id was always a fresh UUID, so the prompt caching
+    // agentry wires up could never survive a run.
+    const { models, controller } = createStepMockModels([
+      { content: [fauxText('ok')] },
+    ])
+
+    const runPromise = run(
+      <Agent
+        provider="anthropic"
+        model={ANTHROPIC_TEST_MODEL}
+        maxTokens={100}
+        stream={false}
+      >
+        <System>Test</System>
+        <Message role="user">Hi</Message>
+      </Agent>,
+      { models, sessionId: 'stable-session-1' },
+    )
+
+    await controller.waitForNextCall()
+    expect(controller.peekNextCall()!.options?.sessionId).toBe(
+      'stable-session-1',
+    )
+
+    await controller.nextTurn()
+    await runPromise
+  })
+})
