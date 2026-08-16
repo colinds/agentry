@@ -12,7 +12,11 @@ interface McpClientLike {
       inputSchema?: Record<string, JsonValue>
     }>
   }>
-  callTool(params: { name: string; arguments?: JsonObject }): Promise<{
+  callTool(
+    params: { name: string; arguments?: JsonObject },
+    resultSchema?: undefined,
+    options?: { signal?: AbortSignal },
+  ): Promise<{
     content?: Array<{ type: string; text?: string }>
     isError?: boolean
   }>
@@ -35,7 +39,6 @@ export interface McpConnection {
  */
 export async function connectMcpServer(
   config: MCPServerConfig,
-  signal?: AbortSignal,
 ): Promise<McpConnection> {
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
 
@@ -66,7 +69,7 @@ export async function connectMcpServer(
   const tools: InternalTool[] = enabled
     ? listed.tools
         .filter((tool) => !allowed || allowed.includes(tool.name))
-        .map((tool) => toInternalTool({ client, config, tool, signal }))
+        .map((tool) => toInternalTool({ client, config, tool }))
     : []
 
   debug(
@@ -97,9 +100,8 @@ function toInternalTool(options: {
     description?: string
     inputSchema?: Record<string, JsonValue>
   }
-  signal?: AbortSignal
 }): InternalTool {
-  const { client, config, tool, signal } = options
+  const { client, config, tool } = options
   const schema: Record<string, JsonValue> = tool.inputSchema ?? {
     type: 'object',
     properties: {},
@@ -110,17 +112,27 @@ function toInternalTool(options: {
     description: tool.description ?? `MCP tool "${tool.name}"`,
     parameters: schema as never,
     jsonSchema: schema,
-    handler: async (input): Promise<ToolResult> => {
+    // The signal comes from the ToolContext, which carries the *current*
+    // turn's signal. The connect-time signal would be the one from whichever
+    // turn first reached this server, and connections outlive that turn — so
+    // from the second turn on it is permanently unaborted and aborting the run
+    // would never reach an in-flight MCP call.
+    handler: async (input, context): Promise<ToolResult> => {
+      const signal = context?.signal
       if (signal?.aborted) {
         const error = new Error('Aborted')
         error.name = 'AbortError'
         throw error
       }
 
-      const result = await client.callTool({
-        name: tool.name,
-        arguments: (input ?? {}) as JsonObject,
-      })
+      const result = await client.callTool(
+        {
+          name: tool.name,
+          arguments: (input ?? {}) as JsonObject,
+        },
+        undefined,
+        { signal },
+      )
 
       const text = (result.content ?? [])
         .filter((block) => block.type === 'text')

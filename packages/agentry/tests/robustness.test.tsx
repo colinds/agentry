@@ -161,6 +161,80 @@ describe('retry', () => {
     expect(retries[0]).toMatchObject({ attempt: 1, maxAttempts: 3 })
   })
 
+  test('a streaming failure before the first event is retried', async () => {
+    // Agents default to stream: true, so a retry policy that only covered the
+    // non-streaming path was inert in the default configuration.
+    const faux = fauxProvider({ provider: 'anthropic' })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let attempts = 0
+    faux.setResponses([
+      () => {
+        attempts++
+        return fauxAssistantMessage('', {
+          stopReason: 'error',
+          errorMessage: '503 service unavailable',
+        })
+      },
+      () => {
+        attempts++
+        return fauxAssistantMessage('recovered')
+      },
+    ])
+
+    const events: AgentStreamEvent[] = []
+    const message = await createTurn(models, {
+      model: faux.getModel(),
+      context: userTurn,
+      stream: true,
+      retry: { enabled: true, maxRetries: 3, baseDelayMs: 1 },
+      signal: new AbortController().signal,
+      onStream: (e) => events.push(e),
+    })
+
+    expect(attempts).toBe(2)
+    expect(message.stopReason).toBe('stop')
+    expect(events.filter((e) => e.type === 'retry')).toHaveLength(1)
+  })
+
+  test('a streaming failure after output has been emitted is not retried', async () => {
+    // Retrying here would replay text the consumer has already seen.
+    const faux = fauxProvider({ provider: 'anthropic' })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let attempts = 0
+    faux.setResponses([
+      () => {
+        attempts++
+        return fauxAssistantMessage('partial answer', {
+          stopReason: 'error',
+          errorMessage: '503 service unavailable',
+        })
+      },
+      () => {
+        attempts++
+        return fauxAssistantMessage('recovered')
+      },
+    ])
+
+    const events: AgentStreamEvent[] = []
+    await expect(
+      createTurn(models, {
+        model: faux.getModel(),
+        context: userTurn,
+        stream: true,
+        retry: { enabled: true, maxRetries: 3, baseDelayMs: 1 },
+        signal: new AbortController().signal,
+        onStream: (e) => events.push(e),
+      }),
+    ).rejects.toThrow(/service unavailable/)
+
+    expect(attempts).toBe(1)
+    expect(events.filter((e) => e.type === 'retry')).toHaveLength(0)
+  })
+
   test('a non-retryable failure fails immediately', async () => {
     const faux = fauxProvider({ provider: 'anthropic' })
     const models = createModels()

@@ -37,7 +37,6 @@ export class McpConnectionSet {
   async sync(
     declared: readonly MCPServerConfig[],
     tools: Map<string, InternalTool>,
-    signal: AbortSignal,
   ): Promise<void> {
     const wanted = new Map(
       declared.map((server) => [server.name, fingerprint(server)]),
@@ -67,7 +66,7 @@ export class McpConnectionSet {
     const opened = await Promise.all(
       missing.map(async (server) => ({
         server,
-        connection: await connectMcpServer(server, signal),
+        connection: await connectMcpServer(server),
       })),
     )
     for (const { server, connection } of opened) {

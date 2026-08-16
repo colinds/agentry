@@ -151,9 +151,6 @@ export async function createTurn(
     signal: request.signal,
   }
 
-  // Streaming emits events as it goes, so a retry would replay them. Only the
-  // non-streaming paths are wrapped; pi's own SDK-level `maxRetries` still
-  // covers transport errors on the streaming path.
   const produce = async (): Promise<AssistantMessage> => {
     if (request.forceToolUse) {
       // `complete` rather than `completeSimple`, because tool choice is a native
@@ -167,17 +164,34 @@ export async function createTurn(
     return models.completeSimple(request.model, request.context, options)
   }
 
-  let message: AssistantMessage
-
-  if (request.stream) {
+  /**
+   * One streaming attempt.
+   *
+   * A retry replays whatever the consumer has already seen, so once an event
+   * has been emitted the failure is raised as terminal instead. Failures before
+   * the first event — connection refused, 429/503 on the request itself, which
+   * is the common transient case — are left for the retry helper to classify.
+   */
+  const produceStream = async (): Promise<AssistantMessage> => {
+    let emittedContent = false
     const stream = models.streamSimple(request.model, request.context, options)
     for await (const event of stream) {
       const mapped = toAgentStreamEvent(event)
-      if (mapped) request.onStream(mapped)
+      if (!mapped) continue
+      if (carriesContent(mapped)) emittedContent = true
+      request.onStream(mapped)
     }
-    message = await stream.result()
-  } else {
-    message = await retryAssistantCall(produce, request.retry, request.signal, {
+
+    const message = await stream.result()
+    if (emittedContent) throwIfFailed(message, request.model)
+    return message
+  }
+
+  const message = await retryAssistantCall(
+    request.stream ? produceStream : produce,
+    request.retry,
+    request.signal,
+    {
       // oxlint-disable-next-line max-params -- arity is pi's RetryCallbacks signature
       onRetryScheduled: (attempt, maxAttempts, delayMs, errorMessage) =>
         request.onStream({
@@ -187,12 +201,30 @@ export async function createTurn(
           delayMs,
           error: errorMessage,
         }),
-    })
-    emitSyntheticEvents(message, request.onStream)
-  }
+    },
+  )
+
+  if (!request.stream) emitSyntheticEvents(message, request.onStream)
 
   throwIfFailed(message, request.model)
   return message
+}
+
+/**
+ * Whether an event put something in front of the consumer that a retry would
+ * show twice. Lifecycle events carry nothing, and a failed turn still emits an
+ * empty text delta before reporting the error.
+ */
+function carriesContent(event: AgentStreamEvent): boolean {
+  switch (event.type) {
+    case 'text':
+    case 'thinking':
+      return event.text.length > 0
+    case 'tool_use_start':
+      return true
+    default:
+      return false
+  }
 }
 
 function throwIfFailed(

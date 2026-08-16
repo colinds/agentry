@@ -123,6 +123,30 @@ describe('MCP client bridge', () => {
     ).rejects.toThrow(/MCP server "broken"/)
   })
 
+  test('a tool honours the calling turn’s abort signal', async () => {
+    // The handler must read the signal off its ToolContext. Capturing the
+    // connect-time signal instead left the check permanently unaborted from
+    // the second turn on, since connections outlive the turn that opened them.
+    const connection = await connectMcpServer(SERVER)
+    try {
+      const add = connection.tools.find((t) => t.name === 'test__add')!
+      const aborted = AbortSignal.abort()
+
+      await expect(
+        add.handler({ a: 1, b: 2 }, { signal: aborted } as ToolContext),
+      ).rejects.toThrow(/Aborted/)
+
+      // Still usable with a live signal — the check is per call, not sticky.
+      expect(
+        await add.handler({ a: 1, b: 2 }, {
+          signal: new AbortController().signal,
+        } as ToolContext),
+      ).toBe('3')
+    } finally {
+      await connection.close()
+    }
+  })
+
   test('mcpToolName namespaces by server', () => {
     expect(mcpToolName('fs', 'read_file')).toBe('fs__read_file')
   })

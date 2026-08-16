@@ -297,7 +297,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           this.recollectAll()
         }
 
-        await this.syncMcpConnections(abortController.signal)
+        await this.syncMcpConnections()
         this.assertUniqueToolNames()
         this.narrateResourceChanges()
 
@@ -369,11 +369,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
    * Reconciles MCP connections with the `<MCP>` elements currently in the tree.
    * The set owns both the sockets and the tools they contribute.
    */
-  private async syncMcpConnections(signal: AbortSignal): Promise<void> {
+  private async syncMcpConnections(): Promise<void> {
     await this.session.mcpConnections.sync(
       this.agentInstance.mcpServers,
       this.agentInstance.tools,
-      signal,
     )
   }
 
