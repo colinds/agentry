@@ -12,9 +12,9 @@ import {
   Message,
   useMessages,
 } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from './utils'
+import { createStepMockModels, fauxText, fauxToolCall } from './utils'
 import { ANTHROPIC_TEST_MODEL } from '../src/constants'
-import { z } from 'zod'
+import { Type } from 'typebox'
 import { getRegisteredTools } from './utils/testHelpers'
 
 test('subagent has isolated message context', async () => {
@@ -38,10 +38,10 @@ test('subagent has isolated message context', async () => {
     )
   }
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockToolUse('isolated', {})], stop_reason: 'tool_use' },
-    { content: [mockText('Isolated task done')] }, // subagent response
-    { content: [mockText('Parent continues')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('isolated', {})] },
+    { content: [fauxText('Isolated task done')] }, // subagent response
+    { content: [fauxText('Parent continues')] },
   ])
 
   const runPromise = run(
@@ -51,13 +51,13 @@ test('subagent has isolated message context', async () => {
         <AgentTool
           name="isolated"
           description="Has isolated messages"
-          parameters={z.object({})}
+          parameters={Type.Object({})}
           agent={() => <IsolatedAgent />}
         />
       </Tools>
       <Message role="user">Call the isolated agent</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -86,10 +86,10 @@ test('onStepFinish callback fires for subagent calls', async () => {
     )
   }
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockToolUse('subagent', {})], stop_reason: 'tool_use' },
-    { content: [mockText('Task completed')] }, // subagent response
-    { content: [mockText('Done')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('subagent', {})] },
+    { content: [fauxText('Task completed')] }, // subagent response
+    { content: [fauxText('Done')] },
   ])
 
   const runPromise = run(
@@ -106,13 +106,13 @@ test('onStepFinish callback fires for subagent calls', async () => {
         <AgentTool
           name="subagent"
           description="Test subagent"
-          parameters={z.object({})}
+          parameters={Type.Object({})}
           agent={() => <SubAgent />}
         />
       </Tools>
       <Message role="user">Call subagent</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -149,13 +149,12 @@ test('onComplete callback fires when agent finishes', async () => {
     )
   }
 
-  const { client, controller } = createStepMockClient([
+  const { models, controller } = createStepMockModels([
     {
-      content: [mockToolUse('completable', {})],
-      stop_reason: 'tool_use',
+      content: [fauxToolCall('completable', {})],
     },
-    { content: [mockText('Task completed by subagent')] },
-    { content: [mockText('All done')] },
+    { content: [fauxText('Task completed by subagent')] },
+    { content: [fauxText('All done')] },
   ])
 
   const runPromise = run(
@@ -164,13 +163,13 @@ test('onComplete callback fires when agent finishes', async () => {
         <AgentTool
           name="completable"
           description="Agent with onComplete"
-          parameters={z.object({})}
+          parameters={Type.Object({})}
           agent={() => <CompletableAgent />}
         />
       </Tools>
       <Message role="user">Run the completable agent</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -204,7 +203,7 @@ test('conditionally hidden subagents are not available as tools', async () => {
             <AgentTool
               name="hidden"
               description="Hidden agent"
-              parameters={z.object({})}
+              parameters={Type.Object({})}
               agent={() => <HiddenAgent />}
             />
           )}
@@ -214,12 +213,12 @@ test('conditionally hidden subagents are not available as tools', async () => {
     )
   }
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('I cannot help with that')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('I cannot help with that')] },
   ])
 
   const runPromise = run(<OptionalSubagentTest />, {
-    providers: { anthropic: { client } },
+    models,
   })
 
   await controller.nextTurn()
@@ -254,7 +253,7 @@ test('tools can be mounted during execution via state change', async () => {
     const enabler = defineTool({
       name: 'enable_helper',
       description: 'Enable the helper tool',
-      parameters: z.object({}),
+      parameters: Type.Object({}),
       handler: async () => {
         enablerCalledRef.current = true
         setMounted(true)
@@ -276,8 +275,8 @@ test('tools can be mounted during execution via state change', async () => {
             <AgentTool
               name="helper"
               description="Helper agent"
-              parameters={z.object({
-                task: z.string().optional(),
+              parameters={Type.Object({
+                task: Type.Optional(Type.String()),
               })}
               agent={(input) => (
                 <HelperAgent
@@ -295,15 +294,15 @@ test('tools can be mounted during execution via state change', async () => {
     )
   }
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockToolUse('enable_helper', {})], stop_reason: 'tool_use' },
-    { content: [mockToolUse('helper', {})], stop_reason: 'tool_use' },
-    { content: [mockText('Helper task completed')], stop_reason: 'end_turn' },
-    { content: [mockText('Task completed')], stop_reason: 'end_turn' },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('enable_helper', {})] },
+    { content: [fauxToolCall('helper', {})] },
+    { content: [fauxText('Helper task completed')] },
+    { content: [fauxText('Task completed')] },
   ])
 
   const agent = createAgent(<MountingToolTest />, {
-    providers: { anthropic: { client } },
+    models,
   })
 
   try {
@@ -367,7 +366,7 @@ test('subagents can be mounted during execution via state change', async () => {
     const coordinator = defineTool({
       name: 'start_research',
       description: 'Start research phase',
-      parameters: z.object({}),
+      parameters: Type.Object({}),
       handler: async () => {
         coordinatorCalledRef.current = true
         setHasResearcher(true)
@@ -389,8 +388,8 @@ test('subagents can be mounted during execution via state change', async () => {
             <AgentTool
               name="researcher"
               description="Research specialist"
-              parameters={z.object({
-                task: z.string().optional(),
+              parameters={Type.Object({
+                task: Type.Optional(Type.String()),
               })}
               agent={(input) => (
                 <ResearcherAgent
@@ -408,15 +407,15 @@ test('subagents can be mounted during execution via state change', async () => {
     )
   }
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockToolUse('start_research', {})], stop_reason: 'tool_use' },
-    { content: [mockToolUse('researcher', {})], stop_reason: 'tool_use' },
-    { content: [mockText('Research completed')], stop_reason: 'end_turn' },
-    { content: [mockText('Work coordinated')], stop_reason: 'end_turn' },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('start_research', {})] },
+    { content: [fauxToolCall('researcher', {})] },
+    { content: [fauxText('Research completed')] },
+    { content: [fauxText('Work coordinated')] },
   ])
 
   const agent = createAgent(<MountingSubagentTest />, {
-    providers: { anthropic: { client } },
+    models,
   })
 
   try {
@@ -468,16 +467,15 @@ test('subagent sees pre-loaded JSX messages', async () => {
     )
   }
 
-  const { client, controller } = createStepMockClient([
+  const { models, controller } = createStepMockModels([
     // parent calls the subagent
     {
-      content: [mockToolUse('preloaded', { task: 'continue' })],
-      stop_reason: 'tool_use',
+      content: [fauxToolCall('preloaded', { task: 'continue' })],
     },
     // subagent responds (should see JSX messages + task)
-    { content: [mockText('3+3 equals 6.')] },
+    { content: [fauxText('3+3 equals 6.')] },
     // parent finishes
-    { content: [mockText('Done')] },
+    { content: [fauxText('Done')] },
   ])
 
   const runPromise = run(
@@ -487,15 +485,15 @@ test('subagent sees pre-loaded JSX messages', async () => {
         <AgentTool
           name="preloaded"
           description="Agent with pre-loaded messages"
-          parameters={z.object({
-            task: z.string(),
+          parameters={Type.Object({
+            task: Type.String(),
           })}
           agent={(input) => <PreloadedAgent task={input.task} />}
         />
       </Tools>
       <Message role="user">Call preloaded agent</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   // parent turn - calls preloaded
@@ -506,13 +504,16 @@ test('subagent sees pre-loaded JSX messages', async () => {
   const subagentCall = controller.peekNextCall()
   expect(subagentCall).not.toBeNull()
 
-  const messages = subagentCall!.params.messages
+  const messages = subagentCall!.context.messages
 
   // should have 4 messages: 3 JSX + 1 task from parent
   expect(messages.length).toBe(4)
-  expect(messages[0]).toEqual({ role: 'user', content: 'What is 2+2?' })
-  expect(messages[1]).toEqual({ role: 'assistant', content: '2+2 equals 4.' })
-  expect(messages[2]).toEqual({ role: 'user', content: 'And what is 3+3?' })
+  expect(messages[0]).toMatchObject({ role: 'user', content: 'What is 2+2?' })
+  expect(messages[1]).toMatchObject({
+    role: 'assistant',
+    content: [{ type: 'text', text: '2+2 equals 4.' }],
+  })
+  expect(messages[2]).toMatchObject({ role: 'user', content: 'And what is 3+3?' })
   expect(messages[3]!.role).toBe('user')
   expect(messages[3]!.content).toContain('continue') // the task from parent
 
@@ -550,16 +551,15 @@ test('useMessages works inside subagent children', async () => {
     )
   }
 
-  const { client, controller } = createStepMockClient([
+  const { models, controller } = createStepMockModels([
     // parent calls subagent
     {
-      content: [mockToolUse('hooked', { task: 'test hooks' })],
-      stop_reason: 'tool_use',
+      content: [fauxToolCall('hooked', { task: 'test hooks' })],
     },
     // subagent responds
-    { content: [mockText('Hook test complete')] },
+    { content: [fauxText('Hook test complete')] },
     // parent finishes
-    { content: [mockText('Done')] },
+    { content: [fauxText('Done')] },
   ])
 
   const runPromise = run(
@@ -569,15 +569,15 @@ test('useMessages works inside subagent children', async () => {
         <AgentTool
           name="hooked"
           description="Agent with hook in children"
-          parameters={z.object({
-            task: z.string(),
+          parameters={Type.Object({
+            task: Type.String(),
           })}
           agent={(input) => <SubagentWithHook task={input.task} />}
         />
       </Tools>
       <Message role="user">Call the hooked agent</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   // parent turn
@@ -616,7 +616,7 @@ test('tools can be unmounted during execution via state change', async () => {
     const disabler = defineTool({
       name: 'disable_tool',
       description: 'Disable the temporary tool',
-      parameters: z.object({}),
+      parameters: Type.Object({}),
       handler: async () => {
         disablerCalledRef.current = true
         setEnabled(false)
@@ -627,7 +627,7 @@ test('tools can be unmounted during execution via state change', async () => {
     const temporary = defineTool({
       name: 'temporary',
       description: 'Temporary tool that will be disabled',
-      parameters: z.object({}),
+      parameters: Type.Object({}),
       handler: async () => {
         temporaryCalledRef.current = true
         return 'This runs'
@@ -653,14 +653,14 @@ test('tools can be unmounted during execution via state change', async () => {
     )
   }
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockToolUse('temporary', {})], stop_reason: 'tool_use' },
-    { content: [mockToolUse('disable_tool', {})], stop_reason: 'tool_use' },
-    { content: [mockText('Done')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('temporary', {})] },
+    { content: [fauxToolCall('disable_tool', {})] },
+    { content: [fauxText('Done')] },
   ])
 
   const agent = createAgent(<UnmountingToolTest />, {
-    providers: { anthropic: { client } },
+    models,
   })
 
   try {

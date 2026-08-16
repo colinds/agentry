@@ -1,10 +1,10 @@
 import { test, expect } from 'bun:test'
 import { useState } from 'react'
-import { z } from 'zod'
+import { Type } from 'typebox'
 import { run } from '../src'
 import { defineTool } from '../src/tools'
 import { Agent, System, Tools, Tool, Message } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from './utils'
+import { createStepMockModels, fauxText, fauxToolCall } from './utils'
 import { ANTHROPIC_TEST_MODEL } from '../src/constants'
 
 test('state changes trigger reconciler updates', async () => {
@@ -16,7 +16,7 @@ test('state changes trigger reconciler updates', async () => {
     const incrementTool = defineTool({
       name: 'increment',
       description: 'Increment counter',
-      parameters: z.object({}),
+      parameters: Type.Object({}),
       handler: async () => {
         setCount((prev) => prev + 1)
         updateCount++
@@ -35,14 +35,14 @@ test('state changes trigger reconciler updates', async () => {
     )
   }
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockToolUse('increment', {})], stop_reason: 'tool_use' },
-    { content: [mockToolUse('increment', {})], stop_reason: 'tool_use' },
-    { content: [mockText('Done incrementing')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('increment', {})] },
+    { content: [fauxToolCall('increment', {})] },
+    { content: [fauxText('Done incrementing')] },
   ])
 
   const runPromise = run(<StateUpdateAgent />, {
-    providers: { anthropic: { client } },
+    models,
   })
 
   await controller.nextTurn()

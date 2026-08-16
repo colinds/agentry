@@ -1,26 +1,21 @@
 import { test, expect } from 'bun:test'
 import { ExecutionEngine } from '../src/execution'
 import { createAgentStore } from '../src/store'
-import { createStepMockClient, mockText } from './utils'
+import { assistantSeedMessage, userMessage } from '../src/types/messages'
+import { createStepMockModels, fauxText } from './utils'
 import { ANTHROPIC_TEST_MODEL } from '../src/constants'
 import { AgentStatus, type AgentMessageParam } from '../src/types'
 import { InstanceType, type AgentInstance } from '../src/instances'
 
 test('compactionControl compacts messages when threshold is exceeded', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Summary result')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Summary result')] },
   ])
 
   const store = createAgentStore()
   const originalMessages: AgentMessageParam[] = [
-    {
-      role: 'user',
-      content: [{ type: 'text', text: 'First message' }],
-    },
-    {
-      role: 'assistant',
-      content: [{ type: 'text', text: 'Second message' }],
-    },
+    userMessage([{ type: 'text', text: 'First message' }]),
+    assistantSeedMessage([{ type: 'text', text: 'Second message' }]),
   ]
 
   store.setState(() => ({
@@ -35,12 +30,9 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
       model: ANTHROPIC_TEST_MODEL,
       maxTokens: 100,
     },
-    client,
     engine: null,
     systemParts: [],
     tools: [],
-    builtInTools: [],
-    mcpServers: [],
     children: [],
     parent: null,
     store,
@@ -48,7 +40,7 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
 
   const engine = new ExecutionEngine({
     provider: 'anthropic',
-    client,
+    models,
     model: ANTHROPIC_TEST_MODEL,
     maxTokens: 100,
     store,
@@ -67,23 +59,14 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
   }
 
   engineWithInternals.lastMessage = {
-    id: 'msg_1',
-    type: 'message',
-    role: 'assistant',
-    content: [],
-    model: ANTHROPIC_TEST_MODEL,
-    stop_reason: 'end_turn',
-    stop_sequence: null,
-    container: null,
-    context_management: null,
+    ...assistantSeedMessage([]),
     usage: {
-      input_tokens: 100,
-      output_tokens: 50,
-      cache_creation: null,
-      cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0,
-      server_tool_use: null,
-      service_tier: null,
+      input: 100,
+      output: 50,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 150,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
     },
   }
 
@@ -93,8 +76,8 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
 
   const call = controller.peekNextCall()
   expect(call).not.toBeNull()
-  const params = call!.params
-  const lastMessage = params.messages[params.messages.length - 1]
+  const sent = call!.context.messages
+  const lastMessage = sent[sent.length - 1]
   expect(lastMessage).toMatchObject({
     role: 'user',
     content: 'Please summarize the conversation so far',
@@ -115,20 +98,14 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
 })
 
 test('compactionControl does nothing when under threshold', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Should not be used')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Should not be used')] },
   ])
 
   const store = createAgentStore()
   const originalMessages: AgentMessageParam[] = [
-    {
-      role: 'user',
-      content: [{ type: 'text', text: 'Short exchange' }],
-    },
-    {
-      role: 'assistant',
-      content: [{ type: 'text', text: 'Still short' }],
-    },
+    userMessage([{ type: 'text', text: 'Short exchange' }]),
+    assistantSeedMessage([{ type: 'text', text: 'Still short' }]),
   ]
 
   store.setState(() => ({
@@ -143,12 +120,9 @@ test('compactionControl does nothing when under threshold', async () => {
       model: ANTHROPIC_TEST_MODEL,
       maxTokens: 100,
     },
-    client,
     engine: null,
     systemParts: [],
     tools: [],
-    builtInTools: [],
-    mcpServers: [],
     children: [],
     parent: null,
     store,
@@ -156,7 +130,7 @@ test('compactionControl does nothing when under threshold', async () => {
 
   const engine = new ExecutionEngine({
     provider: 'anthropic',
-    client,
+    models,
     model: ANTHROPIC_TEST_MODEL,
     maxTokens: 100,
     store,
@@ -175,23 +149,14 @@ test('compactionControl does nothing when under threshold', async () => {
   }
 
   engineWithInternals.lastMessage = {
-    id: 'msg_1',
-    type: 'message',
-    role: 'assistant',
-    content: [],
-    model: ANTHROPIC_TEST_MODEL,
-    stop_reason: 'end_turn',
-    stop_sequence: null,
-    container: null,
-    context_management: null,
+    ...assistantSeedMessage([]),
     usage: {
-      input_tokens: 100,
-      output_tokens: 50,
-      cache_creation: null,
-      cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0,
-      server_tool_use: null,
-      service_tier: null,
+      input: 100,
+      output: 50,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 150,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
     },
   }
 

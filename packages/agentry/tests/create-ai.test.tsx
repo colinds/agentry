@@ -1,14 +1,14 @@
 import { test, expect } from 'bun:test'
 import { createAI, Agent, Message, AgentHandle } from '../src'
-import { createStepMockClient, mockText, createOpenAIMockClient } from './utils'
+import { createStepMockModels, fauxText } from './utils'
 import { ANTHROPIC_TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
 
 test('createAI default clients are used when no per-call override given', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello from default client')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Hello from default client')] },
   ])
 
-  const ai = createAI({ providers: { anthropic: { client } } })
+  const ai = createAI({ models })
 
   const runPromise = ai.run(
     <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
@@ -22,20 +22,20 @@ test('createAI default clients are used when no per-call override given', async 
 })
 
 test('createAI per-call clients override default clients', async () => {
-  const { client: defaultClient } = createStepMockClient([
-    { content: [mockText('Should not appear')] },
+  const { models: defaultClient } = createStepMockModels([
+    { content: [fauxText('Should not appear')] },
   ])
-  const { client: overrideClient, controller } = createStepMockClient([
-    { content: [mockText('From override client')] },
+  const { models: overrideClient, controller } = createStepMockModels([
+    { content: [fauxText('From override client')] },
   ])
 
-  const ai = createAI({ providers: { anthropic: { client: defaultClient } } })
+  const ai = createAI({ models: defaultClient })
 
   const runPromise = ai.run(
     <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <Message role="user">Hello</Message>
     </Agent>,
-    { providers: { anthropic: { client: overrideClient } } },
+    { models: overrideClient },
   )
 
   await controller.nextTurn()
@@ -45,10 +45,10 @@ test('createAI per-call clients override default clients', async () => {
 
 test('createAI per-call mode overrides default mode', async () => {
   // batch override should return AgentResult, not AgentHandle
-  const { client: batchClient, controller } = createStepMockClient([
-    { content: [mockText('Batch result')] },
+  const { models: batchClient, controller } = createStepMockModels([
+    { content: [fauxText('Batch result')] },
   ])
-  const ai2 = createAI({ providers: { anthropic: { client: batchClient } } })
+  const ai2 = createAI({ models: batchClient })
   const runPromise = ai2.run(
     <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
       <Message role="user">Run in batch</Message>
@@ -62,12 +62,12 @@ test('createAI per-call mode overrides default mode', async () => {
 })
 
 test('createAI interactive mode returns a handle', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Interactive response')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Interactive response')] },
   ])
 
   const ai = createAI({
-    providers: { anthropic: { client } },
+    models,
     mode: 'interactive',
   })
 
@@ -93,11 +93,11 @@ test('createAI interactive mode returns a handle', async () => {
 })
 
 test('createAI createAgent uses merged clients', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('From createAgent')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('From createAgent')] },
   ])
 
-  const ai = createAI({ providers: { anthropic: { client } } })
+  const ai = createAI({ models })
 
   const agentHandle = ai.createAgent(
     <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
@@ -113,10 +113,10 @@ test('createAI createAgent uses merged clients', async () => {
 })
 
 test('createAI default mode=interactive returns handle without explicit mode override', async () => {
-  const { client } = createStepMockClient([])
+  const { models } = createStepMockModels([])
 
   const ai = createAI({
-    providers: { anthropic: { client } },
+    models,
     mode: 'interactive',
   })
 
@@ -136,12 +136,12 @@ test('createAI default mode=interactive returns handle without explicit mode ove
 })
 
 test('AgentHandle throws on provider change between sendMessage calls', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('First response')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('First response')] },
   ])
 
   const ai = createAI({
-    providers: { anthropic: { client } },
+    models,
     mode: 'interactive',
   })
 
@@ -169,12 +169,12 @@ test('AgentHandle throws on provider change between sendMessage calls', async ()
 })
 
 test('AgentHandle throws on model change between sendMessage calls', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('First response')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('First response')] },
   ])
 
   const ai = createAI({
-    providers: { anthropic: { client } },
+    models,
     mode: 'interactive',
   })
 
@@ -201,29 +201,24 @@ test('AgentHandle throws on model change between sendMessage calls', async () =>
   handle.close()
 })
 
-test('createAI multi-provider: per-call client overrides default for that provider', async () => {
-  const { client: anthropicDefault } = createStepMockClient([])
-  const { client: openaiClient } = createOpenAIMockClient([
-    {
-      output: [
-        {
-          type: 'message',
-          content: [{ type: 'output_text', text: 'OpenAI response' }],
-        },
-      ],
-    },
-  ])
+test('createAI per-call models override the default collection', async () => {
+  const { models: defaultModels } = createStepMockModels([])
+  const { models: openaiModels, controller } = createStepMockModels(
+    [{ content: [fauxText('OpenAI response')] }],
+    { provider: 'openai', modelIds: [OPENAI_TEST_MODEL] },
+  )
 
-  const ai = createAI({
-    providers: { anthropic: { client: anthropicDefault } },
-  })
+  const ai = createAI({ models: defaultModels })
 
-  const result = await ai.run(
+  const runPromise = ai.run(
     <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
       <Message role="user">Hello</Message>
     </Agent>,
-    { providers: { openai: { client: openaiClient } } },
+    { models: openaiModels },
   )
+
+  await controller.nextTurn()
+  const result = await runPromise
 
   expect(result.content).toBe('OpenAI response')
 })

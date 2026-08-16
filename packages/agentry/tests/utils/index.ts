@@ -1,14 +1,16 @@
 export {
-  createStepMockClient,
-  mockToolUse,
-  mockText,
-  type MockResponse,
-  type StepMockController,
-  type PendingCall,
-} from './mockClient'
+  createStepMockModels,
+  createMultiProviderMockModels,
+  fauxText,
+  fauxToolCall,
+  type PiMockResponse,
+  type PiPendingCall,
+  type PiStepMockController,
+} from './piMockProvider'
 export {
-  createOpenAIMockClient,
-  type OpenAIMockResponse,
-  type OpenAIMockFailedResponse,
-  type OpenAIMockIncompleteResponse,
-} from './openaiMock'
+  createStateWatcher,
+  createMessageCollector,
+  createValueCapture,
+  getRegisteredTools,
+  verifyConditionsExist,
+} from './testHelpers'

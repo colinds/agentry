@@ -1,20 +1,15 @@
 import { test, expect, beforeEach } from 'bun:test'
-import { z } from 'zod'
+import { Type } from 'typebox'
 import { run } from '../src'
+import { toolResultText } from '../src/types/messages'
 import { defineTool } from '../src/tools'
 import { Agent, System, Context, Tools, Tool, Message, AgentTool } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from './utils'
+import { createStepMockModels, fauxText, fauxToolCall } from './utils'
 import { ANTHROPIC_TEST_MODEL } from '../src/constants'
-import { resetSharedDefaultClients } from '../src/providers/clientResolver'
-import { toAnthropicMessage } from '../src/providers/anthropic'
-
-beforeEach(() => {
-  resetSharedDefaultClients()
-})
 
 test('root agent sees pre-loaded JSX messages', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('3+3 equals 6.')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('3+3 equals 6.')] },
   ])
 
   const runPromise = run(
@@ -30,7 +25,7 @@ test('root agent sees pre-loaded JSX messages', async () => {
       <Message role="assistant">2+2 equals 4.</Message>
       <Message role="user">And what is 3+3?</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   // wait for API call to be queued
@@ -40,11 +35,14 @@ test('root agent sees pre-loaded JSX messages', async () => {
   const call = controller.peekNextCall()
   expect(call).not.toBeNull()
 
-  const messages = call!.params.messages
+  const messages = call!.context.messages
   expect(messages.length).toBe(3)
-  expect(messages[0]).toEqual({ role: 'user', content: 'What is 2+2?' })
-  expect(messages[1]).toEqual({ role: 'assistant', content: '2+2 equals 4.' })
-  expect(messages[2]).toEqual({ role: 'user', content: 'And what is 3+3?' })
+  expect(messages[0]).toMatchObject({ role: 'user', content: 'What is 2+2?' })
+  expect(messages[1]).toMatchObject({
+    role: 'assistant',
+    content: [{ type: 'text', text: '2+2 equals 4.' }],
+  })
+  expect(messages[2]).toMatchObject({ role: 'user', content: 'And what is 3+3?' })
 
   await controller.nextTurn()
   const result = await runPromise
@@ -53,8 +51,8 @@ test('root agent sees pre-loaded JSX messages', async () => {
 })
 
 test('run creates an agent and executes in batch mode', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello, world!')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Hello, world!')] },
   ])
 
   const runPromise = run(
@@ -68,7 +66,7 @@ test('run creates an agent and executes in batch mode', async () => {
       <System>You are a test assistant. Be very brief.</System>
       <Message role="user">Say hello in 3 words</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -76,9 +74,11 @@ test('run creates an agent and executes in batch mode', async () => {
 
   expect(result).toBeDefined()
   expect(result.content).toBe('Hello, world!')
-  expect(result.usage.inputTokens).toBe(100)
-  expect(result.usage.outputTokens).toBe(50)
-  expect(result.stopReason).toBe('end_turn')
+  // pi derives usage from the actual exchange rather than fixed mock values
+  expect(result.usage.inputTokens).toBeGreaterThan(0)
+  expect(result.usage.outputTokens).toBeGreaterThan(0)
+  expect(result.usage.costUSD).toBeGreaterThanOrEqual(0)
+  expect(result.stopReason).toBe('stop')
   expect(result.messages.length).toBeGreaterThanOrEqual(2)
 })
 
@@ -87,8 +87,8 @@ test('run handles tools correctly', async () => {
   const testTool = defineTool({
     name: 'get_info',
     description: 'Get some information',
-    parameters: z.object({
-      query: z.string(),
+    parameters: Type.Object({
+      query: Type.String(),
     }),
     handler: async ({ query }) => {
       toolCalled = true
@@ -96,12 +96,11 @@ test('run handles tools correctly', async () => {
     },
   })
 
-  const { client, controller } = createStepMockClient([
+  const { models, controller } = createStepMockModels([
     {
-      content: [mockToolUse('get_info', { query: 'testing' })],
-      stop_reason: 'tool_use',
+      content: [fauxToolCall('get_info', { query: 'testing' })],
     },
-    { content: [mockText('I found info about testing.')] },
+    { content: [fauxText('I found info about testing.')] },
   ])
 
   const runPromise = run(
@@ -117,7 +116,7 @@ test('run handles tools correctly', async () => {
       </Tools>
       <Message role="user">Use the tool to get info about testing</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -131,9 +130,9 @@ test('run handles tools correctly', async () => {
 })
 
 test('interactive mode allows multiple turns', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hi there!')] },
-    { content: [mockText('One, two, three.')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Hi there!')] },
+    { content: [fauxText('One, two, three.')] },
   ])
 
   const agentPromise = run(
@@ -145,7 +144,7 @@ test('interactive mode allows multiple turns', async () => {
     >
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
-    { mode: 'interactive', providers: { anthropic: { client } } },
+    { mode: 'interactive', models },
   )
 
   const agent = await agentPromise
@@ -172,8 +171,8 @@ test('interactive mode allows multiple turns', async () => {
 })
 
 test('stream() accepts message parameter for first turn', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hi there!')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Hi there!')] },
   ])
 
   const agentPromise = run(
@@ -185,7 +184,7 @@ test('stream() accepts message parameter for first turn', async () => {
     >
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
-    { mode: 'interactive', providers: { anthropic: { client } } },
+    { mode: 'interactive', models },
   )
 
   const agent = await agentPromise
@@ -207,9 +206,9 @@ test('stream() accepts message parameter for first turn', async () => {
 })
 
 test('stream() works with message for subsequent turns', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hi there!')] },
-    { content: [mockText('One, two, three.')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Hi there!')] },
+    { content: [fauxText('One, two, three.')] },
   ])
 
   const agentPromise = run(
@@ -221,7 +220,7 @@ test('stream() works with message for subsequent turns', async () => {
     >
       <System>You are a test assistant. Be very concise.</System>
     </Agent>,
-    { mode: 'interactive', providers: { anthropic: { client } } },
+    { mode: 'interactive', models },
   )
 
   const agent = await agentPromise
@@ -259,23 +258,21 @@ test('handles multiple tool calls in sequence', async () => {
   const counterTool = defineTool({
     name: 'increment',
     description: 'Increment the counter',
-    parameters: z.object({}),
+    parameters: Type.Object({}),
     handler: async () => {
       callCount++
       return `Counter is now ${callCount}`
     },
   })
 
-  const { client, controller } = createStepMockClient([
+  const { models, controller } = createStepMockModels([
     {
-      content: [mockToolUse('increment', {}, 'tool_1')],
-      stop_reason: 'tool_use',
+      content: [fauxToolCall('increment', {}, { id: 'tool_1' })],
     },
     {
-      content: [mockToolUse('increment', {}, 'tool_2')],
-      stop_reason: 'tool_use',
+      content: [fauxToolCall('increment', {}, { id: 'tool_2' })],
     },
-    { content: [mockText('Done! Counter is 2.')] },
+    { content: [fauxText('Done! Counter is 2.')] },
   ])
 
   const runPromise = run(
@@ -290,7 +287,7 @@ test('handles multiple tool calls in sequence', async () => {
       </Tools>
       <Message role="user">Increment twice</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -305,16 +302,16 @@ test('handles multiple tool calls in sequence', async () => {
 })
 
 test('respects maxIterations limit', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockToolUse('test', {})], stop_reason: 'tool_use' },
-    { content: [mockToolUse('test', {})], stop_reason: 'tool_use' },
-    { content: [mockToolUse('test', {})], stop_reason: 'tool_use' },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('test', {})] },
+    { content: [fauxToolCall('test', {})] },
+    { content: [fauxToolCall('test', {})] },
   ])
 
   const tool = defineTool({
     name: 'test',
     description: 'test',
-    parameters: z.object({}),
+    parameters: Type.Object({}),
     handler: async () => 'ok',
   })
 
@@ -331,7 +328,7 @@ test('respects maxIterations limit', async () => {
       </Tools>
       <Message role="user">Test</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -342,54 +339,72 @@ test('respects maxIterations limit', async () => {
   const result = await runPromise
 
   // should stop after maxIterations even if model keeps calling tools
-  expect(result.stopReason).toBe('tool_use')
+  expect(result.stopReason).toBe('toolUse')
 })
 
 test('tool schemas in API requests are complete', async () => {
   const complexTool = defineTool({
     name: 'complex_operation',
     description: 'Perform a complex operation with nested data',
-    parameters: z.object({
-      operation: z
-        .enum(['create', 'update', 'delete', 'query'])
-        .describe('the operation to perform'),
-      priority: z.number().int().min(1).max(10).describe('priority level'),
-      description: z.string().optional().describe('optional description'),
-      metadata: z
-        .object({
-          source: z.string().describe('source identifier'),
-          tags: z.array(z.string()).describe('array of tags'),
-          enabled: z.boolean().describe('whether enabled'),
-        })
-        .describe('metadata object'),
-      config: z
-        .object({
-          timeout: z.number().describe('timeout in seconds'),
-          retries: z.number().int().min(0).describe('number of retries'),
-        })
-        .optional()
-        .describe('optional configuration'),
-      items: z
-        .array(
-          z.object({
-            id: z.string().describe('item id'),
-            value: z.number().describe('item value'),
-          }),
-        )
-        .describe('array of items'),
-      status: z
-        .union([
-          z.literal('active'),
-          z.literal('inactive'),
-          z.literal('pending'),
-        ])
-        .describe('status value'),
+    parameters: Type.Object({
+      operation: Type.Union(
+        [
+          Type.Literal('create'),
+          Type.Literal('update'),
+          Type.Literal('delete'),
+          Type.Literal('query'),
+        ],
+        { description: 'the operation to perform' },
+      ),
+      priority: Type.Number({
+        description: 'priority level',
+        minimum: 1,
+        maximum: 10,
+      }),
+      description: Type.Optional(
+        Type.String({ description: 'optional description' }),
+      ),
+      metadata: Type.Object(
+        {
+          source: Type.String({ description: 'source identifier' }),
+          tags: Type.Array(Type.String(), { description: 'array of tags' }),
+          enabled: Type.Boolean({ description: 'whether enabled' }),
+        },
+        { description: 'metadata object' },
+      ),
+      config: Type.Optional(
+        Type.Object(
+          {
+            timeout: Type.Number({ description: 'timeout in seconds' }),
+            retries: Type.Number({
+              description: 'number of retries',
+              minimum: 0,
+            }),
+          },
+          { description: 'optional configuration' },
+        ),
+      ),
+      items: Type.Array(
+        Type.Object({
+          id: Type.String({ description: 'item id' }),
+          value: Type.Number({ description: 'item value' }),
+        }),
+        { description: 'array of items' },
+      ),
+      status: Type.Union(
+        [
+          Type.Literal('active'),
+          Type.Literal('inactive'),
+          Type.Literal('pending'),
+        ],
+        { description: 'status value' },
+      ),
     }),
     handler: async () => 'ok',
   })
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Done')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Done')] },
   ])
 
   const runPromise = run(
@@ -405,31 +420,25 @@ test('tool schemas in API requests are complete', async () => {
       </Tools>
       <Message role="user">Test</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.waitForNextCall()
 
   const call = controller.peekNextCall()
   expect(call).not.toBeNull()
-  expect(call!.params.tools).toBeDefined()
-  expect(Array.isArray(call!.params.tools)).toBe(true)
-  expect(call!.params.tools!.length).toBe(1)
+  expect(call!.context.tools).toBeDefined()
+  expect(Array.isArray(call!.context.tools)).toBe(true)
+  expect(call!.context.tools!.length).toBe(1)
 
-  const toolDef = call!.params.tools![0] as {
-    type: string
-    name: string
-    description: string
-    input_schema: Record<string, unknown>
-  }
+  const toolDef = call!.context.tools![0]!
 
-  expect(toolDef.type).toBe('custom')
   expect(toolDef.name).toBe('complex_operation')
   expect(toolDef.description).toBe(
     'Perform a complex operation with nested data',
   )
 
-  const inputSchema = toolDef.input_schema
+  const inputSchema = toolDef.parameters as unknown as Record<string, unknown>
   expect(inputSchema.type).toBe('object')
   expect(inputSchema.properties).toBeDefined()
   expect(inputSchema.required).toBeDefined()
@@ -441,7 +450,7 @@ test('tool schemas in API requests are complete', async () => {
 })
 
 test('batch mode errors when agent has no messages', async () => {
-  const { client } = createStepMockClient([])
+  const { models } = createStepMockModels([])
 
   await expect(
     run(
@@ -449,19 +458,19 @@ test('batch mode errors when agent has no messages', async () => {
         <System>You are helpful</System>
         {/* No <Message> components */}
       </Agent>,
-      { providers: { anthropic: { client } } },
+      { models },
     ),
   ).rejects.toThrow('Agent has no messages. In batch mode')
 })
 
 test('interactive mode does NOT error when agent has no messages', async () => {
-  const { client } = createStepMockClient([])
+  const { models } = createStepMockModels([])
 
   const agent = await run(
     <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100}>
       <System>You are helpful</System>
     </Agent>,
-    { providers: { anthropic: { client } }, mode: 'interactive' },
+    { models, mode: 'interactive' },
   )
 
   // should not throw - agent is created successfully
@@ -482,13 +491,12 @@ test('subagent errors when it has no messages', async () => {
     </Agent>
   )
 
-  const { client, controller } = createStepMockClient([
+  const { models, controller } = createStepMockModels([
     {
-      content: [mockToolUse('subagent', {})],
-      stop_reason: 'tool_use',
+      content: [fauxToolCall('subagent', {})],
     },
     // second response after tool error is returned
-    { content: [mockText('The subagent tool failed.')] },
+    { content: [fauxText('The subagent tool failed.')] },
   ])
 
   const runPromise = run(
@@ -503,13 +511,13 @@ test('subagent errors when it has no messages', async () => {
         <AgentTool
           name="subagent"
           description="A subagent tool"
-          parameters={z.object({})}
+          parameters={Type.Object({})}
           agent={() => <SubAgent />}
         />
       </Tools>
       <Message role="user">Use the subagent</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -517,24 +525,18 @@ test('subagent errors when it has no messages', async () => {
 
   const result = await runPromise
 
-  // tool should have error result
-  const toolMessages = result.messages.filter(
-    (m) => m.role === 'user' && 'content' in m && Array.isArray(m.content),
-  )
-  const toolResults = toolMessages.flatMap((m) =>
-    Array.isArray(m.content)
-      ? m.content.filter((c) => c.type === 'tool_result')
-      : [],
-  )
+  // tool results are first-class messages under pi
+  const toolResults = result.messages.filter((m) => m.role === 'toolResult')
 
   expect(toolResults.length).toBeGreaterThan(0)
-  expect(toolResults[0]?.is_error).toBe(true)
-  expect(toolResults[0]?.content).toContain('Subagent has no messages')
+  const first = toolResults[0]!
+  expect(first.isError).toBe(true)
+  expect(toolResultText(first)).toContain('Subagent has no messages')
 })
 
-test('System with cache="ephemeral" creates block with cache_control', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello')] },
+test('system parts are joined into a single prompt in order', async () => {
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('ok')] },
   ])
 
   const runPromise = run(
@@ -544,37 +546,29 @@ test('System with cache="ephemeral" creates block with cache_control', async () 
       maxTokens={100}
       stream={false}
     >
-      <System cache="ephemeral">Ephemeral instructions</System>
-      <Message role="user">Test</Message>
+      <System>First instruction</System>
+      <Context>Some context</Context>
+      <System>Second instruction</System>
+      <Message role="user">Hi</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.waitForNextCall()
   const call = controller.peekNextCall()
-  expect(call).not.toBeNull()
 
-  expect(Array.isArray(call!.params.system)).toBe(true)
-  const systemBlocks = call!.params.system as Array<{
-    type: string
-    text: string
-    cache_control?: { type: string }
-  }>
-
-  expect(systemBlocks.length).toBe(1)
-  expect(systemBlocks[0]).toEqual({
-    type: 'text',
-    text: 'Ephemeral instructions',
-    cache_control: { type: 'ephemeral' },
-  })
+  // pi takes a single system string; caching is the provider's concern now
+  expect(call!.context.systemPrompt).toBe(
+    'First instruction\n\nSome context\n\nSecond instruction',
+  )
 
   await controller.nextTurn()
   await runPromise
 })
 
-test('Context with cache="ephemeral" creates block with cache_control', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello')] },
+test('a single system part produces just that string', async () => {
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('ok')] },
   ])
 
   const runPromise = run(
@@ -584,36 +578,32 @@ test('Context with cache="ephemeral" creates block with cache_control', async ()
       maxTokens={100}
       stream={false}
     >
-      <Context cache="ephemeral">Ephemeral context</Context>
-      <Message role="user">Test</Message>
+      <System>Only instruction</System>
+      <Message role="user">Hi</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.waitForNextCall()
-  const call = controller.peekNextCall()
-  expect(call).not.toBeNull()
-
-  const systemBlocks = call!.params.system as Array<{
-    type: string
-    text: string
-    cache_control?: { type: string }
-  }>
-
-  expect(systemBlocks.length).toBe(1)
-  expect(systemBlocks[0]).toEqual({
-    type: 'text',
-    text: 'Ephemeral context',
-    cache_control: { type: 'ephemeral' },
-  })
+  expect(controller.peekNextCall()!.context.systemPrompt).toBe(
+    'Only instruction',
+  )
 
   await controller.nextTurn()
   await runPromise
 })
 
-test('System without cache creates simple string', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello')] },
+test('strict tool requests constrained sampling', async () => {
+  const strictTool = defineTool({
+    name: 'strict_tool',
+    description: 'A strict tool',
+    parameters: Type.Object({ q: Type.String() }),
+    strict: true,
+    handler: async () => 'ok',
+  })
+
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('ok')] },
   ])
 
   const runPromise = run(
@@ -623,195 +613,35 @@ test('System without cache creates simple string', async () => {
       maxTokens={100}
       stream={false}
     >
-      <System>Regular instructions</System>
-      <Message role="user">Test</Message>
-    </Agent>,
-    { providers: { anthropic: { client } } },
-  )
-
-  await controller.waitForNextCall()
-  const call = controller.peekNextCall()
-  expect(call).not.toBeNull()
-
-  expect(typeof call!.params.system).toBe('string')
-  expect(call!.params.system).toBe('Regular instructions')
-
-  await controller.nextTurn()
-  await runPromise
-})
-
-test('Mixed System and Context parts maintain order and cache flags', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello')] },
-  ])
-
-  const runPromise = run(
-    <Agent
-      provider="anthropic"
-      model={ANTHROPIC_TEST_MODEL}
-      maxTokens={100}
-      stream={false}
-    >
-      <System>First cached part</System>
-      <Context cache="ephemeral">Ephemeral context</Context>
-      <System cache="ephemeral">Ephemeral instructions</System>
-      <Context>Second cached part</Context>
-      <Message role="user">Test</Message>
-    </Agent>,
-    { providers: { anthropic: { client } } },
-  )
-
-  await controller.waitForNextCall()
-  const call = controller.peekNextCall()
-  expect(call).not.toBeNull()
-
-  expect(Array.isArray(call!.params.system)).toBe(true)
-  const systemBlocks = call!.params.system as Array<{
-    type: string
-    text: string
-    cache_control?: { type: string }
-  }>
-
-  expect(systemBlocks.length).toBe(4)
-  expect(systemBlocks[0]).toEqual({
-    type: 'text',
-    text: 'First cached part',
-  })
-  expect(systemBlocks[1]).toEqual({
-    type: 'text',
-    text: 'Ephemeral context',
-    cache_control: { type: 'ephemeral' },
-  })
-  expect(systemBlocks[2]).toEqual({
-    type: 'text',
-    text: 'Ephemeral instructions',
-    cache_control: { type: 'ephemeral' },
-  })
-  expect(systemBlocks[3]).toEqual({
-    type: 'text',
-    text: 'Second cached part',
-  })
-
-  await controller.nextTurn()
-  await runPromise
-})
-
-test('Multiple ephemeral parts are all marked correctly', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello')] },
-  ])
-
-  const runPromise = run(
-    <Agent
-      provider="anthropic"
-      model={ANTHROPIC_TEST_MODEL}
-      maxTokens={100}
-      stream={false}
-    >
-      <System cache="ephemeral">First ephemeral</System>
-      <Context cache="ephemeral">Second ephemeral</Context>
-      <System cache="ephemeral">Third ephemeral</System>
-      <Message role="user">Test</Message>
-    </Agent>,
-    { providers: { anthropic: { client } } },
-  )
-
-  await controller.waitForNextCall()
-  const call = controller.peekNextCall()
-  expect(call).not.toBeNull()
-
-  const systemBlocks = call!.params.system as Array<{
-    type: string
-    text: string
-    cache_control?: { type: string }
-  }>
-
-  expect(systemBlocks.length).toBe(3)
-  systemBlocks.forEach((block) => {
-    expect(block.cache_control).toEqual({ type: 'ephemeral' })
-  })
-
-  await controller.nextTurn()
-  await runPromise
-})
-
-test('Multiple System and Context parts use array format', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello')] },
-  ])
-
-  const runPromise = run(
-    <Agent
-      provider="anthropic"
-      model={ANTHROPIC_TEST_MODEL}
-      maxTokens={100}
-      stream={false}
-    >
-      <System>First part</System>
-      <Context>Second part</Context>
-      <System>Third part</System>
-      <Message role="user">Test</Message>
-    </Agent>,
-    { providers: { anthropic: { client } } },
-  )
-
-  await controller.waitForNextCall()
-  const call = controller.peekNextCall()
-  expect(call).not.toBeNull()
-
-  expect(Array.isArray(call!.params.system)).toBe(true)
-  const systemBlocks = call!.params.system as Array<{
-    type: string
-    text: string
-  }>
-
-  expect(systemBlocks.length).toBe(3)
-  expect(systemBlocks[0]!.text).toBe('First part')
-  expect(systemBlocks[1]!.text).toBe('Second part')
-  expect(systemBlocks[2]!.text).toBe('Third part')
-
-  await controller.nextTurn()
-  await runPromise
-})
-
-test('strict tool enables structured-outputs beta', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Done')] },
-  ])
-
-  const runPromise = run(
-    <Agent
-      provider="anthropic"
-      model={ANTHROPIC_TEST_MODEL}
-      maxTokens={100}
-      stream={false}
-    >
+      <System>Test</System>
       <Tools>
-        <Tool
-          name="extract"
-          description="Extract data"
-          strict
-          parameters={z.object({ name: z.string() })}
-          handler={async () => 'ok'}
-        />
+        <Tool {...strictTool} />
       </Tools>
-      <Message role="user">Extract name</Message>
+      <Message role="user">Hi</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.waitForNextCall()
-  const call = controller.peekNextCall()
+  const tool = controller.peekNextCall()!.context.tools![0]!
 
-  expect(call!.params.betas).toContain('structured-outputs-2025-11-13')
+  // 'prefer' degrades to a normal tool call where the provider lacks grammar support
+  expect(tool.constrainedSampling).toEqual({
+    type: 'json_schema',
+    strict: 'prefer',
+  })
+  expect(
+    (tool.parameters as unknown as Record<string, unknown>)
+      .additionalProperties,
+  ).toBe(false)
 
   await controller.nextTurn()
   await runPromise
 })
 
-test('thinking enables interleaved-thinking beta by default', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Analyzed')] },
+test('thinking prop is passed through as a reasoning level', async () => {
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('ok')] },
   ])
 
   const runPromise = run(
@@ -820,69 +650,23 @@ test('thinking enables interleaved-thinking beta by default', async () => {
       model={ANTHROPIC_TEST_MODEL}
       maxTokens={100}
       stream={false}
-      thinking={{
-        type: 'enabled',
-        budget_tokens: 1024,
-        interleaved: true,
-      }}
+      thinking="high"
     >
-      <Message role="user">Analyze this</Message>
+      <System>Test</System>
+      <Message role="user">Hi</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.waitForNextCall()
-  const call = controller.peekNextCall()
-
-  expect(call!.params.betas).toContain('interleaved-thinking-2025-05-14')
-  expect(call!.params.thinking).toEqual({
-    type: 'enabled',
-    budget_tokens: 1024,
-  })
-
-  await controller.nextTurn()
-  await runPromise
-})
-
-test('thinking with interleaved: false disables interleaved-thinking beta', async () => {
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Analyzed')] },
-  ])
-
-  const runPromise = run(
-    <Agent
-      provider="anthropic"
-      model={ANTHROPIC_TEST_MODEL}
-      maxTokens={100}
-      stream={false}
-      thinking={{
-        type: 'enabled',
-        budget_tokens: 1024,
-        interleaved: false,
-      }}
-    >
-      <Message role="user">Analyze this</Message>
-    </Agent>,
-    { providers: { anthropic: { client } } },
-  )
-
-  await controller.waitForNextCall()
-  const call = controller.peekNextCall()
-
-  expect(call!.params.betas ?? []).not.toContain(
-    'interleaved-thinking-2025-05-14',
-  )
-  expect(call!.params.thinking).toEqual({
-    type: 'enabled',
-    budget_tokens: 1024,
-  })
+  expect(controller.peekNextCall()!.options?.reasoning).toBe('high')
 
   await controller.nextTurn()
   await runPromise
 })
 
 test('provider prop omission throws correct error', async () => {
-  const { client } = createStepMockClient([])
+  const { models } = createStepMockModels([])
 
   await expect(
     run(
@@ -890,136 +674,17 @@ test('provider prop omission throws correct error', async () => {
       <Agent model={ANTHROPIC_TEST_MODEL} stream={false}>
         <Message role="user">Hello</Message>
       </Agent>,
-      { providers: { anthropic: { client } } },
+      { models },
     ),
   ).rejects.toThrow('Provider is required on the rendered agent.')
 })
 
-test('missing Anthropic client throws descriptive error when no env var set', async () => {
-  const prev = process.env.ANTHROPIC_API_KEY
-  delete process.env.ANTHROPIC_API_KEY
-  resetSharedDefaultClients()
-
-  try {
-    await expect(
-      run(
-        <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
-          <Message role="user">Hello</Message>
-        </Agent>,
-        { providers: {} },
-      ),
-    ).rejects.toThrow('No Anthropic client configured')
-  } finally {
-    if (prev !== undefined) process.env.ANTHROPIC_API_KEY = prev
-    resetSharedDefaultClients()
-  }
-})
-
-// toAnthropicMessage unit tests
-
-test('toAnthropicMessage: thinking blocks are dropped from replayed history', () => {
-  const converted = toAnthropicMessage({
-    role: 'assistant',
-    content: [
-      { type: 'thinking', thinking: 'internal monologue' },
-      { type: 'text', text: 'visible response' },
-    ],
-  })
-
-  expect(Array.isArray(converted.content)).toBe(true)
-  const blocks = converted.content as Array<{ type: string }>
-  expect(blocks.some((b) => b.type === 'thinking')).toBe(false)
-  expect(blocks.some((b) => b.type === 'text')).toBe(true)
-})
-
-test('toAnthropicMessage: thinking-only assistant message gets empty text placeholder', () => {
-  const converted = toAnthropicMessage({
-    role: 'assistant',
-    content: [{ type: 'thinking', thinking: 'internal monologue' }],
-  })
-
-  expect(Array.isArray(converted.content)).toBe(true)
-  const blocks = converted.content as Array<{ type: string; text?: string }>
-  expect(blocks).toHaveLength(1)
-  expect(blocks[0]!.type).toBe('text')
-  expect(blocks[0]!.text).toBe('')
-})
-
-test('toAnthropicMessage: thinking blocks stripped when replaying assistant turn in multi-turn conversation', async () => {
-  // First turn: thinking + tool_use forces a second API call with the first turn in history
-  const { client, controller } = createStepMockClient([
-    {
-      content: [
-        {
-          type: 'thinking',
-          thinking: 'I should use a tool',
-          citations: null,
-        } as never,
-        mockToolUse('echo', { msg: 'hello' }),
-      ],
-      stop_reason: 'tool_use',
-    },
-    {
-      content: [mockText('Done')],
-      stop_reason: 'end_turn',
-    },
-  ])
-
-  const capturedBlocks: Array<{ type: string }>[] = []
-  const rawClient = client as unknown as {
-    beta: {
-      messages: {
-        create: (p: Record<string, unknown>, opts?: unknown) => Promise<unknown>
-      }
-    }
-  }
-  const originalCreate = rawClient.beta.messages.create.bind(
-    rawClient.beta.messages,
-  )
-  rawClient.beta.messages.create = async (
-    params: Record<string, unknown>,
-    opts?: unknown,
-  ) => {
-    const msgs = params.messages as Array<{ role: string; content: unknown }>
-    for (const msg of msgs) {
-      if (Array.isArray(msg.content)) {
-        capturedBlocks.push(msg.content as Array<{ type: string }>)
-      }
-    }
-    return originalCreate(params, opts)
-  }
-
-  const runPromise = run(
-    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
-      <Tools>
-        <Tool
-          name="echo"
-          description="Echo a message"
-          parameters={z.object({ msg: z.string() })}
-          handler={async ({ msg }) => msg}
-        />
-      </Tools>
-      <Message role="user">Use the echo tool</Message>
-    </Agent>,
-    { providers: { anthropic: { client } } },
-  )
-
-  await controller.nextTurn() // first turn: thinking + tool_use
-  await controller.waitForNextCall()
-  await controller.nextTurn() // second turn: end_turn
-
-  await runPromise
-
-  // All blocks seen across both API calls must not include thinking blocks
-  const allBlocks = capturedBlocks.flat()
-  expect(allBlocks.some((b) => b.type === 'thinking')).toBe(false)
-})
 
 test('non-streaming: onMessage fires text and message_complete events', async () => {
   const eventTypes: string[] = []
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello from Anthropic')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Hello from Anthropic')] },
   ])
 
   const runPromise = run(
@@ -1033,7 +698,7 @@ test('non-streaming: onMessage fires text and message_complete events', async ()
     >
       <Message role="user">Hello</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -1049,8 +714,8 @@ test('non-streaming: multiple text blocks accumulate correctly', async () => {
   const events: Array<{ type: string; text?: string; accumulated?: string }> =
     []
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello '), mockText('world')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Hello '), fauxText('world')] },
   ])
 
   const runPromise = run(
@@ -1070,7 +735,7 @@ test('non-streaming: multiple text blocks accumulate correctly', async () => {
     >
       <Message role="user">Hello</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -1084,7 +749,7 @@ test('non-streaming: multiple text blocks accumulate correctly', async () => {
 test('non-streaming: thinking events fire', async () => {
   const events: Array<{ type: string; text?: string }> = []
 
-  const { client, controller } = createStepMockClient([
+  const { models, controller } = createStepMockModels([
     {
       content: [
         {
@@ -1092,7 +757,7 @@ test('non-streaming: thinking events fire', async () => {
           thinking: 'Let me think...',
           citations: null,
         } as never,
-        mockText('Answer'),
+        fauxText('Answer'),
       ],
     },
   ])
@@ -1111,7 +776,7 @@ test('non-streaming: thinking events fire', async () => {
     >
       <Message role="user">Think about this</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -1125,12 +790,11 @@ test('non-streaming: thinking events fire', async () => {
 test('non-streaming: event order is content-blocks then message_complete', async () => {
   const eventTypes: string[] = []
 
-  const { client, controller } = createStepMockClient([
+  const { models, controller } = createStepMockModels([
     {
-      content: [mockText('Hi'), mockToolUse('search', { q: 'test' })],
-      stop_reason: 'tool_use',
+      content: [fauxText('Hi'), fauxToolCall('search', { q: 'test' })],
     },
-    { content: [mockText('Done')] },
+    { content: [fauxText('Done')] },
   ])
 
   const runPromise = run(
@@ -1146,13 +810,13 @@ test('non-streaming: event order is content-blocks then message_complete', async
         <Tool
           name="search"
           description="search"
-          parameters={z.object({ q: z.string() })}
+          parameters={Type.Object({ q: Type.String() })}
           handler={async () => 'result'}
         />
       </Tools>
       <Message role="user">Search</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -1172,8 +836,8 @@ test('streaming: text and message_complete events fire', async () => {
   const eventTypes: string[] = []
   let lastAccumulated = ''
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Streamed text')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Streamed text')] },
   ])
 
   const runPromise = run(
@@ -1188,7 +852,7 @@ test('streaming: text and message_complete events fire', async () => {
     >
       <Message role="user">Hello</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -1203,12 +867,11 @@ test('streaming: text and message_complete events fire', async () => {
 test('async onStepFinish is awaited before next iteration', async () => {
   const order: string[] = []
 
-  const { client, controller } = createStepMockClient([
+  const { models, controller } = createStepMockModels([
     {
-      content: [mockToolUse('myTool', { x: 1 })],
-      stop_reason: 'tool_use',
+      content: [fauxToolCall('myTool', { x: 1 })],
     },
-    { content: [mockText('Done')] },
+    { content: [fauxText('Done')] },
   ])
 
   const runPromise = run(
@@ -1226,7 +889,7 @@ test('async onStepFinish is awaited before next iteration', async () => {
         <Tool
           name="myTool"
           description="test"
-          parameters={z.object({ x: z.number() })}
+          parameters={Type.Object({ x: Type.Number() })}
           handler={async () => {
             order.push('tool:executed')
             return 'ok'
@@ -1235,7 +898,7 @@ test('async onStepFinish is awaited before next iteration', async () => {
       </Tools>
       <Message role="user">Go</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -1249,4 +912,46 @@ test('async onStepFinish is awaited before next iteration', async () => {
   const stepEndIdx = order.indexOf('stepFinish:end')
   expect(stepStartIdx).toBeGreaterThan(toolIdx)
   expect(stepEndIdx).toBeGreaterThan(stepStartIdx)
+})
+
+test('thinking blocks with signatures survive in replayed history', async () => {
+  const { models, controller } = createStepMockModels([
+    {
+      content: [
+        { type: 'thinking', thinking: 'reasoning...', thinkingSignature: 'sig-1' },
+        fauxToolCall('echo', { msg: 'hello' }),
+      ],
+    },
+    { content: [fauxText('Done')] },
+  ])
+
+  const runPromise = run(
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} stream={false}>
+      <Tools>
+        <Tool
+          name="echo"
+          description="Echo a message"
+          parameters={Type.Object({ msg: Type.String() })}
+          handler={async ({ msg }) => msg}
+        />
+      </Tools>
+      <Message role="user">Use the echo tool</Message>
+    </Agent>,
+    { models },
+  )
+
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+
+  // Second turn replays the assistant turn; the thinking block and its
+  // signature are preserved rather than dropped as they were pre-pi.
+  const replayed = controller.peekNextCall()!.context.messages
+  const assistant = replayed.find((m) => m.role === 'assistant')!
+  const thinking = assistant.content.find((b) => b.type === 'thinking')
+
+  expect(thinking).toBeDefined()
+  expect(thinking && 'thinkingSignature' in thinking && thinking.thinkingSignature).toBe('sig-1')
+
+  await controller.nextTurn()
+  await runPromise
 })

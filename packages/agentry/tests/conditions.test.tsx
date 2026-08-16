@@ -11,13 +11,13 @@ import {
   Message,
 } from '../src'
 import {
-  createStepMockClient,
-  createOpenAIMockClient,
-  mockText,
-  mockToolUse,
+  createStepMockModels,
+  
+  fauxText,
+  fauxToolCall,
 } from './utils'
 import { OPENAI_TEST_MODEL } from '../src/constants'
-import { z } from 'zod'
+import { Type } from 'typebox'
 
 describe('Condition', () => {
   describe('Boolean Conditions', () => {
@@ -37,15 +37,14 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockText('Hello! Active mode is enabled.')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Hello! Active mode is enabled.')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       const result = await runPromise
@@ -68,15 +67,14 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockText('Hello! Inactive mode is enabled.')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Hello! Inactive mode is enabled.')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       const result = await runPromise
@@ -100,15 +98,14 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockText('Both routes are active')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Both routes are active')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       const result = await runPromise
@@ -128,7 +125,7 @@ describe('Condition', () => {
                 <Tool
                   name="authenticate"
                   description="Authenticate user"
-                  parameters={z.object({ email: z.string() })}
+                  parameters={Type.Object({ email: Type.String() })}
                   handler={async () => 'Authenticated'}
                 />
               </Tools>
@@ -138,7 +135,7 @@ describe('Condition', () => {
                 <Tool
                   name="protected_action"
                   description="Protected action"
-                  parameters={z.object({})}
+                  parameters={Type.Object({})}
                   handler={async () => 'Action performed'}
                 />
               </Tools>
@@ -147,19 +144,17 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockToolUse('authenticate', { email: 'test@example.com' })],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('authenticate', { email: 'test@example.com' })],
         },
         {
-          content: [mockText('Authenticated successfully')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Authenticated successfully')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       await controller.nextTurn()
@@ -178,7 +173,7 @@ describe('Condition', () => {
                 <Tool
                   name="authenticate"
                   description="Authenticate user"
-                  parameters={z.object({ email: z.string() })}
+                  parameters={Type.Object({ email: Type.String() })}
                   handler={async ({ email }) => {
                     setIsAuthenticated(true)
                     return `Authenticated as ${email}`
@@ -191,7 +186,7 @@ describe('Condition', () => {
                 <Tool
                   name="protected_action"
                   description="Protected action"
-                  parameters={z.object({})}
+                  parameters={Type.Object({})}
                   handler={async () => 'Protected action performed'}
                 />
               </Tools>
@@ -200,23 +195,21 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockToolUse('authenticate', { email: 'test@example.com' })],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('authenticate', { email: 'test@example.com' })],
         },
         {
           content: [
-            mockText(
+            fauxText(
               'Authentication successful! You now have access to protected actions.',
             ),
           ],
-          stop_reason: 'end_turn',
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       await controller.nextTurn()
@@ -240,15 +233,14 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockText('Hello! I have the base system prompt only.')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Hello! I have the base system prompt only.')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       const result = await runPromise
@@ -270,7 +262,7 @@ describe('Condition', () => {
                 <Tool
                   name="tool1"
                   description="Tool 1"
-                  parameters={z.object({})}
+                  parameters={Type.Object({})}
                   handler={async () => 'Tool 1 executed'}
                 />
               </Tools>
@@ -279,19 +271,17 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockToolUse('tool1', {})],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('tool1', {})],
         },
         {
-          content: [mockText('Tool executed successfully')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Tool executed successfully')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       await controller.nextTurn()
@@ -320,16 +310,15 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockText('Hello')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Hello')],
         },
       ])
 
       // Create agent in interactive mode
       const handle = await run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
         mode: 'interactive',
       })
 
@@ -360,8 +349,8 @@ describe('Condition', () => {
                 <Tool
                   name="calculate"
                   description="Perform calculation"
-                  parameters={z.object({
-                    expression: z.string(),
+                  parameters={Type.Object({
+                    expression: Type.String(),
                   })}
                   handler={async ({ expression }) => {
                     const result = eval(expression)
@@ -374,33 +363,25 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         // First call: Route evaluation (LLM determines which NL routes match)
         {
           content: [
-            {
-              type: 'tool_use',
-              id: 'route_1',
-              name: 'evaluate_conditions',
-              input: { trueConditionIndices: [0] }, // NL condition index 0 (math route)
-            },
+            fauxToolCall('evaluate_conditions', { trueConditionIndices: [0] }, { id: 'route_1' }),
           ],
-          stop_reason: 'end_turn',
         },
         // Second call: Agent's response with math tool
         {
-          content: [mockToolUse('calculate', { expression: '5 * 8' })],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('calculate', { expression: '5 * 8' })],
         },
         // Third call: Final response
         {
-          content: [mockText('The result of 5 times 8 is 40.')],
-          stop_reason: 'end_turn',
+          content: [fauxText('The result of 5 times 8 is 40.')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn() // Route evaluation
       await controller.nextTurn() // Tool use
@@ -421,7 +402,7 @@ describe('Condition', () => {
                 <Tool
                   name="calculate"
                   description="Calculate"
-                  parameters={z.object({ expr: z.string() })}
+                  parameters={Type.Object({ expr: Type.String() })}
                   handler={async ({ expr }) => {
                     return `Result: ${eval(expr)}`
                   }}
@@ -434,7 +415,7 @@ describe('Condition', () => {
                 <Tool
                   name="get_info"
                   description="Get info"
-                  parameters={z.object({ topic: z.string() })}
+                  parameters={Type.Object({ topic: Type.String() })}
                   handler={async ({ topic }) => `Info about ${topic}`}
                 />
               </Tools>
@@ -443,35 +424,27 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         // Route evaluation - both routes match
         {
           content: [
-            {
-              type: 'tool_use',
-              id: 'route_1',
-              name: 'evaluate_conditions',
-              input: { trueConditionIndices: [0, 1] }, // Both routes active
-            },
+            fauxToolCall('evaluate_conditions', { trueConditionIndices: [0, 1] }, { id: 'route_1' }),
           ],
-          stop_reason: 'end_turn',
         },
         // Agent uses both tools
         {
           content: [
-            mockToolUse('calculate', { expr: '2+2' }, 'tool_1'),
-            mockToolUse('get_info', { topic: 'math' }, 'tool_2'),
+            fauxToolCall('calculate', { expr: '2+2' }, { id: 'tool_1' }),
+            fauxToolCall('get_info', { topic: 'math' }, { id: 'tool_2' }),
           ],
-          stop_reason: 'tool_use',
         },
         {
-          content: [mockText('2+2 is 4, and here is info about math.')],
-          stop_reason: 'end_turn',
+          content: [fauxText('2+2 is 4, and here is info about math.')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       await controller.nextTurn()
@@ -498,7 +471,7 @@ describe('Condition', () => {
                   <Tool
                     name="premium_feature"
                     description="Premium feature"
-                    parameters={z.object({})}
+                    parameters={Type.Object({})}
                     handler={async () => 'Premium feature executed'}
                   />
                 </Tools>
@@ -508,19 +481,17 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockToolUse('premium_feature', {})],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('premium_feature', {})],
         },
         {
-          content: [mockText('Premium feature is available')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Premium feature is available')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       await controller.nextTurn()
@@ -541,7 +512,7 @@ describe('Condition', () => {
                 <Tool
                   name="basic_feature"
                   description="Basic feature"
-                  parameters={z.object({})}
+                  parameters={Type.Object({})}
                   handler={async () => 'Basic feature executed'}
                 />
               </Tools>
@@ -550,7 +521,7 @@ describe('Condition', () => {
                   <Tool
                     name="premium_feature"
                     description="Premium feature"
-                    parameters={z.object({})}
+                    parameters={Type.Object({})}
                     handler={async () => 'Premium feature executed'}
                   />
                 </Tools>
@@ -560,19 +531,17 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockToolUse('basic_feature', {})],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('basic_feature', {})],
         },
         {
-          content: [mockText('Only basic features available')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Only basic features available')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       await controller.nextTurn()
@@ -599,15 +568,14 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockText('You need to authenticate first')],
-          stop_reason: 'end_turn',
+          content: [fauxText('You need to authenticate first')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       const result = await runPromise
@@ -632,7 +600,7 @@ describe('Condition', () => {
                     <Tool
                       name="admin_action"
                       description="Admin action"
-                      parameters={z.object({})}
+                      parameters={Type.Object({})}
                       handler={async () => 'Admin action performed'}
                     />
                   </Tools>
@@ -643,19 +611,17 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockToolUse('admin_action', {})],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('admin_action', {})],
         },
         {
-          content: [mockText('Admin action completed')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Admin action completed')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       await controller.nextTurn()
@@ -677,7 +643,7 @@ describe('Condition', () => {
                   <Tool
                     name="calculate"
                     description="Perform calculation"
-                    parameters={z.object({ expression: z.string() })}
+                    parameters={Type.Object({ expression: Type.String() })}
                     handler={async ({ expression }) => {
                       const result = eval(expression)
                       return `Result: ${result}`
@@ -690,33 +656,25 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         // Route evaluation for NL condition
         {
           content: [
-            {
-              type: 'tool_use',
-              id: 'route_1',
-              name: 'evaluate_conditions',
-              input: { trueConditionIndices: [0] }, // NL condition index 0 (math route)
-            },
+            fauxToolCall('evaluate_conditions', { trueConditionIndices: [0] }, { id: 'route_1' }),
           ],
-          stop_reason: 'end_turn',
         },
         // Agent uses calculate tool
         {
-          content: [mockToolUse('calculate', { expression: '10 + 5' })],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('calculate', { expression: '10 + 5' })],
         },
         // Final response
         {
-          content: [mockText('The result is 15')],
-          stop_reason: 'end_turn',
+          content: [fauxText('The result is 15')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       await controller.nextTurn()
@@ -737,7 +695,7 @@ describe('Condition', () => {
                 <Tool
                   name="authenticate"
                   description="Authenticate user"
-                  parameters={z.object({ email: z.string() })}
+                  parameters={Type.Object({ email: Type.String() })}
                   handler={async () => {
                     setIsAuthenticated(true)
                     return 'Authenticated'
@@ -751,7 +709,7 @@ describe('Condition', () => {
                   <Tool
                     name="protected_action"
                     description="Protected action"
-                    parameters={z.object({})}
+                    parameters={Type.Object({})}
                     handler={async () => 'Action performed'}
                   />
                 </Tools>
@@ -761,23 +719,20 @@ describe('Condition', () => {
         )
       }
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         {
-          content: [mockToolUse('authenticate', { email: 'test@example.com' })],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('authenticate', { email: 'test@example.com' })],
         },
         {
-          content: [mockToolUse('protected_action', {})],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('protected_action', {})],
         },
         {
-          content: [mockText('Authenticated and action completed')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Authenticated and action completed')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn()
       await controller.nextTurn()
@@ -799,7 +754,7 @@ describe('NL Condition Evaluation', () => {
               <Tool
                 name="calculate"
                 description="Perform a calculation"
-                parameters={z.object({ expression: z.string() })}
+                parameters={Type.Object({ expression: Type.String() })}
                 handler={async ({ expression }) => {
                   return `Result: ${eval(expression)}`
                 }}
@@ -809,32 +764,25 @@ describe('NL Condition Evaluation', () => {
         </Agent>
       )
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         // Turn 1: NL eval — condition 0 is true
         {
           content: [
-            mockToolUse(
-              'evaluate_conditions',
-              { trueConditionIndices: [0] },
-              'eval_1',
-            ),
+            fauxToolCall('evaluate_conditions', { trueConditionIndices: [0] }, { id: 'eval_1' }),
           ],
-          stop_reason: 'end_turn',
         },
         // Turn 2: agent calls calculate (tool is available because condition activated)
         {
-          content: [mockToolUse('calculate', { expression: '6 * 7' })],
-          stop_reason: 'tool_use',
+          content: [fauxToolCall('calculate', { expression: '6 * 7' })],
         },
         // Turn 3: final response
         {
-          content: [mockText('6 times 7 is 42.')],
-          stop_reason: 'end_turn',
+          content: [fauxText('6 times 7 is 42.')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn() // NL eval
       await controller.nextTurn() // agent calls calculate
@@ -853,7 +801,7 @@ describe('NL Condition Evaluation', () => {
               <Tool
                 name="calculate"
                 description="Perform a calculation"
-                parameters={z.object({ expression: z.string() })}
+                parameters={Type.Object({ expression: Type.String() })}
                 handler={async ({ expression }) => {
                   return `Result: ${eval(expression)}`
                 }}
@@ -863,21 +811,19 @@ describe('NL Condition Evaluation', () => {
         </Agent>
       )
 
-      const { client, controller } = createStepMockClient([
+      const { models, controller } = createStepMockModels([
         // Turn 1: NL eval returns plain text (no tool_use) — conditions stay false
         {
-          content: [mockText('I cannot evaluate that')],
-          stop_reason: 'end_turn',
+          content: [fauxText('I cannot evaluate that')],
         },
         // Turn 2: agent responds without tools (condition is false, calculate not available)
         {
-          content: [mockText('Default response without tools.')],
-          stop_reason: 'end_turn',
+          content: [fauxText('Default response without tools.')],
         },
       ])
 
       const runPromise = run(<TestAgent />, {
-        providers: { anthropic: { client } },
+        models,
       })
       await controller.nextTurn() // NL eval (no tool_use — fallback)
       await controller.nextTurn() // agent response
@@ -887,184 +833,64 @@ describe('NL Condition Evaluation', () => {
       expect(result.content).not.toContain('Result:')
     })
   })
-
   describe('OpenAI', () => {
-    it('should activate condition and make tool available when model returns trueConditionIndices', async () => {
-      const { client } = createOpenAIMockClient([
-        // Turn 1: NL eval (stream: false) — condition 0 is true
-        {
-          output: [
-            {
-              type: 'function_call',
-              call_id: 'cond_1',
-              name: 'evaluate_conditions',
-              arguments: JSON.stringify({ trueConditionIndices: [0] }),
-            },
-          ],
-        },
-        // Turn 2: agent calls calculate (tool available because condition activated)
-        {
-          output: [
-            {
-              type: 'function_call',
-              call_id: 'calc_1',
-              name: 'calculate',
-              arguments: JSON.stringify({ expression: '6 * 7' }),
-            },
-          ],
-        },
-        // Turn 3: final response
-        {
-          output: [
-            {
-              type: 'message',
-              content: [{ type: 'output_text', text: '6 times 7 is 42.' }],
-            },
-          ],
-        },
-      ])
+    // The NL-evaluation path is provider-agnostic now: pi owns the wire format
+    // and forced tool choice, so this asserts provider selection rather than
+    // re-testing the whole flow per provider.
+    it('evaluates NL conditions against the configured provider', async () => {
+      const { models, controller } = createStepMockModels(
+        [
+          {
+            content: [
+              fauxToolCall(
+                'evaluate_conditions',
+                { trueConditionIndices: [0] },
+                { id: 'cond_1' },
+              ),
+            ],
+          },
+          { content: [fauxText('Result: 42')] },
+        ],
+        { provider: 'openai', modelIds: [OPENAI_TEST_MODEL] },
+      )
 
-      const result = await run(
+      const runPromise = run(
         <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
-          <Message role="user">Calculate 6 times 7</Message>
-          <Condition when="user wants to do math or calculations">
+          <System>You are helpful</System>
+          <Message role="user">What is 40 + 2?</Message>
+          <Condition when="the user asked a math question">
             <Tools>
               <Tool
                 name="calculate"
-                description="Perform a calculation"
-                parameters={z.object({ expression: z.string() })}
-                handler={async ({ expression }) => {
-                  return `Result: ${eval(expression)}`
-                }}
+                description="Do math"
+                parameters={Type.Object({ expression: Type.String() })}
+                handler={async ({ expression }) => `Result: ${expression}`}
               />
             </Tools>
           </Condition>
         </Agent>,
-        { providers: { openai: { client } } },
+        { models },
       )
 
+      // First call is the batched NL condition evaluation.
+      await controller.waitForNextCall()
+      const evalCall = controller.peekNextCall()!
+      expect(evalCall.context.tools?.[0]?.name).toBe('evaluate_conditions')
+      expect(evalCall.model.provider).toBe('openai')
+
+      await controller.nextTurn()
+
+      // Second call carries the tool unlocked by the now-active condition.
+      await controller.waitForNextCall()
+      expect(
+        controller.peekNextCall()!.context.tools?.some(
+          (t) => t.name === 'calculate',
+        ),
+      ).toBe(true)
+
+      await controller.nextTurn()
+      const result = await runPromise
       expect(result.content).toContain('42')
     })
-
-    it('should keep condition false and skip tool when model returns no function_call', async () => {
-      const { client } = createOpenAIMockClient([
-        // Turn 1: NL eval returns a plain message (no function_call) — conditions stay false
-        {
-          output: [
-            {
-              type: 'message',
-              content: [
-                { type: 'output_text', text: 'I cannot evaluate that' },
-              ],
-            },
-          ],
-        },
-        // Turn 2: agent responds without tools (condition is false)
-        {
-          output: [
-            {
-              type: 'message',
-              content: [{ type: 'output_text', text: 'Default response.' }],
-            },
-          ],
-        },
-      ])
-
-      const result = await run(
-        <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
-          <Message role="user">Hello</Message>
-          <Condition when="user wants to do math or calculations">
-            <Tools>
-              <Tool
-                name="calculate"
-                description="Perform a calculation"
-                parameters={z.object({ expression: z.string() })}
-                handler={async ({ expression }) => {
-                  return `Result: ${eval(expression)}`
-                }}
-              />
-            </Tools>
-          </Condition>
-        </Agent>,
-        { providers: { openai: { client } } },
-      )
-
-      expect(result.content).toContain('Default')
-      expect(result.content).not.toContain('Result:')
-    })
-  })
-})
-
-describe('OpenAI Natural Language Conditions', () => {
-  it('should evaluate NL conditions via OpenAI function calling', async () => {
-    const { client } = createOpenAIMockClient([
-      // First call: NL condition evaluation — model returns evaluate_conditions tool call
-      {
-        output: [
-          {
-            type: 'function_call',
-            call_id: 'cond_1',
-            name: 'evaluate_conditions',
-            arguments: JSON.stringify({ trueConditionIndices: [0] }),
-          },
-        ],
-      },
-      // Second call: agent response
-      {
-        output: [
-          {
-            type: 'message',
-            content: [{ type: 'output_text', text: 'Math mode active: 42' }],
-          },
-        ],
-      },
-    ])
-
-    const result = await run(
-      <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
-        <Message role="user">Calculate 6 times 7</Message>
-        <Condition when="user wants to do math">
-          <Context>Math mode active</Context>
-        </Condition>
-      </Agent>,
-      { providers: { openai: { client } } },
-    )
-
-    expect(result.content).toContain('42')
-  })
-
-  it('should default all NL conditions to false when model returns no function call', async () => {
-    const { client } = createOpenAIMockClient([
-      // NL condition evaluation — model returns a plain message instead of function_call
-      {
-        output: [
-          {
-            type: 'message',
-            content: [{ type: 'output_text', text: 'I cannot evaluate that' }],
-          },
-        ],
-      },
-      // Agent response (conditions stayed false)
-      {
-        output: [
-          {
-            type: 'message',
-            content: [{ type: 'output_text', text: 'Default response' }],
-          },
-        ],
-      },
-    ])
-
-    const result = await run(
-      <Agent provider="openai" model={OPENAI_TEST_MODEL} stream={false}>
-        <Message role="user">Hello</Message>
-        <Condition when="user wants something special">
-          <Context>Special mode</Context>
-        </Condition>
-      </Agent>,
-      { providers: { openai: { client } } },
-    )
-
-    expect(result.content).toContain('Default')
   })
 })

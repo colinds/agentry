@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { z } from 'zod'
+import { Type } from 'typebox'
 import { run } from '../src'
 import { defineTool } from '../src/tools'
 import {
@@ -11,7 +11,7 @@ import {
   useMessages,
   useAgentState,
 } from '../src'
-import { createStepMockClient, mockText, mockToolUse } from './utils'
+import { createStepMockModels, fauxText, fauxToolCall } from './utils'
 import { AgentStatus } from '../src/types'
 import { ANTHROPIC_TEST_MODEL } from '../src/constants'
 import { createStateWatcher, createMessageCollector } from './utils/testHelpers'
@@ -25,8 +25,8 @@ test('useExecutionState tracks status transitions', async () => {
     return null
   }
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Done')], stop_reason: 'end_turn' },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Done')] },
   ])
 
   const runPromise = run(
@@ -39,7 +39,7 @@ test('useExecutionState tracks status transitions', async () => {
       <StateTracker />
       <Message role="user">Test</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -48,15 +48,15 @@ test('useExecutionState tracks status transitions', async () => {
   expect(states.length).toBeGreaterThan(0)
   expect(states[0]).toBe('idle')
   expect(states[states.length - 1]).toBe('completed')
-  expect(result.stopReason).toBe('end_turn')
+  expect(result.stopReason).toBe('stop')
   expect(result.content).toBe('Done')
 })
 
 test('useExecutionState with createStateWatcher helper', async () => {
   const watcher = createStateWatcher()
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Response')], stop_reason: 'end_turn' },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Response')] },
   ])
 
   const runPromise = run(
@@ -69,7 +69,7 @@ test('useExecutionState with createStateWatcher helper', async () => {
       <watcher.Component />
       <Message role="user">Test</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -80,7 +80,7 @@ test('useExecutionState with createStateWatcher helper', async () => {
   expect(watcher.states[watcher.states.length - 1]?.status).toBe(
     AgentStatus.Completed,
   )
-  expect(result.stopReason).toBe('end_turn')
+  expect(result.stopReason).toBe('stop')
 })
 
 test('useMessages accumulates conversation history', async () => {
@@ -92,8 +92,8 @@ test('useMessages accumulates conversation history', async () => {
     return null
   }
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Hello back!')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Hello back!')] },
   ])
 
   const runPromise = run(
@@ -101,7 +101,7 @@ test('useMessages accumulates conversation history', async () => {
       <MessageTracker />
       <Message role="user">Hello</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -116,8 +116,8 @@ test('useMessages accumulates conversation history', async () => {
 test('useMessages with createMessageCollector helper', async () => {
   const collector = createMessageCollector()
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Response')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Response')] },
   ])
 
   const runPromise = run(
@@ -125,7 +125,7 @@ test('useMessages with createMessageCollector helper', async () => {
       <collector.Component />
       <Message role="user">Test message</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -151,8 +151,8 @@ test('useAgentState provides full state access', async () => {
     return null
   }
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Done')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Done')] },
   ])
 
   const runPromise = run(
@@ -160,7 +160,7 @@ test('useAgentState provides full state access', async () => {
       <FullStateTracker />
       <Message role="user">Test</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -195,8 +195,8 @@ test('multiple components can subscribe to same state', async () => {
   const watcher1 = createStateWatcher()
   const watcher2 = createStateWatcher()
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockText('Done')] },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxText('Done')] },
   ])
 
   const runPromise = run(
@@ -205,7 +205,7 @@ test('multiple components can subscribe to same state', async () => {
       <watcher2.Component />
       <Message role="user">Test</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -233,16 +233,16 @@ test('state updates during tool execution', async () => {
   const testTool = defineTool({
     name: 'test_tool',
     description: 'A test tool',
-    parameters: z.object({}),
+    parameters: Type.Object({}),
     handler: async () => {
       toolCalled = true
       return 'Tool executed'
     },
   })
 
-  const { client, controller } = createStepMockClient([
-    { content: [mockToolUse('test_tool', {})], stop_reason: 'tool_use' },
-    { content: [mockText('Done')], stop_reason: 'end_turn' },
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('test_tool', {})] },
+    { content: [fauxText('Done')] },
   ])
 
   const runPromise = run(
@@ -258,7 +258,7 @@ test('state updates during tool execution', async () => {
       </Tools>
       <Message role="user">Use the tool</Message>
     </Agent>,
-    { providers: { anthropic: { client } } },
+    { models },
   )
 
   await controller.nextTurn()
@@ -270,6 +270,6 @@ test('state updates during tool execution', async () => {
   expect(states.length).toBeGreaterThan(0)
   expect(states[0]).toBe('idle')
   expect(states[states.length - 1]).toBe('completed')
-  expect(result.stopReason).toBe('end_turn')
+  expect(result.stopReason).toBe('stop')
   expect(result.content).toBe('Done')
 })
