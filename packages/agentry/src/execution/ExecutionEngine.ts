@@ -36,7 +36,6 @@ import type { AgentStore } from '../store'
 import { collectChild } from '../reconciler/collectors'
 import {
   isThinkingBlock,
-  isTextBlock,
   toolResultMessage,
   userMessage,
   type AgentMessage,
@@ -44,7 +43,14 @@ import {
   type ToolCall,
   type ToolResultMessage,
 } from '../types/messages'
-import { createTurn } from '../pi/turn'
+import { AgentryContextOverflowError, createTurn } from '../pi/turn'
+import type { CompactionSettings } from './compaction'
+import {
+  compactMessages,
+  contextTokens,
+  isFatalCompactionError,
+  DEFAULT_TOKEN_THRESHOLD,
+} from './compaction'
 import { resolveModel } from '../pi/models'
 import { toPiTools } from '../pi/tools'
 import { connectMcpServer, type McpConnection } from '../mcp'
@@ -65,17 +71,6 @@ interface ExecutionEngineEvents {
   stepFinish: (result: OnStepFinishResult) => void
 }
 
-const DEFAULT_TOKEN_THRESHOLD = 100_000
-
-const DEFAULT_SUMMARY_PROMPT = `You have been working on the task described above but have not yet completed it. Write a continuation summary that will allow you (or another instance of yourself) to resume work efficiently in a future context window where the conversation history will be replaced with this summary. Your summary should be structured, concise, and actionable. Include:
-1. Task Overview
-2. Current State
-3. Important Discoveries
-4. Next Steps
-5. Context to Preserve
-Be concise but complete. Write in a way that enables immediate resumption of the task.
-Wrap your summary in <summary></summary> tags.`
-
 export interface ExecutionEngineConfig {
   models: Models
   provider: string
@@ -83,12 +78,7 @@ export interface ExecutionEngineConfig {
   maxTokens: number
   stream?: boolean
   maxIterations?: number
-  compactionControl?: {
-    enabled: boolean
-    contextTokenThreshold?: number
-    model?: string
-    summaryPrompt?: string
-  }
+  compactionControl?: CompactionSettings
   temperature?: number
   agentName?: string
   agentInstance: AgentInstance
@@ -301,7 +291,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         this.assertUniqueToolNames()
         this.narrateResourceChanges()
 
-        const message = await this.makeApiCall(abortController)
+        const message = await this.callWithOverflowRecovery(abortController)
         this.lastMessage = message
         this.emit('message', message)
         this.pushMessage(message)
@@ -445,6 +435,33 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const connections = [...this.mcpConnections.values()]
     this.mcpConnections.clear()
     await Promise.all(connections.map((c) => c.close().catch(() => {})))
+  }
+
+  /**
+   * Runs a turn, and if the provider refuses it for exceeding the context
+   * window, compacts and tries once more.
+   *
+   * Overflow is the one provider failure the framework can recover from, and
+   * it is exactly when compaction is most needed — but the token-threshold
+   * trigger has by definition already failed to fire, so this forces it.
+   */
+  private async callWithOverflowRecovery(
+    abortController: AbortController,
+  ): Promise<AgentMessage> {
+    try {
+      return await this.makeApiCall(abortController)
+    } catch (error) {
+      if (!(error instanceof AgentryContextOverflowError)) throw error
+      if (!this.config.compactionControl?.enabled) throw error
+
+      debug('compaction', 'Context overflow — compacting and retrying once')
+      const compacted = await this.checkAndCompact(abortController.signal, {
+        force: true,
+      })
+      if (!compacted) throw error
+
+      return this.makeApiCall(abortController)
+    }
   }
 
   private async makeApiCall(
@@ -642,88 +659,49 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.emit('error', error)
   }
 
-  private async checkAndCompact(signal?: AbortSignal): Promise<boolean> {
-    const compactionControl = this.config.compactionControl
-    if (!compactionControl?.enabled || !this.lastMessage) {
-      return false
+  private async checkAndCompact(
+    signal?: AbortSignal,
+    options: { force?: boolean } = {},
+  ): Promise<boolean> {
+    const settings = this.config.compactionControl
+    if (!settings?.enabled) return false
+
+    // `force` is the context-overflow path: the provider has already refused
+    // the request, so the token threshold is moot — and there may be no prior
+    // turn to measure, which is exactly the case when a pre-loaded transcript
+    // overflows on the very first call.
+    if (!options.force) {
+      if (!this.lastMessage) return false
+      const threshold =
+        settings.contextTokenThreshold ?? DEFAULT_TOKEN_THRESHOLD
+      if (contextTokens(this.lastMessage) < threshold) return false
     }
-
-    const totalTokens = this.lastMessage.usage.totalTokens
-
-    const threshold =
-      compactionControl.contextTokenThreshold ?? DEFAULT_TOKEN_THRESHOLD
-
-    if (totalTokens < threshold) {
-      return false
-    }
-
-    const summaryPrompt =
-      compactionControl.summaryPrompt ?? DEFAULT_SUMMARY_PROMPT
-    const currentMessages = [...this.messages] as AgentMessageParam[]
 
     try {
-      const compactionModel = compactionControl.model
-        ? resolveModel(
-            this.config.models,
-            this.config.provider,
-            compactionControl.model,
-          )
+      const model = settings.model
+        ? resolveModel(this.config.models, this.config.provider, settings.model)
         : this.resolvedModel
 
-      const message = await createTurn(this.config.models, {
-        model: compactionModel,
-        context: {
-          messages: [...currentMessages, userMessage(summaryPrompt)],
-          tools: [],
-        },
+      const result = await compactMessages({
+        models: this.config.models,
+        model,
+        messages: this.messages,
+        settings,
         maxTokens: this.config.maxTokens,
-        stream: false,
-        signal: signal ?? AbortSignal.timeout(60_000),
-        onStream: () => {},
+        signal,
       })
 
-      const summaryText = message.content
-        .filter(isTextBlock)
-        .map((block) => block.text)
-        .join('')
+      if (!result.compacted || !result.messages) return false
 
-      if (!summaryText) {
-        const err = new Error(
-          `[agentry] Compaction: model returned no text summary (agent: ${this.config.agentName ?? 'unknown'})`,
-        )
-        console.warn(err.message)
-        this.emit('error', err)
-        return false
-      }
-
-      this.store
-        .getState()
-        .actions.setMessages([
-          userMessage([{ type: 'text', text: summaryText }]),
-        ])
+      this.store.getState().actions.setMessages(result.messages)
       return true
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
-      // Re-throw abort errors — the agent is being cancelled
-      if (err.name === 'AbortError') throw err
-      // Re-throw fatal errors (auth failures, invalid model) — these won't resolve on retry
-      const status = (err as { status?: number }).status
-      if (status === 401 || status === 403 || status === 404) {
-        throw err
-      }
-      // Re-throw programming errors — these indicate bugs, not transient failures
-      if (
-        err instanceof TypeError ||
-        err instanceof ReferenceError ||
-        err instanceof SyntaxError
-      ) {
-        throw err
-      }
-      const compactionModel = compactionControl.model ?? this.config.model
-      const tokenCount = this.lastMessage?.usage.totalTokens ?? 0
+      if (isFatalCompactionError(err)) throw err
+
       console.warn(
         `[agentry] Compaction failed for agent "${this.config.agentName ?? 'unknown'}" ` +
-          `(model: ${compactionModel}, tokens: ${tokenCount}): ${err.message}. ` +
+          `(model: ${settings.model ?? this.config.model}): ${err.message}. ` +
           `Continuing without compaction.`,
       )
       this.emit('error', err)

@@ -69,7 +69,14 @@ export type AgentProps = BaseAgentProps & ProviderVariant
 
 export interface CompactionControl {
   enabled: boolean
+  /** Trigger compaction once a turn reports this many total tokens. */
   contextTokenThreshold?: number
+  /**
+   * How much of the recent conversation to keep verbatim rather than fold into
+   * the summary. Defaults to ~16k tokens. Note that changing the transcript
+   * invalidates the provider's prompt cache, so compact rarely.
+   */
+  keepRecentTokens?: number
   model?: Model
   summaryPrompt?: string
 }
