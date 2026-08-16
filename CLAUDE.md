@@ -84,7 +84,9 @@ pi resolves them per provider, so no client construction is needed.
 ### What pi does not do
 
 pi ships no MCP, no provider-native server-side tools, and no OpenAI WebSocket transport
-for API-key auth. These are deliberate upstream non-goals, not gaps to work around:
+for API-key auth. The WebSocket omission was measured rather than assumed — see
+`packages/agentry/benchmarks/README.md`: warm WS is ~3% faster to first token and cold WS
+is 36% *slower*, which does not justify importing that transport's failure modes. These are deliberate upstream non-goals, not gaps to work around:
 injecting native tools via `onPayload` reaches the wire but pi's response parser drops the
 resulting blocks, which corrupts replayed history.
 
