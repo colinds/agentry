@@ -52,11 +52,8 @@
       "packages/*"
     ],
     "catalog": {
-      "@anthropic-ai/sdk": "^0.71.2",
       "@types/react": "^19.2.14",
-      "openai": "^6.23.0",
-      "react": "^19.0.0",
-      "zod": "^4.1.13"
+      "react": "^19.0.0"
     }
   }
 }

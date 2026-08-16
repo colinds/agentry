@@ -27,7 +27,6 @@ export {
   type DefineToolOptions,
   type RunAgentOptions,
   type PendingToolCall,
-  type MemoryHandlers,
 } from './tools'
 
 export {

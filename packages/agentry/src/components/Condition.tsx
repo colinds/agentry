@@ -39,7 +39,7 @@ export type ConditionProps =
  * @example Natural language condition
  * ```tsx
  * <Condition when="user wants to search the web">
- *   <System>Web search mode active.</System>
+ *   <System>Research mode active.</System>
  *   <Tools><Tool {...searchTool} /></Tools>
  * </Condition>
  * ```

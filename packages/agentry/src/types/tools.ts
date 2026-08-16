@@ -5,44 +5,12 @@ import type { Model, AgentResult, ProviderId } from './agent'
 import type { JsonObject, JsonValue } from './json'
 import type { ImageContent, TextContent } from './messages'
 
-export interface MemoryHandlers {
-  /** Handler for viewing directory contents or file contents */
-  onView?: (input: {
-    path: string
-    view_range?: [number, number]
-  }) => Promise<string> | string
-  /** Handler for creating or overwriting a file */
-  onCreate?: (input: {
-    path: string
-    file_text: string
-  }) => Promise<string> | string
-  /** Handler for replacing text in a file */
-  onStrReplace?: (input: {
-    path: string
-    old_str: string
-    new_str: string
-  }) => Promise<string> | string
-  /** Handler for inserting text at a specific line */
-  onInsert?: (input: {
-    path: string
-    insert_line: number
-    insert_text: string
-  }) => Promise<string> | string
-  /** Handler for deleting a file or directory */
-  onDelete?: (input: { path: string }) => Promise<string> | string
-  /** Handler for renaming or moving a file/directory */
-  onRename?: (input: {
-    old_path: string
-    new_path: string
-  }) => Promise<string> | string
-}
-
 /**
  * What a tool handler may return.
  *
  * Images are included because pi carries them end-to-end — `ToolResultMessage`
- * holds `(TextContent | ImageContent)[]` and the provider adapters convert them
- * to native image blocks. Screenshot and chart tools depend on this.
+ * holds `(TextContent | ImageContent)[]`, and pi's own provider APIs convert
+ * them to native image blocks. Screenshot and chart tools depend on this.
  */
 export type ToolResult = string | Array<TextContent | ImageContent>
 

@@ -48,6 +48,11 @@ export interface CompactionSettings {
  * Rough token estimate. Deliberately crude — it only decides where to cut, and
  * an exact count would need a per-model tokenizer for a decision that is
  * tolerant of being off by a chunk.
+ *
+ * pi ships `estimateMessageTokens`, but it lives in `dist/utils/estimate.js`
+ * and the package's `exports` map has no `./utils/*` entry, so it is not
+ * reachable without a deep import that the map forbids and that any pi
+ * restructure would break. Hence a local one.
  */
 export function estimateTokens(message: AgentMessageParam): number {
   if (typeof message.content === 'string') {

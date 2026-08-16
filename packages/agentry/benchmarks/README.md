@@ -3,6 +3,15 @@
 One-off measurements kept for the record. Outside `tsconfig` and lint scope —
 they are scripts, not shipped code.
 
+They are also outside the dependency graph. `ws-transport.ts` imports `openai`,
+which is not a dependency of this package; it currently resolves only because
+pi pulls it in transitively. To re-run it, install it explicitly first:
+
+```bash
+bun add -d openai
+OPENAI_API_KEY=... bun run packages/agentry/benchmarks/ws-transport.ts 12
+```
+
 ## `ws-transport.ts` — SSE vs WebSocket on OpenAI's Responses API
 
 **Question.** pi implements a WebSocket transport only for the Codex

@@ -1,6 +1,6 @@
 export { run, createAgent, createAI } from './run'
 export { AgentHandle } from './handles'
-export { defineTool, defineAgentTool, defineMemoryTool } from './tools'
+export { defineTool, defineAgentTool } from './tools'
 export { AgentryContextOverflowError, AgentryProviderError } from './pi'
 export {
   Agent,
@@ -12,7 +12,6 @@ export {
   Tools,
   Condition,
   MCP,
-  Memory,
   useExecutionState,
   useMessages,
   useAgentState,

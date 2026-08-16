@@ -165,13 +165,11 @@ Want to see code? See [examples/](/packages/examples/src)
 
 | Example                                                                                | Description                                               |
 | -------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| [`demo.tsx`](packages/examples/src/demo.tsx)                                           | Company research with web search                          |
+| [`demo.tsx`](packages/examples/src/demo.tsx)                                           | Company research with nested subagents                    |
 | [`basic.tsx`](packages/examples/src/basic.tsx)                                         | Simple calculator tool                                    |
 | [`interactive.tsx`](packages/examples/src/interactive.tsx)                             | Multi-turn conversations with streaming                   |
 | [`subagents.tsx`](packages/examples/src/subagents.tsx)                                 | Manager delegating to specialists                         |
 | [`hooks.tsx`](packages/examples/src/hooks.tsx)                                         | Hooks, composition, and dynamic tools                     |
-| [`web-search.tsx`](packages/examples/src/web-search.tsx)                               | Web search workflows                                      |
-| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | MCP server integration                                    |
 | [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                     | Terminal-based chatbot                                    |
 | [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                     | Dynamic subagent creation                                 |
 | [`conditions.tsx`](packages/examples/src/conditions.tsx)                               | State-based and NL condition rendering                    |
@@ -600,24 +598,6 @@ Everything is exported from `agentry`; there is a single entry point.
 | `model?`    | `string`                        | Override model for NL evaluation (defaults to `claude-haiku-4-5` / `gpt-4.1-mini` if not set) |
 | `children`  | `ReactNode`                     | Content to render when condition is true                                                      |
 
-#### `<Memory>`
-
-A client-side scratchpad. Agentry validates and dispatches the commands; where
-memory is stored is entirely yours, so it works on every provider.
-
-| Prop       | Type             | Description                                          |
-| ---------- | ---------------- | ---------------------------------------------------- |
-| `handlers` | `MemoryHandlers` | `onView`, `onCreate`, `onStrReplace`, `onInsert`, `onDelete`, `onRename` |
-
-```tsx
-<Memory
-  handlers={{
-    onView: ({ path }) => store.read(path),
-    onCreate: ({ path, file_text }) => store.write(path, file_text),
-  }}
-/>
-```
-
 #### `<MCP>`
 
 Agentry is the MCP *client*: it connects, lists the server's tools, and proxies
@@ -691,7 +671,6 @@ since providers prepend scaffolding a client never sees.
 | `defineTool(options)`            | Define a tool programmatically. Options: `name`, `description`, `parameters`, `strict?`, `handler` |
 | `defineAgentTool(options)`       | Define a subagent tool. Options: `name`, `description`, `parameters`, `agent`                      |
 | `createAgent(element, options?)` | Create an agent handle without running                                                             |
-| `defineMemoryTool(handlers)`     | Build the memory tool directly, without the `<Memory>` component                                   |
 | `Type`                           | TypeBox schema builder, re-exported so you need no extra install                                   |
 
 ### ToolContext

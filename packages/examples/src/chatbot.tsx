@@ -67,21 +67,52 @@ const ChatbotAgent = () => {
     },
   })
 
-  // Web search subagent that specializes in online research
-  const WebSearchSubagent = () => (
+  // A subagent with a tool the parent does not have. Agentry ships no built-in
+  // tools of any kind, so the research subagent gets a plain fetch tool —
+  // written the same way you would write any other.
+  const fetchUrlTool = defineTool({
+    name: 'fetch_url',
+    description: 'Fetch a URL and return its text content, truncated.',
+    parameters: Type.Object({
+      url: Type.String({ description: 'Absolute http(s) URL to fetch' }),
+    }),
+    handler: async ({ url }) => {
+      try {
+        const response = await fetch(url, {
+          headers: { 'user-agent': 'agentry-example' },
+          signal: AbortSignal.timeout(15_000),
+        })
+        if (!response.ok) {
+          return `Request failed: ${response.status} ${response.statusText}`
+        }
+        const body = await response.text()
+        return body.slice(0, 4000)
+      } catch (error) {
+        // Returned as a string so the model can recover and try another URL.
+        return `Could not fetch ${url}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      }
+    },
+  })
+
+  const ResearchSubagent = () => (
     <Agent
       provider={EXAMPLE_PROVIDER}
       model={EXAMPLE_MODEL}
-      name="web_researcher"
-      description="Specialist subagent for web research using the web_search tool"
+      name="researcher"
+      description="Specialist subagent that reads web pages and summarizes them"
       maxTokens={2048}
     >
       <System>
-        You are a focused web research assistant. Use the web_search tool to
-        find up-to-date information on the internet, then synthesize concise,
-        source-backed answers. Prefer official and reputable sources.
+        You are a focused research assistant. Use the fetch_url tool to read
+        pages the user names or that you can infer, then synthesize a concise,
+        source-backed answer. Say so plainly when a page does not answer the
+        question — you cannot search, you can only fetch URLs.
       </System>
-      <Tools></Tools>
+      <Tools>
+        <Tool {...fetchUrlTool} />
+      </Tools>
     </Agent>
   )
 
@@ -96,18 +127,22 @@ const ChatbotAgent = () => {
         You are a helpful AI assistant. Be concise and friendly. You have access
         to several tools: a calculator for math problems, a time tool for
         current timestamps, a joke tool for light-hearted responses, and a
-        web_researcher subagent that can browse the web using the web_search
-        tool when you need fresh, online information.
+        researcher subagent that can fetch and summarize a web page when you
+        have a URL to read.
       </System>
       <Tools>
         <Tool {...calculatorTool} />
         <Tool {...timeTool} />
         <Tool {...jokeTool} />
         <AgentTool
-          name="web_researcher"
-          description="Specialist subagent for web research using the web_search tool"
-          parameters={Type.Object({})}
-          agent={() => <WebSearchSubagent />}
+          name="researcher"
+          description="Reads a web page and summarizes it. Give it a URL and a question."
+          parameters={Type.Object({
+            request: Type.String({
+              description: 'What to find out, including any URL to read',
+            }),
+          })}
+          agent={() => <ResearchSubagent />}
         />
       </Tools>
     </Agent>

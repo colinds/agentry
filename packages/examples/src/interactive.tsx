@@ -5,7 +5,8 @@ import { MODEL, OPENAI_MODEL } from './constants'
 const EXAMPLE_PROVIDER =
   process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
-const ai = EXAMPLE_PROVIDER === 'openai' ? createAI() : createAI()
+// createAI() carries no provider itself — the provider is chosen per <Agent>.
+const ai = createAI()
 
 const InteractiveAgent = () => {
   const docsSearchTool = defineTool({
@@ -29,7 +30,7 @@ const InteractiveAgent = () => {
       stream={true}
     >
       <System>
-        You are a helpful assistant with access to documentation and web search.
+        You are a helpful assistant with access to a documentation search tool.
       </System>
       <Tools>
         <Tool {...docsSearchTool} />

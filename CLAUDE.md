@@ -90,10 +90,10 @@ is 36% *slower*, which does not justify importing that transport's failure modes
 injecting native tools via `onPayload` reaches the wire but pi's response parser drops the
 resulting blocks, which corrupts replayed history.
 
-MCP and Memory are therefore implemented client-side (see above). `<WebSearch>` and
-`<CodeExecution>` were removed outright — a faithful web search needs a third-party search
-API and code execution is a sandboxing project; both are better as ordinary user-defined
-tools than as half-working built-ins.
+MCP is therefore implemented client-side (see below). Provider-native built-ins are not
+a goal: agentry ships no search, code-execution, or memory tools. Each needs a third-party
+service or a sandbox to be faithful, and all of them are better written as ordinary
+user-defined tools than shipped as half-working built-ins.
 
 ### Subagents
 
@@ -124,15 +124,15 @@ problem with hooks and no reconciler. agentry keeps JSX; only the mechanics move
   provider's tools array and invalidates its prompt cache, so gate tools on
   rarely-changing state.
 
-### MCP and Memory
+### MCP
 
-Both are client-side, because pi models only client-executed tools.
+Client-side, because pi models only client-executed tools.
 
 - `<MCP>` connects to an MCP server (stdio or streamable HTTP), lists its tools,
   and proxies each `tools/call`. Tools are namespaced `<server>__<tool>`.
-  Connections are reconciled per turn and closed with the handle.
-- `<Memory handlers={...} />` is an ordinary tool over user-supplied storage.
-- Both consequently work on every provider, not just those with a native
+  Connections are reconciled per turn, reused across runs, and closed with the
+  handle.
+- It consequently works on every provider, not just those with a native
   connector.
 
 ### Concurrent subagents
