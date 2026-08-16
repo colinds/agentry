@@ -161,12 +161,9 @@ export async function createTurn(
   }
 
   /**
-   * One streaming attempt.
-   *
-   * A retry replays whatever the consumer has already seen, so once an event
-   * has been emitted the failure is raised as terminal instead. Failures before
-   * the first event — connection refused, 429/503 on the request itself, which
-   * is the common transient case — are left for the retry helper to classify.
+   * One streaming attempt. Once content has been emitted a retry would replay
+   * it, so the failure is raised as terminal; earlier failures are left for the
+   * retry helper to classify.
    */
   const produceStream = async (): Promise<AssistantMessage> => {
     let emittedContent = false
@@ -207,9 +204,8 @@ export async function createTurn(
 }
 
 /**
- * Whether an event put something in front of the consumer that a retry would
- * show twice. Lifecycle events carry nothing, and a failed turn still emits an
- * empty text delta before reporting the error.
+ * Whether an event showed the consumer something a retry would repeat. Excludes
+ * lifecycle events and the empty text delta a failed turn still emits.
  */
 function carriesContent(event: AgentStreamEvent): boolean {
   switch (event.type) {

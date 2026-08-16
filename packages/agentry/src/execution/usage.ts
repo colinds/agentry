@@ -1,11 +1,10 @@
 import type { Usage } from '@earendil-works/pi-ai'
 
 /**
- * Running total of what a whole run cost.
+ * Running total for a whole run.
  *
- * pi reports usage per assistant message. Reading only the last one — which is
- * what `AgentResult.usage` used to do — under-reports a tool loop by roughly
- * the number of turns it took, while the field is documented as a total.
+ * pi reports usage per assistant message, so reading only the last one
+ * under-reports a tool loop by roughly the number of turns it took.
  */
 export type RunUsage = Pick<
   Usage,

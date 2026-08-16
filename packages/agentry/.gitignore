@@ -1,5 +1,4 @@
-# these files are copied from package root before publish
-# Anchored: `prepack` copies the root README here and `postpack` removes it.
-# Unanchored, this pattern silently swallowed every README in the package tree.
+# Copied from the package root by `prepack`, removed by `postpack`.
+# Anchored so the pattern cannot swallow other READMEs in the tree.
 /README.md
 /LICENSE.md

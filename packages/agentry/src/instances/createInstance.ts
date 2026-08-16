@@ -243,8 +243,7 @@ function createMCPServerInstance(
   return {
     type: InstanceType.McpServer,
     // Copied, not aliased: React freezes props in development, and the
-    // reconciler updates this object in place when `<MCP>` props change (the
-    // collected `agent.mcpServers` array holds this exact reference).
+    // reconciler updates this object in place when `<MCP>` props change.
     config: { ...props },
     parent: null,
   }

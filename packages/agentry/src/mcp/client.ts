@@ -112,11 +112,9 @@ function toInternalTool(options: {
     description: tool.description ?? `MCP tool "${tool.name}"`,
     parameters: schema as never,
     jsonSchema: schema,
-    // The signal comes from the ToolContext, which carries the *current*
-    // turn's signal. The connect-time signal would be the one from whichever
-    // turn first reached this server, and connections outlive that turn — so
-    // from the second turn on it is permanently unaborted and aborting the run
-    // would never reach an in-flight MCP call.
+    // The signal comes from the ToolContext, so it is the current turn's.
+    // Connections outlive the turn that opened them, so a captured one would
+    // be permanently unaborted from the second turn on.
     handler: async (input, context): Promise<ToolResult> => {
       const signal = context?.signal
       if (signal?.aborted) {

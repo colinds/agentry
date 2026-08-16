@@ -83,12 +83,10 @@ pi resolves them per provider, so no client construction is needed.
 
 ### What pi does not do
 
-pi ships no MCP, no provider-native server-side tools, and no OpenAI WebSocket transport
-for API-key auth. The WebSocket omission was measured rather than assumed — see
-`packages/agentry/benchmarks/README.md`: warm WS is ~3% faster to first token and cold WS
-is 36% *slower*, which does not justify importing that transport's failure modes. These are deliberate upstream non-goals, not gaps to work around:
-injecting native tools via `onPayload` reaches the wire but pi's response parser drops the
-resulting blocks, which corrupts replayed history.
+pi ships no MCP and no provider-native server-side tools. These are deliberate upstream
+non-goals, not gaps to work around: injecting native tools via `onPayload` reaches the
+wire but pi's response parser drops the resulting blocks, which corrupts replayed
+history.
 
 MCP is therefore implemented client-side (see below). Provider-native built-ins are not
 a goal: agentry ships no search, code-execution, or memory tools. Each needs a third-party

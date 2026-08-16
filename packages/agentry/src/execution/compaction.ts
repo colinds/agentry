@@ -49,10 +49,8 @@ export interface CompactionSettings {
  * an exact count would need a per-model tokenizer for a decision that is
  * tolerant of being off by a chunk.
  *
- * pi ships `estimateMessageTokens`, but it lives in `dist/utils/estimate.js`
- * and the package's `exports` map has no `./utils/*` entry, so it is not
- * reachable without a deep import that the map forbids and that any pi
- * restructure would break. Hence a local one.
+ * pi's own `estimateMessageTokens` is not reachable — its `exports` map has no
+ * `./utils/*` entry — so this is local rather than borrowed.
  */
 export function estimateTokens(message: AgentMessageParam): number {
   if (typeof message.content === 'string') {

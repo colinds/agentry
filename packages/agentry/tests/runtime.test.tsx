@@ -957,8 +957,7 @@ test('thinking blocks with signatures survive in replayed history', async () => 
 })
 
 test('usage totals cover the whole run, not just the final turn', async () => {
-  // A tool loop makes one provider call per turn. Reporting only the last
-  // message's usage under-reported a long run by roughly its turn count.
+  // One provider call per turn, so the last message alone under-reports.
   const { models, controller } = createStepMockModels([
     { content: [fauxToolCall('noop', {})] },
     { content: [fauxToolCall('noop', {})] },

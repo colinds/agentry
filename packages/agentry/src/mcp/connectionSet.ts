@@ -29,10 +29,8 @@ export class McpConnectionSet {
    * derived from it were written into the shared map and nothing else takes
    * them out.
    *
-   * A server whose config changed under the same name is reconnected. Props are
-   * state-driven like any other, so a `<MCP>` can switch url, args, or
-   * `allowed_tools` mid-run; keying on name alone would keep serving the old
-   * server's tools forever.
+   * A server whose config changed under the same name is reconnected — `<MCP>`
+   * props are state-driven, so url, args and `allowed_tools` can all change.
    */
   async sync(
     declared: readonly MCPServerConfig[],
@@ -59,9 +57,7 @@ export class McpConnectionSet {
       )
     }
 
-    // Connect in parallel: each of these spawns a subprocess or performs an
-    // HTTP handshake, so doing them in sequence made startup scale with the
-    // number of servers.
+    // In parallel: each spawns a subprocess or performs an HTTP handshake.
     const missing = declared.filter((server) => !this.entries.has(server.name))
     const opened = await Promise.all(
       missing.map(async (server) => ({
@@ -96,10 +92,9 @@ export class McpConnectionSet {
 }
 
 /**
- * Stable identity for a server config, so a changed one is noticed.
- *
- * Keys are sorted because these come from JSX props, where authoring order is
- * arbitrary and would otherwise force a spurious reconnect.
+ * Stable identity for a server config. Keys are sorted because these are JSX
+ * props, where authoring order is arbitrary and would force spurious
+ * reconnects.
  */
 function fingerprint(server: MCPServerConfig): string {
   return JSON.stringify(server, (_key, value: unknown) =>

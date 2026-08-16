@@ -51,9 +51,8 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   /** Per-handle identifier used by pi for prompt-cache affinity. */
   protected sessionId: string
   /**
-   * State shared by every run of this handle. A fresh engine is built per run,
-   * so anything that must not be rebuilt per message — MCP connections above
-   * all — belongs here rather than on the engine.
+   * State shared by every run. A fresh engine is built per run, so anything
+   * that must not be rebuilt per message belongs here instead.
    */
   protected session = new AgentSession()
 
@@ -434,13 +433,11 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
    * torn down with the handle.
    */
   protected cleanup(): void {
-    // Closed on the session, not the engine: connections outlive any single
-    // run, and the engine reference here is only ever the most recent one.
+    // The session, not the engine: `this.engine` is only the most recent run.
     void this.session.close()
     // Providers key long-lived resources (pooled sockets, cached sessions) by
-    // session id; nothing else releases them. pi throws an AggregateError if a
-    // handler fails, and close() is called from `finally` blocks where that
-    // would mask the run's own result.
+    // session id; nothing else releases them. Guarded because pi throws on
+    // handler failure and close() runs in `finally` blocks.
     try {
       cleanupSessionResources(this.sessionId)
     } catch (error) {

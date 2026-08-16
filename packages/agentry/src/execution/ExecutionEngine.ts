@@ -91,10 +91,7 @@ export interface ExecutionEngineConfig {
   timeoutMs?: number
   headers?: ProviderHeaders
   samplingParams?: Record<string, unknown>
-  /**
-   * State shared across runs of the owning handle. Optional so a standalone
-   * engine still works; the handle always supplies one.
-   */
+  /** Cross-run state. Optional so a standalone engine still works. */
   session?: AgentSession
 }
 
@@ -132,10 +129,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private toolExecutionTimes = new Map<string, number>()
   /** Usage summed over every turn of this run, not just the last. */
   private runUsage = emptyRunUsage()
-  /**
-   * Cross-run state. Owned by the handle when there is one, so MCP connections
-   * and the narration baseline survive `sendMessage`.
-   */
+  /** Cross-run state, so MCP connections survive `sendMessage`. */
   private session: AgentSession
 
   /**
@@ -422,10 +416,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   }
 
   /**
-   * Closes every live MCP connection.
-   *
-   * Only for an engine that owns its session; a handle closes its own session
-   * instead, since the connections outlive any single engine.
+   * Closes every live MCP connection. Only for an engine that owns its session
+   * — a handle closes its own, since connections outlive any one engine.
    */
   async closeMcpConnections(): Promise<void> {
     await this.session.mcpConnections.closeAll()
@@ -627,8 +619,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     return {
       content: extractText(this.lastMessage),
       messages: [...this.messages],
-      // Summed across the run. A tool loop makes several provider calls, and
-      // reporting only the final one under-reports by roughly the turn count.
+      // Summed across the run: a tool loop is many provider calls, and the
+      // final one alone under-reports by roughly the turn count.
       usage: {
         inputTokens: this.runUsage.input,
         outputTokens: this.runUsage.output,

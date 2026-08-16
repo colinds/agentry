@@ -162,8 +162,8 @@ describe('retry', () => {
   })
 
   test('a streaming failure before the first event is retried', async () => {
-    // Agents default to stream: true, so a retry policy that only covered the
-    // non-streaming path was inert in the default configuration.
+    // Agents default to stream: true, so covering only the non-streaming path
+    // left retry inert in the default configuration.
     const faux = fauxProvider({ provider: 'anthropic' })
     const models = createModels()
     models.setProvider(faux.provider)

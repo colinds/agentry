@@ -410,11 +410,8 @@ function applyUpdate(
       }
     }
   } else if (isMCPServerInstance(instance)) {
-    // Mutated in place: `agent.mcpServers` holds this exact object, pushed when
-    // the child was appended, so replacing it would leave the collected array
-    // pointing at the old config. Without this branch a `<MCP>` whose url,
-    // args, or tool_configuration changes mid-run keeps its original settings
-    // forever — the connection set can only notice a change it can see.
+    // In place, because `agent.mcpServers` holds this exact object: replacing
+    // it would leave the collected array pointing at the old config.
     Object.assign(instance.config, updatePayload)
   } else if (isConditionInstance(instance)) {
     const payload = updatePayload as Partial<

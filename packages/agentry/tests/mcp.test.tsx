@@ -124,9 +124,8 @@ describe('MCP client bridge', () => {
   })
 
   test('a tool honours the calling turn’s abort signal', async () => {
-    // The handler must read the signal off its ToolContext. Capturing the
-    // connect-time signal instead left the check permanently unaborted from
-    // the second turn on, since connections outlive the turn that opened them.
+    // Must come off the ToolContext: a connect-time signal would be stale,
+    // since connections outlive the turn that opened them.
     const connection = await connectMcpServer(SERVER)
     try {
       const add = connection.tools.find((t) => t.name === 'test__add')!
@@ -252,9 +251,8 @@ describe('MCP connection lifecycle', () => {
   })
 
   test('a server whose config changes under the same name is reconnected', async () => {
-    // MCP props are state-driven like any other. Keying connections on name
-    // alone would keep serving the original server's tools after the config
-    // that produced them had changed.
+    // Keying connections on name alone would keep serving the old server's
+    // tools after the config that produced them changed.
     const { models, controller } = createStepMockModels([
       { content: [fauxToolCall('restrict', {})] },
       { content: [fauxText('done')] },
@@ -304,8 +302,7 @@ describe('MCP connection lifecycle', () => {
     await controller.waitForNextCall()
     const after = controller.peekNextCall()!.context.tools!.map((t) => t.name)
     expect(after).toContain('test__add')
-    // Only reachable if the changed config forced a genuine reconnect —
-    // allowed_tools is applied at connect time.
+    // allowed_tools is applied at connect time, so this needs a real reconnect
     expect(after).not.toContain('test__echo')
 
     await controller.nextTurn()
@@ -327,10 +324,8 @@ describe('MCP connection lifecycle', () => {
   }
 
   test('connections are reused across runs, not rebuilt per message', async () => {
-    // The handle builds a fresh ExecutionEngine per run. When the engine owned
-    // the connection set, every sendMessage reconnected each server and
-    // orphaned the previous ones, so an interactive agent leaked a server
-    // process per message and close() reaped only the last.
+    // A fresh engine is built per run. When it owned the connection set, every
+    // sendMessage reconnected each server and orphaned the previous ones.
     const { models, controller } = createStepMockModels([
       { content: [fauxText('a')] },
       { content: [fauxText('b')] },
@@ -362,8 +357,7 @@ describe('MCP connection lifecycle', () => {
       seen.add(session.mcpConnections.entries.get('test')!.connection)
     }
 
-    // One connection object across all three runs — a reconnect would add a
-    // second identity here even though the count stayed at 1.
+    // A reconnect would add a second identity even with the count still at 1
     expect(seen.size).toBe(1)
 
     handle.close()
