@@ -83,7 +83,7 @@ export function getRegisteredTools(handle: AgentHandle): string[] {
     return []
   }
 
-  return agent.tools.map((tool) => tool.name)
+  return [...agent.tools.keys()]
 }
 
 /**

@@ -121,6 +121,9 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
     this.engine = new ExecutionEngine(config)
 
+    // The engine decides when a turn starts; the handle knows what to render.
+    this.engine.renderTurn = () => this.renderTurn()
+
     // Wire up async-aware onStepFinish so the engine awaits it before
     // proceeding to the next iteration.
     this.engine.onStepFinish = async (result: OnStepFinishResult) => {
@@ -191,6 +194,12 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     // yield to React's scheduler for pending effects
     await yieldToScheduler()
   }
+
+  /**
+   * Re-renders the agent tree at a turn boundary. Subclasses know which element
+   * to render; the default is a no-op for handles with nothing to re-render.
+   */
+  protected async renderTurn(): Promise<void> {}
 
   /**
    * Abstract method to prepare the agent instance before execution

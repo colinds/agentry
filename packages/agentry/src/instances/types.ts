@@ -41,7 +41,14 @@ export interface AgentInstance extends BaseInstance {
   props: AgentProps
   engine: ExecutionEngine | null
   systemParts: Array<{ content: string; cache?: 'ephemeral' }>
-  tools: InternalTool[]
+  /**
+   * Name-keyed rather than positional: a tool's identity is its name, which is
+   * what makes conditional mounting robust and lets consecutive renders be
+   * diffed. Insertion order is preserved, so wire order stays stable.
+   */
+  tools: Map<string, InternalTool>
+  /** Names seen more than once during collection; rejected at the turn boundary. */
+  duplicateToolNames: Set<string>
   mcpServers: MCPServerConfig[]
   children: Instance[]
   store: AgentStore
@@ -86,7 +93,8 @@ export interface SubagentInstance extends BaseInstance {
   props: AgentProps
   children: Instance[]
   systemParts: Array<{ content: string; cache?: 'ephemeral' }>
-  tools: InternalTool[]
+  tools: Map<string, InternalTool>
+  duplicateToolNames: Set<string>
   mcpServers: MCPServerConfig[]
   agentNode: React.ReactNode | null
 }

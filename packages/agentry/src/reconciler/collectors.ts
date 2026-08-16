@@ -1,4 +1,5 @@
 import type { Instance, AgentInstance } from '../instances'
+import type { InternalTool } from '../types'
 import {
   isToolInstance,
   isSystemInstance,
@@ -14,6 +15,24 @@ import { debug } from '../debug'
 import { createAgentSyntheticTool } from '../tools/agentSyntheticTool'
 
 /**
+ * Registers a tool under its name.
+ *
+ * Two tools sharing a name is a bug — the model would see an ambiguous schema —
+ * but throwing here happens inside React's commit phase, where the error
+ * surfaces as an unrelated downstream failure. So this warns and keeps the last
+ * registration; the engine rejects duplicates at the turn boundary, where the
+ * error is legible.
+ */
+function registerTool(agent: AgentInstance, tool: InternalTool): void {
+  const existing = agent.tools.get(tool.name)
+  if (existing && existing !== tool) {
+    agent.duplicateToolNames.add(tool.name)
+  }
+  agent.tools.set(tool.name, tool)
+  debug('reconciler', `Tool added: ${tool.name}`)
+}
+
+/**
  * Collect a child instance into the parent agent's arrays
  * This populates tools, systemParts, messages, etc.
  */
@@ -25,8 +44,7 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
     )
   }
   if (isToolInstance(child)) {
-    agent.tools.push(child.tool)
-    debug('reconciler', `Tool added: ${child.tool.name}`)
+    registerTool(agent, child.tool)
   } else if (isSystemInstance(child)) {
     agent.systemParts.push({
       content: child.content,
@@ -44,9 +62,7 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
     agent.mcpServers.push(child.config)
     debug('reconciler', `MCP server added: ${child.config.name}`)
   } else if (isAgentToolInstance(child)) {
-    const tool = createAgentSyntheticTool(child)
-    agent.tools.push(tool)
-    debug('reconciler', `Agent tool added: ${tool.name}`)
+    registerTool(agent, createAgentSyntheticTool(child))
   } else if (isToolsContainerInstance(child)) {
     // recursively collect each child (they'll go through the guard)
     for (const grandchild of child.children) {
@@ -72,9 +88,7 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
  */
 export function uncollectChild(agent: AgentInstance, child: Instance): void {
   if (isToolInstance(child)) {
-    const index = agent.tools.findIndex((t) => t.name === child.tool.name)
-    if (index >= 0) {
-      agent.tools.splice(index, 1)
+    if (agent.tools.delete(child.tool.name)) {
       debug('reconciler', `Tool removed: ${child.tool.name}`)
     }
   } else if (isSystemInstance(child)) {
@@ -103,9 +117,7 @@ export function uncollectChild(agent: AgentInstance, child: Instance): void {
       debug('reconciler', `MCP server removed: ${child.config.name}`)
     }
   } else if (isAgentToolInstance(child)) {
-    const index = agent.tools.findIndex((t) => t.name === child.name)
-    if (index >= 0) {
-      agent.tools.splice(index, 1)
+    if (agent.tools.delete(child.name)) {
       debug('reconciler', `Agent tool removed: ${child.name}`)
     }
   } else if (isToolsContainerInstance(child)) {

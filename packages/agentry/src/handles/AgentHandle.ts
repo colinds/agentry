@@ -41,7 +41,8 @@ export class AgentHandle extends AbstractAgentHandle {
       },
       engine: null,
       systemParts: [],
-      tools: [],
+      tools: new Map(),
+      duplicateToolNames: new Set(),
       mcpServers: [],
       children: [],
       parent: null,
@@ -66,6 +67,10 @@ export class AgentHandle extends AbstractAgentHandle {
 
   protected shouldEmitEvents(): boolean {
     return true
+  }
+
+  protected override async renderTurn(): Promise<void> {
+    await this.renderWithProvider(this.element)
   }
 
   protected override beforeExecution(

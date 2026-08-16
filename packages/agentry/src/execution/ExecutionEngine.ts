@@ -6,7 +6,6 @@ import type {
   Models,
   ThinkingLevel,
 } from '@earendil-works/pi-ai'
-import { yieldToSchedulerImmediate } from '../scheduler'
 import type {
   AgentState,
   AgentStreamEvent,
@@ -31,7 +30,6 @@ import { executeTool } from '../tools'
 import { createRunAgent } from '../run/runAgentFunction'
 import { debug } from '../debug'
 import { buildSystemPrompt } from './createEngineConfig'
-import { flushSync } from '../reconciler/renderer'
 import type { AgentStore } from '../store'
 import { collectChild } from '../reconciler/collectors'
 import {
@@ -48,6 +46,13 @@ import { createTurn } from '../pi/turn'
 import { resolveModel } from '../pi/models'
 import { toPiTools } from '../pi/tools'
 import { connectMcpServer, type McpConnection } from '../mcp'
+import {
+  diffResources,
+  hasResourceChanges,
+  narrateResourceDelta,
+  snapshotResources,
+  type ResourceSnapshot,
+} from './resourceDiff'
 
 interface ExecutionEngineEvents {
   stateChange: (state: AgentState) => void
@@ -130,6 +135,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private toolExecutionTimes = new Map<string, number>()
   /** Live MCP connections, keyed by server name. */
   private mcpConnections = new Map<string, McpConnection>()
+  /** Last resource set narrated to the model, for turn-boundary diffing. */
+  private lastNarratedResources: ResourceSnapshot | null = null
 
   /**
    * Async-aware step finish callback. Unlike the EventEmitter-based 'stepFinish'
@@ -138,6 +145,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
    * before execution continues.
    */
   onStepFinish?: (result: OnStepFinishResult) => void | Promise<void>
+
+  /**
+   * Renders the agent tree for the turn about to start. Supplied by the owning
+   * handle, which knows the React element; the engine only knows *when*.
+   */
+  renderTurn?: () => Promise<void>
 
   constructor(config: ExecutionEngineConfig) {
     super()
@@ -233,7 +246,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   // ideally we should compute changesets and only recollect the necessary children
   // that is why this is still experimental
   private recollectAll(): void {
-    this.agentInstance.tools = []
+    this.agentInstance.tools = new Map()
+    this.agentInstance.duplicateToolNames = new Set()
     this.agentInstance.systemParts = []
     this.agentInstance.mcpServers = []
 
@@ -267,6 +281,13 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           abortController,
         })
 
+        // Turn-boundary render: the tree is rendered exactly once per turn,
+        // immediately before the model call. State written during a turn (a
+        // `setState` inside a tool handler, say) is deliberately not visible
+        // until here, which is what removes the need to synchronize React
+        // mid-turn.
+        await this.renderTurn?.()
+
         const isFirstIteration = this.iterationCount === 1
         const conditionResult = await this.evaluateAllConditions(
           abortController.signal,
@@ -281,6 +302,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         }
 
         await this.syncMcpConnections(abortController.signal)
+        this.assertUniqueToolNames()
+        this.narrateResourceChanges()
 
         const message = await this.makeApiCall(abortController)
         this.lastMessage = message
@@ -310,9 +333,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
           this.transition({ type: TransitionType.ToolsCompleted, results: [] })
 
-          // force React to commit any pending state updates from tool handlers
-          flushSync(() => {})
-          await yieldToSchedulerImmediate()
           await this.checkAndCompact(abortController.signal)
 
           const stepResult = this.buildStepFinishResult(
@@ -378,11 +398,50 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
     for (const connection of this.mcpConnections.values()) {
       for (const tool of connection.tools) {
-        if (!this.agentInstance.tools.some((t) => t.name === tool.name)) {
-          this.agentInstance.tools.push(tool)
-        }
+        this.agentInstance.tools.set(tool.name, tool)
       }
     }
+  }
+
+  /**
+   * Rejects duplicate tool names at the turn boundary, where the error is
+   * legible — collection happens inside React's commit phase, so throwing
+   * there surfaces as an unrelated failure.
+   */
+  private assertUniqueToolNames(): void {
+    const duplicates = this.agentInstance.duplicateToolNames
+    if (duplicates.size === 0) return
+
+    const names = [...duplicates].sort().join(', ')
+    throw new Error(
+      `[agentry] Duplicate tool name(s): ${names}. Tool names must be unique within an agent.`,
+    )
+  }
+
+  /**
+   * Announces tool-set changes into the transcript at the turn boundary.
+   *
+   * Dynamic tools would otherwise appear and vanish with no explanation, which
+   * the model has no way to interpret.
+   */
+  private narrateResourceChanges(): void {
+    const snapshot = snapshotResources(this.agentInstance.tools.values())
+    const delta = diffResources(this.lastNarratedResources, snapshot)
+
+    if (hasResourceChanges(delta)) {
+      const narration = narrateResourceDelta(delta)
+      this.pushMessage(userMessage(narration))
+      debug('resources', narration)
+
+      // Changing the tool set rewrites the provider's tools array, which
+      // invalidates its prompt cache. Gate tools on rarely-changing state.
+      debug(
+        'resources',
+        'Tool set changed between turns — this invalidates the provider prompt cache.',
+      )
+    }
+
+    this.lastNarratedResources = snapshot
   }
 
   /** Closes every live MCP connection. Called when the owning handle closes. */
@@ -402,7 +461,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       context: {
         systemPrompt: system,
         messages: this.messages as AgentMessageParam[],
-        tools: toPiTools(this.agentInstance.tools),
+        tools: toPiTools([...this.agentInstance.tools.values()]),
       },
       maxTokens: this.config.maxTokens,
       temperature: this.config.temperature,
@@ -432,13 +491,13 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const signal = abortController.signal
     const context = buildToolContext(this.config, signal)
 
-    const { tools: internalTools = [] } = this.agentInstance
+    const internalTools = this.agentInstance.tools
 
     const results = await Promise.all(
       pendingTools.map(async (toolCall) => {
         const startTime = performance.now()
 
-        const tool = internalTools.find((t) => t.name === toolCall.name)
+        const tool = internalTools.get(toolCall.name)
 
         if (tool) {
           debug('tool', `Executing: ${toolCall.name}`, {
@@ -466,7 +525,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         }
 
         debug('tool', `Tool "${toolCall.name}" not found`, {
-          available: internalTools.map((t) => t.name),
+          available: [...internalTools.keys()],
         })
         return this.buildToolResult({
           toolCall,

@@ -84,14 +84,52 @@ pi resolves them per provider, so no client construction is needed.
 pi ships no MCP, no provider-native server-side tools, and no OpenAI WebSocket transport
 for API-key auth. These are deliberate upstream non-goals, not gaps to work around:
 injecting native tools via `onPayload` reaches the wire but pi's response parser drops the
-resulting blocks, which corrupts replayed history. `<WebSearch>`, `<CodeExecution>` and
-`<MCP>` were removed; rebuild them as ordinary client-side tools if needed.
+resulting blocks, which corrupts replayed history.
+
+MCP and Memory are therefore implemented client-side (see above). `<WebSearch>` and
+`<CodeExecution>` were removed outright — a faithful web search needs a third-party search
+API and code execution is a sandboxing project; both are better as ordinary user-defined
+tools than as half-working built-ins.
 
 ### Subagents
 
 - `<AgentTool>` supports declarative subagents.
 - `context.runAgent(...)` supports programmatic subagent spawning.
 - Cross-provider subagents are supported; pi transforms thinking blocks and tool calls on handoff.
+
+### Execution mechanics
+
+Borrowed from [Flue](https://github.com/withastro/flue), which solves the same
+problem with hooks and no reconciler. agentry keeps JSX; only the mechanics moved.
+
+- **Turn-boundary rendering.** The tree is rendered exactly once per turn,
+  immediately before the model call (`ExecutionEngine.renderTurn`, supplied by
+  the handle). State written *during* a turn — a `setState` inside a tool
+  handler — is deliberately not visible until the next turn boundary. This
+  replaced a mid-turn `flushSync` + scheduler yield.
+- **Name-keyed resources.** `AgentInstance.tools` is a `Map` keyed by tool name,
+  not a positional array. That is what makes conditional mounting robust and
+  makes consecutive renders diffable. Insertion order is preserved so wire order
+  stays stable. Duplicate names are rejected at the turn boundary, not during
+  collection — throwing inside React's commit phase surfaces as an unrelated
+  downstream error.
+- **Narrated resource diff.** Each turn snapshots the tool set and diffs it
+  against the last narrated one; the delta is announced into the transcript
+  (`[Available tools changed] …`). Without this the model sees tools appear and
+  vanish with no explanation. Note that changing the tool set rewrites the
+  provider's tools array and invalidates its prompt cache, so gate tools on
+  rarely-changing state.
+
+### MCP and Memory
+
+Both are client-side, because pi models only client-executed tools.
+
+- `<MCP>` connects to an MCP server (stdio or streamable HTTP), lists its tools,
+  and proxies each `tools/call`. Tools are namespaced `<server>__<tool>`.
+  Connections are reconciled per turn and closed with the handle.
+- `<Memory handlers={...} />` is an ordinary tool over user-supplied storage.
+- Both consequently work on every provider, not just those with a native
+  connector.
 
 ### Conditions
 

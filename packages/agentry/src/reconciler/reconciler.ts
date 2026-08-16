@@ -354,7 +354,7 @@ function removeChild(parent: Instance, child: Instance): void {
 
   disposeOnIdle(() => {
     if (isSubagentInstance(child)) {
-      child.tools = []
+      child.tools = new Map()
       child.systemParts = []
       child.mcpServers = []
       child.children = []
@@ -416,11 +416,12 @@ function applyUpdate(
       const agent = findParentAgent(instance)
       if (agent && isAgentLike(agent)) {
         const toolName = instance.tool.name
-        const index = agent.tools.findIndex((t) => t.name === toolName)
+        const wasCollected = agent.tools.has(toolName)
         instance.tool = payload.tool
         // only update if tool was already collected
-        if (index >= 0) {
-          agent.tools.splice(index, 1, payload.tool)
+        if (wasCollected) {
+          if (payload.tool.name !== toolName) agent.tools.delete(toolName)
+          agent.tools.set(payload.tool.name, payload.tool)
         }
       }
     }

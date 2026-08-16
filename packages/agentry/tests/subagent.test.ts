@@ -24,7 +24,7 @@ test('createSubagentInstance creates correct structure', () => {
   expect(subagent.props.model).toBe('claude-haiku-4-5')
   expect(subagent.props.maxTokens).toBe(1000)
   expect(subagent.systemParts).toEqual([])
-  expect(subagent.tools).toEqual([])
+  expect(subagent.tools.size).toBe(0)
 })
 
 test('subagent uses unified defaults', () => {

@@ -38,7 +38,8 @@ export class SubagentHandle extends AbstractAgentHandle {
       props: { ...subagent.props },
       engine: null,
       systemParts: [],
-      tools: [],
+      tools: new Map(),
+      duplicateToolNames: new Set(),
       mcpServers: [],
       children: [],
       parent: null,
@@ -67,6 +68,12 @@ export class SubagentHandle extends AbstractAgentHandle {
 
   protected shouldEmitEvents(): boolean {
     return false
+  }
+
+  protected override async renderTurn(): Promise<void> {
+    if (this.subagent.agentNode) {
+      await this.renderWithProvider(this.subagent.agentNode)
+    }
   }
 
   protected override beforeExecution(
