@@ -288,6 +288,65 @@ describe('MCP connection lifecycle', () => {
     await runPromise
   })
 
+  /** The handle's cross-run state, for asserting on connection lifetime. */
+  function sessionOf(handle: object) {
+    return (
+      handle as unknown as {
+        session: {
+          mcpConnections: {
+            size: number
+            entries: Map<string, { connection: object }>
+          }
+        }
+      }
+    ).session
+  }
+
+  test('connections are reused across runs, not rebuilt per message', async () => {
+    // The handle builds a fresh ExecutionEngine per run. When the engine owned
+    // the connection set, every sendMessage reconnected each server and
+    // orphaned the previous ones, so an interactive agent leaked a server
+    // process per message and close() reaped only the last.
+    const { models, controller } = createStepMockModels([
+      { content: [fauxText('a')] },
+      { content: [fauxText('b')] },
+      { content: [fauxText('c')] },
+    ])
+
+    const handle = createAgent(
+      <Agent
+        provider="anthropic"
+        model={ANTHROPIC_TEST_MODEL}
+        maxTokens={100}
+        stream={false}
+      >
+        <System>Test</System>
+        <MCP {...SERVER} />
+        <Message role="user">Hi</Message>
+      </Agent>,
+      { models },
+    )
+
+    const seen = new Set<object>()
+    for (let i = 0; i < 3; i++) {
+      const runPromise = handle.run()
+      await controller.nextTurn()
+      await runPromise
+
+      const session = sessionOf(handle)
+      expect(session.mcpConnections.size).toBe(1)
+      seen.add(session.mcpConnections.entries.get('test')!.connection)
+    }
+
+    // One connection object across all three runs — a reconnect would add a
+    // second identity here even though the count stayed at 1.
+    expect(seen.size).toBe(1)
+
+    handle.close()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(sessionOf(handle).mcpConnections.size).toBe(0)
+  })
+
   test('closing the handle tears down connections', async () => {
     const { models, controller } = createStepMockModels([
       { content: [fauxText('ok')] },
@@ -313,11 +372,7 @@ describe('MCP connection lifecycle', () => {
 
     // Reach the live set so this asserts teardown actually happened rather
     // than merely that close() did not throw.
-    const connections = (
-      handle as unknown as {
-        engine: { mcpConnections: { size: number } }
-      }
-    ).engine.mcpConnections
+    const connections = sessionOf(handle).mcpConnections
     expect(connections.size).toBe(1)
 
     handle.close()

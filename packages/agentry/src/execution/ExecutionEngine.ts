@@ -53,13 +53,12 @@ import {
 } from './compaction'
 import { resolveModel } from '../pi/models'
 import { toPiTools } from '../pi/tools'
-import { McpConnectionSet } from '../mcp'
+import { AgentSession } from './session'
 import {
   diffResources,
   hasResourceChanges,
   narrateResourceDelta,
   snapshotResources,
-  type ResourceSnapshot,
 } from './resourceDiff'
 
 interface ExecutionEngineEvents {
@@ -91,6 +90,11 @@ export interface ExecutionEngineConfig {
   timeoutMs?: number
   headers?: ProviderHeaders
   samplingParams?: Record<string, unknown>
+  /**
+   * State shared across runs of the owning handle. Optional so a standalone
+   * engine still works; the handle always supplies one.
+   */
+  session?: AgentSession
 }
 
 function buildToolContext(
@@ -125,10 +129,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private aborted = false
   private agentInstance: AgentInstance
   private toolExecutionTimes = new Map<string, number>()
-  /** Live MCP connections for this run. */
-  private mcpConnections = new McpConnectionSet()
-  /** Last resource set narrated to the model, for turn-boundary diffing. */
-  private lastNarratedResources: ResourceSnapshot | null = null
+  /**
+   * Cross-run state. Owned by the handle when there is one, so MCP connections
+   * and the narration baseline survive `sendMessage`.
+   */
+  private session: AgentSession
 
   /**
    * Async-aware step finish callback. Unlike the EventEmitter-based 'stepFinish'
@@ -162,6 +167,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     )
     this.store = config.store
     this.agentInstance = config.agentInstance
+    this.session = config.session ?? new AgentSession()
   }
 
   get executionState(): AgentState {
@@ -364,7 +370,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
    * The set owns both the sockets and the tools they contribute.
    */
   private async syncMcpConnections(signal: AbortSignal): Promise<void> {
-    await this.mcpConnections.sync(
+    await this.session.mcpConnections.sync(
       this.agentInstance.mcpServers,
       this.agentInstance.tools,
       signal,
@@ -394,7 +400,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
    */
   private narrateResourceChanges(): void {
     const snapshot = snapshotResources(this.agentInstance.tools.values())
-    const delta = diffResources(this.lastNarratedResources, snapshot)
+    const delta = diffResources(this.session.lastNarratedResources, snapshot)
 
     if (hasResourceChanges(delta)) {
       const narration = narrateResourceDelta(delta)
@@ -409,12 +415,17 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       )
     }
 
-    this.lastNarratedResources = snapshot
+    this.session.lastNarratedResources = snapshot
   }
 
-  /** Closes every live MCP connection. Called when the owning handle closes. */
+  /**
+   * Closes every live MCP connection.
+   *
+   * Only for an engine that owns its session; a handle closes its own session
+   * instead, since the connections outlive any single engine.
+   */
   async closeMcpConnections(): Promise<void> {
-    await this.mcpConnections.closeAll()
+    await this.session.mcpConnections.closeAll()
   }
 
   /**

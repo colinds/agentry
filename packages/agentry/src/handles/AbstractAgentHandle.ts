@@ -12,6 +12,7 @@ import {
   type ContainerInfo,
 } from '../reconciler/renderer'
 import {
+  AgentSession,
   ExecutionEngine,
   createEngineConfig,
   type ExecutionEngineConfig,
@@ -19,6 +20,7 @@ import {
 import { isProcessing, type AgentState } from '../types/state'
 import { yieldToScheduler } from '../scheduler'
 import { AgentProvider } from '../context'
+import { debug } from '../debug'
 import { userMessage } from '../types/messages'
 import { describeMissingAuth, getDefaultModels } from '../pi/models'
 import {
@@ -48,6 +50,12 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   protected instance: AgentInstance | null = null
   /** Per-handle identifier used by pi for prompt-cache affinity. */
   protected sessionId: string
+  /**
+   * State shared by every run of this handle. A fresh engine is built per run,
+   * so anything that must not be rebuilt per message — MCP connections above
+   * all — belongs here rather than on the engine.
+   */
+  protected session = new AgentSession()
 
   constructor({
     models,
@@ -132,6 +140,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
       models,
       store: this.store,
       sessionId: this.sessionId,
+      session: this.session,
     })
 
     this.beforeExecution(agent, config, this.store.getState().messages)
@@ -425,10 +434,18 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
    * torn down with the handle.
    */
   protected cleanup(): void {
-    void this.engine?.closeMcpConnections()
+    // Closed on the session, not the engine: connections outlive any single
+    // run, and the engine reference here is only ever the most recent one.
+    void this.session.close()
     // Providers key long-lived resources (pooled sockets, cached sessions) by
-    // session id; nothing else releases them.
-    cleanupSessionResources(this.sessionId)
+    // session id; nothing else releases them. pi throws an AggregateError if a
+    // handler fails, and close() is called from `finally` blocks where that
+    // would mask the run's own result.
+    try {
+      cleanupSessionResources(this.sessionId)
+    } catch (error) {
+      debug('agent', `Session resource cleanup failed: ${String(error)}`)
+    }
   }
 
   /**

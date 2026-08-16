@@ -3,12 +3,15 @@ import type { AgentInstance } from '../instances/types'
 import type { AgentStore } from '../store'
 import { createAgentStore } from '../store'
 import type { ExecutionEngineConfig } from './ExecutionEngine'
+import type { AgentSession } from './session'
 
 interface EngineConfigOptions {
   agent: AgentInstance
   models: Models
   store?: AgentStore
   sessionId?: string
+  /** Cross-run state owned by the calling handle. */
+  session?: AgentSession
 }
 
 interface EngineConfigResult {
@@ -67,6 +70,7 @@ export function createEngineConfig(
     agentName: agent.props.name,
     reasoning: agent.props.thinking,
     sessionId: options.sessionId,
+    session: options.session,
     retry: agent.props.retry,
     cacheRetention: agent.props.cacheRetention,
     timeoutMs: agent.props.timeoutMs,
