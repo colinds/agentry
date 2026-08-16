@@ -1,8 +1,19 @@
-import type { KnownProvider, ThinkingLevel } from '@earendil-works/pi-ai'
+import type {
+  CacheRetention,
+  KnownProvider,
+  ProviderHeaders,
+  RetryPolicy,
+  ThinkingLevel,
+} from '@earendil-works/pi-ai'
 import type { OnStepFinishResult } from './lifecycle'
 import type { AgentMessageParam, StopReason } from './messages'
 
-export type { ThinkingLevel } from '@earendil-works/pi-ai'
+export type {
+  CacheRetention,
+  ProviderHeaders,
+  RetryPolicy,
+  ThinkingLevel,
+} from '@earendil-works/pi-ai'
 
 /**
  * Provider ids pi ships with, while still allowing custom providers registered
@@ -23,6 +34,21 @@ export interface BaseAgentProps {
   onError?: (error: Error) => void
   onStepFinish?: (result: OnStepFinishResult) => void | Promise<void>
   compactionControl?: CompactionControl
+
+  /** Retry policy for transient provider failures. */
+  retry?: RetryPolicy
+  /** Prompt-cache retention hint. Defaults to pi's `'short'`. */
+  cacheRetention?: CacheRetention
+  /** Request timeout in ms. Without this the provider SDK default (10m) applies. */
+  timeoutMs?: number
+  /** Custom HTTP headers, e.g. to reach a corporate gateway. */
+  headers?: ProviderHeaders
+  /**
+   * Extra sampling knobs merged into the request body (`top_p`, `top_k`, ...).
+   * Applied only by OpenAI-compatible APIs; silently ignored on Anthropic,
+   * Google and Bedrock.
+   */
+  samplingParams?: Record<string, unknown>
 }
 
 /**
@@ -53,6 +79,13 @@ export type AgentStreamEvent =
   | { type: 'tool_use_start'; toolName: string; toolId: string }
   | { type: 'tool_result'; toolId: string; result: string; isError: boolean }
   | { type: 'thinking'; text: string }
+  | {
+      type: 'retry'
+      attempt: number
+      maxAttempts: number
+      delayMs: number
+      error: string
+    }
   | { type: 'message_complete'; stopReason: StopReason | null }
 
 export interface AgentResult {
@@ -63,8 +96,21 @@ export interface AgentResult {
     outputTokens: number
     cacheCreationInputTokens?: number
     cacheReadInputTokens?: number
+    /** Reasoning tokens, where the provider reports them. Subset of output. */
+    reasoningTokens?: number
     /** Total cost in USD, computed by pi from the model's rate card. */
     costUSD?: number
+    /**
+     * Per-category cost breakdown. The cache split is the most actionable
+     * signal here — it is how you find out your prompt cache is not hitting.
+     */
+    cost?: {
+      input: number
+      output: number
+      cacheRead: number
+      cacheWrite: number
+      total: number
+    }
   }
   stopReason: StopReason | null
   thinking?: string

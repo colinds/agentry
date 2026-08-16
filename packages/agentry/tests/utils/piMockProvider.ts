@@ -144,8 +144,11 @@ export function createStepMockModels(
   const faux = fauxProvider({
     provider: options.provider ?? 'anthropic',
     ...(options.api ? { api: options.api } : {}),
+    // `reasoning: true` so `clampThinkingLevel` does not degrade a requested
+    // thinking level to 'off'; tests that want the no-support path construct a
+    // faux provider without it.
     models: [...(options.modelIds ?? []), ...DEFAULT_MOCK_MODEL_IDS].map(
-      (id) => ({ id }),
+      (id) => ({ id, reasoning: true }),
     ),
   })
   faux.setResponses(

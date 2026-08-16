@@ -65,3 +65,43 @@ export function resolveModel(
       `Available models: ${available.join(', ')}`,
   )
 }
+
+/**
+ * Checks that the provider has usable credentials, before a run starts.
+ *
+ * Without this, a missing key surfaces as a provider error partway through the
+ * first turn — after the tree has rendered and any startup work has run. This
+ * turns it into a message at the point the run begins.
+ *
+ * pi does not export the per-provider environment-variable names (`findEnvKeys`
+ * is internal), so the remedy quotes the provider's own credential display
+ * name rather than guessing at variable names that would rot.
+ *
+ * Returns `undefined` when configured, or a ready-to-throw message when not.
+ */
+export async function describeMissingAuth(
+  models: Models,
+  provider: string,
+): Promise<string | undefined> {
+  let check: Awaited<ReturnType<Models['checkAuth']>>
+  try {
+    check = await models.checkAuth(provider)
+  } catch {
+    // A provider that cannot answer the question (custom providers, offline
+    // credential stores) is not evidence of missing auth — let the run proceed
+    // and fail with the provider's own error if it really is misconfigured.
+    return undefined
+  }
+
+  if (check) return undefined
+
+  const auth = models.getProvider(provider)?.auth
+  const credentialName = auth?.apiKey?.name
+  const oauthHint = auth?.oauth
+    ? ' This provider also supports subscription auth — run `pi` and use /login.'
+    : ''
+
+  return credentialName
+    ? `[agentry] No ${credentialName} configured for provider "${provider}".${oauthHint}`
+    : `[agentry] No credentials configured for provider "${provider}".${oauthHint}`
+}

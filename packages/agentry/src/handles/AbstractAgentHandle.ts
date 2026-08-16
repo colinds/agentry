@@ -20,8 +20,8 @@ import { isProcessing, type AgentState } from '../types/state'
 import { yieldToScheduler } from '../scheduler'
 import { AgentProvider } from '../context'
 import { userMessage } from '../types/messages'
-import { getDefaultModels } from '../pi/models'
-import type { Models } from '@earendil-works/pi-ai'
+import { describeMissingAuth, getDefaultModels } from '../pi/models'
+import { cleanupSessionResources, type Models } from '@earendil-works/pi-ai'
 
 interface AgentHandleEvents {
   stateChange: (state: AgentState) => void
@@ -110,9 +110,19 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   ): Promise<AgentResult> {
     const { emitEvents = true } = options
 
+    const models = await this.ensureModels()
+
+    if (agent.props.provider) {
+      const missingAuth = await describeMissingAuth(
+        models,
+        agent.props.provider,
+      )
+      if (missingAuth) throw new Error(missingAuth)
+    }
+
     const { config } = createEngineConfig({
       agent,
-      models: await this.ensureModels(),
+      models,
       store: this.store,
       sessionId: this.sessionId,
     })
@@ -365,6 +375,9 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
    */
   protected cleanup(): void {
     void this.engine?.closeMcpConnections()
+    // Providers key long-lived resources (pooled sockets, cached sessions) by
+    // session id; nothing else releases them.
+    cleanupSessionResources(this.sessionId)
   }
 
   /**

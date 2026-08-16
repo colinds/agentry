@@ -67,6 +67,11 @@ export function createEngineConfig(
     agentName: agent.props.name,
     reasoning: agent.props.thinking,
     sessionId: options.sessionId,
+    retry: agent.props.retry,
+    cacheRetention: agent.props.cacheRetention,
+    timeoutMs: agent.props.timeoutMs,
+    headers: agent.props.headers,
+    samplingParams: agent.props.samplingParams,
     agentInstance: agent,
     store,
   }

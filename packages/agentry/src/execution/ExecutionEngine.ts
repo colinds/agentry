@@ -4,6 +4,8 @@ import type {
   CacheRetention,
   Model,
   Models,
+  ProviderHeaders,
+  RetryPolicy,
   ThinkingLevel,
 } from '@earendil-works/pi-ai'
 import type {
@@ -95,6 +97,10 @@ export interface ExecutionEngineConfig {
   cacheRetention?: CacheRetention
   /** Per-run identifier used by providers for prompt-cache affinity. */
   sessionId?: string
+  retry?: RetryPolicy
+  timeoutMs?: number
+  headers?: ProviderHeaders
+  samplingParams?: Record<string, unknown>
 }
 
 function buildToolContext(
@@ -458,6 +464,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       reasoning: this.config.reasoning,
       cacheRetention: this.config.cacheRetention,
       sessionId: this.config.sessionId,
+      retry: this.config.retry,
+      timeoutMs: this.config.timeoutMs,
+      headers: this.config.headers,
+      samplingParams: this.config.samplingParams,
       stream: this.config.stream ?? false,
       signal: abortController.signal,
       onStream: (event) => this.emit('stream', event),
@@ -611,7 +621,9 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         outputTokens: this.lastMessage.usage.output,
         cacheCreationInputTokens: this.lastMessage.usage.cacheWrite,
         cacheReadInputTokens: this.lastMessage.usage.cacheRead,
+        reasoningTokens: this.lastMessage.usage.reasoning,
         costUSD: this.lastMessage.usage.cost.total,
+        cost: this.lastMessage.usage.cost,
       },
       thinking,
       stopReason: this.lastMessage.stopReason,

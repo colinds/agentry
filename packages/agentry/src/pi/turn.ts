@@ -1,12 +1,17 @@
-import type {
-  Api,
-  ApiStreamOptions,
-  AssistantMessage,
-  CacheRetention,
-  Context,
-  Model,
-  Models,
-  ThinkingLevel,
+import {
+  clampThinkingLevel,
+  isContextOverflow,
+  retryAssistantCall,
+  type Api,
+  type ApiStreamOptions,
+  type AssistantMessage,
+  type CacheRetention,
+  type Context,
+  type Model,
+  type Models,
+  type ProviderHeaders,
+  type RetryPolicy,
+  type ThinkingLevel,
 } from '@earendil-works/pi-ai'
 import type { AgentStreamEvent } from '../types/agent'
 import { toAgentStreamEvent } from './events'
@@ -24,6 +29,33 @@ export class AgentryProviderError extends Error {
   }
 }
 
+/**
+ * Raised when a turn failed because the conversation no longer fits the model's
+ * context window.
+ *
+ * Distinguished from a generic provider error because it is the one failure the
+ * caller can actually act on — by compacting and retrying — and because
+ * providers signal it in wildly different ways (an error message, a silent
+ * `usage.input > contextWindow`, or a zero-output length stop). pi's
+ * `isContextOverflow` encodes those patterns for ~18 providers.
+ */
+export class AgentryContextOverflowError extends Error {
+  readonly provider: string
+  readonly model: string
+  readonly contextWindow: number | undefined
+
+  constructor(
+    message: string,
+    details: { provider: string; model: string; contextWindow?: number },
+  ) {
+    super(message)
+    this.name = 'AgentryContextOverflowError'
+    this.provider = details.provider
+    this.model = details.model
+    this.contextWindow = details.contextWindow
+  }
+}
+
 export interface TurnRequest {
   model: Model<Api>
   context: Context
@@ -33,6 +65,16 @@ export interface TurnRequest {
   cacheRetention?: CacheRetention
   /** Per-run identifier; lets providers key prompt caching to this agent run. */
   sessionId?: string
+  /** Extra sampling knobs (top_p, top_k, ...). OpenAI-compatible APIs only. */
+  samplingParams?: Record<string, unknown>
+  /** Custom HTTP headers, e.g. for a corporate gateway. */
+  headers?: ProviderHeaders
+  /** Request timeout. Without this, provider SDK defaults apply (10 minutes). */
+  timeoutMs?: number
+  maxRetries?: number
+  maxRetryDelayMs?: number
+  /** Retry policy for transient provider failures. */
+  retry?: RetryPolicy
   stream: boolean
   /**
    * Require the model to call one of the supplied tools, where the API can
@@ -42,6 +84,15 @@ export interface TurnRequest {
   forceToolUse?: boolean
   signal: AbortSignal
   onStream: (event: AgentStreamEvent) => void
+}
+
+function resolveReasoning(
+  model: Model<Api>,
+  requested: ThinkingLevel | undefined,
+): ThinkingLevel | undefined {
+  if (!requested) return undefined
+  const clamped = clampThinkingLevel(model, requested)
+  return clamped === 'off' ? undefined : clamped
 }
 
 /**
@@ -66,16 +117,18 @@ function forcedToolChoice(api: Api): string | undefined {
 /**
  * The single seam between agentry's execution engine and pi.
  *
- * Two behaviours are deliberately normalized here so the engine above does not
- * have to care:
+ * Behaviours normalized here so the engine above does not have to care:
  *
  * 1. **Errors become throws.** pi encodes request, model and runtime failures
  *    in the returned stream (`stopReason: 'error' | 'aborted'`) rather than
  *    throwing. `ExecutionEngine` drives its error state transition from a
- *    thrown exception, so both are converted back into throws.
+ *    thrown exception, so both are converted back into throws. Context overflow
+ *    gets its own error type because it is separately actionable.
  * 2. **Non-streaming turns still emit events.** Callers get the same
  *    `AgentStreamEvent` sequence whether or not `stream` is set, so callers
  *    never have to branch on transport.
+ * 3. **Transient failures are retried.** pi's own retry helper classifies which
+ *    failures are worth retrying (aborts are terminal, quota/billing fail fast).
  */
 export async function createTurn(
   models: Models,
@@ -84,24 +137,39 @@ export async function createTurn(
   const options = {
     maxTokens: request.maxTokens,
     temperature: request.temperature,
-    reasoning: request.reasoning,
+    // A model that does not support the requested level would otherwise error
+    // or silently misbehave; clamping degrades instead. A model with no
+    // thinking support at all clamps to 'off', which pi expresses as absence.
+    reasoning: resolveReasoning(request.model, request.reasoning),
     cacheRetention: request.cacheRetention,
     sessionId: request.sessionId,
+    samplingParams: request.samplingParams,
+    headers: request.headers,
+    timeoutMs: request.timeoutMs,
+    maxRetries: request.maxRetries,
+    maxRetryDelayMs: request.maxRetryDelayMs,
     signal: request.signal,
+  }
+
+  // Streaming emits events as it goes, so a retry would replay them. Only the
+  // non-streaming paths are wrapped; pi's own SDK-level `maxRetries` still
+  // covers transport errors on the streaming path.
+  const produce = async (): Promise<AssistantMessage> => {
+    if (request.forceToolUse) {
+      // `complete` rather than `completeSimple`, because tool choice is a native
+      // per-API option that the normalized surface does not model.
+      const toolChoice = forcedToolChoice(request.model.api)
+      return models.complete(request.model, request.context, {
+        ...options,
+        ...(toolChoice ? { toolChoice } : {}),
+      } as ApiStreamOptions<Api>)
+    }
+    return models.completeSimple(request.model, request.context, options)
   }
 
   let message: AssistantMessage
 
-  if (request.forceToolUse) {
-    // `complete` rather than `completeSimple`, because tool choice is a native
-    // per-API option that the normalized surface does not model.
-    const toolChoice = forcedToolChoice(request.model.api)
-    message = await models.complete(request.model, request.context, {
-      ...options,
-      ...(toolChoice ? { toolChoice } : {}),
-    } as ApiStreamOptions<Api>)
-    emitSyntheticEvents(message, request.onStream)
-  } else if (request.stream) {
+  if (request.stream) {
     const stream = models.streamSimple(request.model, request.context, options)
     for await (const event of stream) {
       const mapped = toAgentStreamEvent(event)
@@ -109,11 +177,17 @@ export async function createTurn(
     }
     message = await stream.result()
   } else {
-    message = await models.completeSimple(
-      request.model,
-      request.context,
-      options,
-    )
+    message = await retryAssistantCall(produce, request.retry, request.signal, {
+      // oxlint-disable-next-line max-params -- arity is pi's RetryCallbacks signature
+      onRetryScheduled: (attempt, maxAttempts, delayMs, errorMessage) =>
+        request.onStream({
+          type: 'retry',
+          attempt,
+          maxAttempts,
+          delayMs,
+          error: errorMessage,
+        }),
+    })
     emitSyntheticEvents(message, request.onStream)
   }
 
@@ -132,6 +206,18 @@ function throwIfFailed(
   }
 
   if (message.stopReason === 'error') {
+    if (isContextOverflow(message, model.contextWindow)) {
+      throw new AgentryContextOverflowError(
+        message.errorMessage ??
+          'Conversation exceeded the model context window',
+        {
+          provider: model.provider,
+          model: model.id,
+          contextWindow: model.contextWindow,
+        },
+      )
+    }
+
     throw new AgentryProviderError(
       message.errorMessage ?? 'Provider request failed',
       model.provider,

@@ -3,7 +3,7 @@ import type { Static, TSchema } from 'typebox'
 import type { Models } from '@earendil-works/pi-ai'
 import type { Model, AgentResult, ProviderId } from './agent'
 import type { JsonObject, JsonValue } from './json'
-import type { TextContentArray } from './messages'
+import type { ImageContent, TextContent } from './messages'
 
 export interface MemoryHandlers {
   /** Handler for viewing directory contents or file contents */
@@ -37,7 +37,14 @@ export interface MemoryHandlers {
   }) => Promise<string> | string
 }
 
-export type ToolResult = string | TextContentArray
+/**
+ * What a tool handler may return.
+ *
+ * Images are included because pi carries them end-to-end — `ToolResultMessage`
+ * holds `(TextContent | ImageContent)[]` and the provider adapters convert them
+ * to native image blocks. Screenshot and chart tools depend on this.
+ */
+export type ToolResult = string | Array<TextContent | ImageContent>
 
 /**
  * Options for running an agent programmatically from a tool handler

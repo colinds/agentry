@@ -37,6 +37,11 @@ type AgentPropsAllKeys = {
   provider: AgentProps['provider']
   model: AgentProps['model']
   thinking: AgentProps['thinking']
+  retry: AgentProps['retry']
+  cacheRetention: AgentProps['cacheRetention']
+  timeoutMs: AgentProps['timeoutMs']
+  headers: AgentProps['headers']
+  samplingParams: AgentProps['samplingParams']
 }
 
 interface SubagentCreationProps extends Omit<
@@ -57,6 +62,11 @@ export interface PropagatedSettings {
   maxIterations?: number
   model?: Model
   thinking?: AgentProps['thinking']
+  retry?: AgentProps['retry']
+  cacheRetention?: AgentProps['cacheRetention']
+  timeoutMs?: AgentProps['timeoutMs']
+  headers?: AgentProps['headers']
+  samplingParams?: AgentProps['samplingParams']
 }
 
 export type ElementProps =
@@ -130,6 +140,11 @@ function createAgentInstance(
       stream: props.stream ?? true,
       compactionControl: props.compactionControl,
       thinking: props.thinking,
+      retry: props.retry,
+      cacheRetention: props.cacheRetention,
+      timeoutMs: props.timeoutMs,
+      headers: props.headers,
+      samplingParams: props.samplingParams,
       onMessage: props.onMessage,
       onComplete: props.onComplete,
       onError: props.onError,
@@ -293,6 +308,11 @@ export function createSubagentInstance(
       stream: props.stream ?? inherited.stream ?? true,
       compactionControl: props.compactionControl ?? inherited.compactionControl,
       thinking: props.thinking ?? inherited.thinking,
+      retry: props.retry ?? inherited.retry,
+      cacheRetention: props.cacheRetention ?? inherited.cacheRetention,
+      timeoutMs: props.timeoutMs ?? inherited.timeoutMs,
+      headers: props.headers ?? inherited.headers,
+      samplingParams: props.samplingParams ?? inherited.samplingParams,
       // callbacks never inherited
       onMessage: props.onMessage,
       onComplete: props.onComplete,
