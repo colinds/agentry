@@ -470,6 +470,7 @@ window, and the turn is then retried.
 
 - `enabled: boolean` - Enable/disable compaction
 - `contextTokenThreshold?: number` - Token threshold to trigger compaction (default: 100000)
+- `keepRecentTokens?: number` - Recent turns kept verbatim, never summarized (default: 16000)
 - `model?: Model` - Model to use for summarization (defaults to agent's model)
 - `summaryPrompt?: string` - Custom prompt for summarization (optional)
 
@@ -530,7 +531,7 @@ Everything is exported from `agentry`; there is a single entry point.
 | `temperature?`       | `number`                               | Sampling temperature (0-1)                                                                                                                                                                                                                                                      |
 | `stream?`            | `boolean`                              | Enable streaming (default: `true`)                                                                                                                                                                                                                                              |
 | `thinking?`          | `ThinkingLevel`                        | `'minimal' \| 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. Clamped to what the model supports.                                                                                                                                                                          |
-| `retry?`             | `RetryPolicy`                          | `{ enabled, maxRetries, baseDelayMs }` for transient provider failures                                                                                                                                                                                                          |
+| `retry?`             | `RetryPolicy`                          | `{ enabled, maxRetries, baseDelayMs }` for transient provider failures. When streaming, only failures before the first token are retried — past that a retry would replay output the caller has already seen                                                                     |
 | `cacheRetention?`    | `'none' \| 'short' \| 'long'`           | Prompt-cache retention hint (default `'short'`)                                                                                                                                                                                                                                 |
 | `timeoutMs?`         | `number`                               | Request timeout. Without it the provider SDK default (10 minutes) applies                                                                                                                                                                                                       |
 | `headers?`           | `ProviderHeaders`                      | Custom HTTP headers, e.g. for a corporate gateway                                                                                                                                                                                                                               |
