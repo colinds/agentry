@@ -1,6 +1,6 @@
 export { run, createAgent, createAI } from './run'
 export { AgentHandle } from './handles'
-export { defineTool, defineAgentTool } from './tools'
+export { defineTool, defineAgentTool, defineMemoryTool } from './tools'
 export {
   Agent,
   Tool,
@@ -10,6 +10,8 @@ export {
   Message,
   Tools,
   Condition,
+  MCP,
+  Memory,
   useExecutionState,
   useMessages,
   useAgentState,
@@ -18,6 +20,13 @@ export {
 /** TypeBox schema builder — tool `parameters` are plain JSON Schema. */
 export { Type } from 'typebox'
 export type { Static, TSchema } from 'typebox'
+
+export type {
+  MCPServerConfig,
+  McpStdioServerConfig,
+  McpUrlServerConfig,
+  McpToolConfiguration,
+} from './mcp'
 
 export type {
   AgentResult,

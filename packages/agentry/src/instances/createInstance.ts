@@ -8,6 +8,7 @@ import type {
   SystemInstance,
   ContextInstance,
   MessageInstance,
+  MCPServerInstance,
   ToolsContainerInstance,
   ConditionInstance,
   AgentComponentProps,
@@ -16,6 +17,7 @@ import type {
   SystemComponentProps,
   ContextComponentProps,
   MessageComponentProps,
+  MCPServerComponentProps,
   ToolsContainerProps,
   ConditionComponentProps,
 } from './types'
@@ -63,6 +65,7 @@ export type ElementProps =
   | SystemComponentProps
   | ContextComponentProps
   | MessageComponentProps
+  | MCPServerComponentProps
   | ToolsContainerProps
   | ConditionComponentProps
 
@@ -88,6 +91,8 @@ export function createInstance(
       return createMessageInstance(props as MessageComponentProps)
     case InstanceType.Tools:
       return createToolsContainerInstance(props as ToolsContainerProps)
+    case InstanceType.McpServer:
+      return createMCPServerInstance(props as MCPServerComponentProps)
     case InstanceType.Condition:
       return createConditionInstance(props as ConditionComponentProps)
     default:
@@ -132,6 +137,7 @@ function createAgentInstance(
     engine: null,
     systemParts: [],
     tools: [],
+    mcpServers: [],
     children: [],
     parent: null,
     store,
@@ -217,6 +223,16 @@ function createMessageInstance(props: MessageComponentProps): MessageInstance {
   }
 }
 
+function createMCPServerInstance(
+  props: MCPServerComponentProps,
+): MCPServerInstance {
+  return {
+    type: InstanceType.McpServer,
+    config: props,
+    parent: null,
+  }
+}
+
 function createToolsContainerInstance(
   _props: ToolsContainerProps,
 ): ToolsContainerInstance {
@@ -286,6 +302,7 @@ export function createSubagentInstance(
     } satisfies AgentPropsAllKeys as AgentProps,
     systemParts: [],
     tools: [],
+    mcpServers: [],
     children: [],
     parent: null,
     agentNode: props.agentNode ?? null,

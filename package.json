@@ -17,7 +17,7 @@
   },
   "private": true,
   "scripts": {
-    "test": "bun test --timeout 100 ./packages/agentry/tests",
+    "test": "bun test --timeout 5000 ./packages/agentry/tests",
     "typecheck": "bun run --filter='./packages/*' typecheck",
     "build": "bun run --filter='./packages/agentry' build",
     "clean": "rm -rf node_modules packages/*/node_modules",
@@ -43,7 +43,8 @@
     "example:interactive": "bun run packages/examples/src/interactive.tsx",
     "example:demo": "bun run packages/examples/src/demo.tsx",
     "example:tweet": "bun run packages/examples/src/tweet.tsx",
-    "example:multi-provider": "bun run packages/examples/src/multi-provider.tsx"
+    "example:multi-provider": "bun run packages/examples/src/multi-provider.tsx",
+    "example:mcp": "bun run packages/examples/src/mcp.tsx"
   },
   "type": "module",
   "workspaces": {

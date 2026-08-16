@@ -39,6 +39,7 @@ export class SubagentHandle extends AbstractAgentHandle {
       engine: null,
       systemParts: [],
       tools: [],
+      mcpServers: [],
       children: [],
       parent: null,
       store,

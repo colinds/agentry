@@ -4,6 +4,7 @@ import {
   isSystemInstance,
   isContextInstance,
   isMessageInstance,
+  isMCPServerInstance,
   isToolsContainerInstance,
   isAgentToolInstance,
   isAgentInstance,
@@ -39,6 +40,9 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
   } else if (isMessageInstance(child)) {
     // Write directly to store instead of agent.messages
     agent.store.getState().actions.pushMessage(child.message)
+  } else if (isMCPServerInstance(child)) {
+    agent.mcpServers.push(child.config)
+    debug('reconciler', `MCP server added: ${child.config.name}`)
   } else if (isAgentToolInstance(child)) {
     const tool = createAgentSyntheticTool(child)
     agent.tools.push(tool)
@@ -90,6 +94,14 @@ export function uncollectChild(agent: AgentInstance, child: Instance): void {
   } else if (isMessageInstance(child)) {
     // Remove from store
     agent.store.getState().actions.removeMessage(child.message)
+  } else if (isMCPServerInstance(child)) {
+    const index = agent.mcpServers.findIndex(
+      (server) => server.name === child.config.name,
+    )
+    if (index >= 0) {
+      agent.mcpServers.splice(index, 1)
+      debug('reconciler', `MCP server removed: ${child.config.name}`)
+    }
   } else if (isAgentToolInstance(child)) {
     const index = agent.tools.findIndex((t) => t.name === child.name)
     if (index >= 0) {

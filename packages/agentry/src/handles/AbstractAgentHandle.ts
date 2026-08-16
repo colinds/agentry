@@ -351,9 +351,12 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
   /**
    * Subclasses can override for additional cleanup.
-   * pi is stateless per turn, so there is nothing to close by default.
+   * pi is stateless per turn, but MCP connections are long-lived and must be
+   * torn down with the handle.
    */
-  protected cleanup(): void {}
+  protected cleanup(): void {
+    void this.engine?.closeMcpConnections()
+  }
 
   /**
    * Test-only method to access containerInfo for testing purposes

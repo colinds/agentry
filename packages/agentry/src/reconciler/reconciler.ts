@@ -356,6 +356,7 @@ function removeChild(parent: Instance, child: Instance): void {
     if (isSubagentInstance(child)) {
       child.tools = []
       child.systemParts = []
+      child.mcpServers = []
       child.children = []
     }
   })

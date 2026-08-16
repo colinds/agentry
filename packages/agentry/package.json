@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "@earendil-works/pi-ai": "0.84.2",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "eventemitter3": "^5.0.1",
     "react-reconciler": "^0.33.0",
     "scheduler": "^0.27.0",

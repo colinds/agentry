@@ -36,13 +36,7 @@ export interface AgentryElements {
 
   tools: { children?: ReactNode }
 
-  mcp_server: {
-    name: string
-    url: string
-    authorization_token?: string
-    tool_configuration?: MCPServerConfig['tool_configuration']
-    key?: string
-  }
+  mcp_server: MCPServerConfig & { key?: string }
 
   condition: {
     when: boolean | string

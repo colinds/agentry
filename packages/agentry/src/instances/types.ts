@@ -14,6 +14,9 @@ import type { ExecutionEngine } from '../execution'
 import type { AgentStore } from '../store'
 import type { TSchema } from 'typebox'
 import type { ProviderModelOverride } from '../types/agent'
+import type { MCPServerConfig } from '../mcp/types'
+
+export type { MCPServerConfig }
 
 export enum InstanceType {
   Agent = 'agent',
@@ -24,6 +27,7 @@ export enum InstanceType {
   Subagent = 'subagent',
   AgentTool = 'agent_tool',
   Tools = 'tools',
+  McpServer = 'mcp_server',
   Condition = 'condition',
 }
 
@@ -38,6 +42,7 @@ export interface AgentInstance extends BaseInstance {
   engine: ExecutionEngine | null
   systemParts: Array<{ content: string; cache?: 'ephemeral' }>
   tools: InternalTool[]
+  mcpServers: MCPServerConfig[]
   children: Instance[]
   store: AgentStore
 }
@@ -64,6 +69,11 @@ export interface MessageInstance extends BaseInstance {
   message: AgentMessageParam
 }
 
+export interface MCPServerInstance extends BaseInstance {
+  type: InstanceType.McpServer
+  config: MCPServerConfig
+}
+
 export interface ToolsContainerInstance extends BaseInstance {
   type: InstanceType.Tools
   children: Instance[]
@@ -77,6 +87,7 @@ export interface SubagentInstance extends BaseInstance {
   children: Instance[]
   systemParts: Array<{ content: string; cache?: 'ephemeral' }>
   tools: InternalTool[]
+  mcpServers: MCPServerConfig[]
   agentNode: React.ReactNode | null
 }
 
@@ -109,6 +120,7 @@ export type Instance =
   | ContextInstance
   | MessageInstance
   | ToolsContainerInstance
+  | MCPServerInstance
   | ConditionInstance
 
 export type AgentComponentProps = AgentProps & {
@@ -141,6 +153,8 @@ export interface MessageComponentProps {
 
 export type MessageRawContent = MessageComponentProps['rawContent']
 
+export type MCPServerComponentProps = MCPServerConfig
+
 export interface ToolsContainerProps {
   children?: React.ReactNode
 }
@@ -149,6 +163,12 @@ export type ConditionComponentProps = {
   when: boolean | string
   children?: React.ReactNode
 } & ProviderModelOverride
+
+export function isMCPServerInstance(
+  instance: Instance,
+): instance is MCPServerInstance {
+  return instance.type === InstanceType.McpServer
+}
 
 export function isAgentInstance(instance: Instance): instance is AgentInstance {
   return instance.type === InstanceType.Agent

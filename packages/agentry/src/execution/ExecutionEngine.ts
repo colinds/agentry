@@ -47,6 +47,7 @@ import {
 import { createTurn } from '../pi/turn'
 import { resolveModel } from '../pi/models'
 import { toPiTools } from '../pi/tools'
+import { connectMcpServer, type McpConnection } from '../mcp'
 
 interface ExecutionEngineEvents {
   stateChange: (state: AgentState) => void
@@ -127,6 +128,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private aborted = false
   private agentInstance: AgentInstance
   private toolExecutionTimes = new Map<string, number>()
+  /** Live MCP connections, keyed by server name. */
+  private mcpConnections = new Map<string, McpConnection>()
 
   /**
    * Async-aware step finish callback. Unlike the EventEmitter-based 'stepFinish'
@@ -232,6 +235,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private recollectAll(): void {
     this.agentInstance.tools = []
     this.agentInstance.systemParts = []
+    this.agentInstance.mcpServers = []
 
     for (const child of this.agentInstance.children) {
       if (isMessageInstance(child)) {
@@ -275,6 +279,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         if (conditionResult.changed) {
           this.recollectAll()
         }
+
+        await this.syncMcpConnections(abortController.signal)
 
         const message = await this.makeApiCall(abortController)
         this.lastMessage = message
@@ -341,6 +347,49 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
       this.emit('error', err)
       throw err
     }
+  }
+
+  /**
+   * Brings live MCP connections in line with the `<MCP>` servers currently in
+   * the tree, then exposes their tools as ordinary agentry tools.
+   *
+   * pi has no MCP support by design, so servers are connected client-side and
+   * each remote tool is proxied through `tools/call`. Connections are reused
+   * across turns; a server that leaves the tree (for example when a
+   * `<Condition>` deactivates) is disconnected.
+   */
+  private async syncMcpConnections(signal: AbortSignal): Promise<void> {
+    const declared = this.agentInstance.mcpServers
+    const declaredNames = new Set(declared.map((server) => server.name))
+
+    for (const [name, connection] of this.mcpConnections) {
+      if (!declaredNames.has(name)) {
+        this.mcpConnections.delete(name)
+        await connection.close().catch(() => {})
+        debug('mcp', `Disconnected from "${name}" (no longer in tree)`)
+      }
+    }
+
+    for (const server of declared) {
+      if (this.mcpConnections.has(server.name)) continue
+      const connection = await connectMcpServer(server, signal)
+      this.mcpConnections.set(server.name, connection)
+    }
+
+    for (const connection of this.mcpConnections.values()) {
+      for (const tool of connection.tools) {
+        if (!this.agentInstance.tools.some((t) => t.name === tool.name)) {
+          this.agentInstance.tools.push(tool)
+        }
+      }
+    }
+  }
+
+  /** Closes every live MCP connection. Called when the owning handle closes. */
+  async closeMcpConnections(): Promise<void> {
+    const connections = [...this.mcpConnections.values()]
+    this.mcpConnections.clear()
+    await Promise.all(connections.map((c) => c.close().catch(() => {})))
   }
 
   private async makeApiCall(
