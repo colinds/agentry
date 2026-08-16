@@ -227,6 +227,67 @@ describe('MCP connection lifecycle', () => {
     await runPromise
   })
 
+  test('a server whose config changes under the same name is reconnected', async () => {
+    // MCP props are state-driven like any other. Keying connections on name
+    // alone would keep serving the original server's tools after the config
+    // that produced them had changed.
+    const { models, controller } = createStepMockModels([
+      { content: [fauxToolCall('restrict', {})] },
+      { content: [fauxText('done')] },
+    ])
+
+    function App() {
+      const [restricted, setRestricted] = useState(false)
+      return (
+        <Agent
+          provider="anthropic"
+          model={ANTHROPIC_TEST_MODEL}
+          maxTokens={100}
+          stream={false}
+        >
+          <System>Test</System>
+          <Tools>
+            <Tool
+              name="restrict"
+              description="Narrow the server to one tool"
+              parameters={Type.Object({})}
+              handler={() => {
+                setRestricted(true)
+                return 'restricted'
+              }}
+            />
+          </Tools>
+          <MCP
+            {...SERVER}
+            tool_configuration={
+              restricted ? { allowed_tools: ['add'] } : undefined
+            }
+          />
+          <Message role="user">Go</Message>
+        </Agent>
+      )
+    }
+
+    const runPromise = run(<App />, { models })
+
+    await controller.waitForNextCall()
+    const before = controller.peekNextCall()!.context.tools!.map((t) => t.name)
+    expect(before).toContain('test__add')
+    expect(before).toContain('test__echo')
+
+    await controller.nextTurn()
+
+    await controller.waitForNextCall()
+    const after = controller.peekNextCall()!.context.tools!.map((t) => t.name)
+    expect(after).toContain('test__add')
+    // Only reachable if the changed config forced a genuine reconnect —
+    // allowed_tools is applied at connect time.
+    expect(after).not.toContain('test__echo')
+
+    await controller.nextTurn()
+    await runPromise
+  })
+
   test('closing the handle tears down connections', async () => {
     const { models, controller } = createStepMockModels([
       { content: [fauxText('ok')] },
