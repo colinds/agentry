@@ -36,7 +36,6 @@ export class SubagentHandle extends AbstractAgentHandle {
     const container: AgentInstance = {
       type: InstanceType.Agent,
       props: { ...subagent.props },
-      engine: null,
       systemParts: [],
       tools: new Map(),
       duplicateToolNames: new Set(),

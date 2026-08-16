@@ -10,7 +10,6 @@ import type {
   InternalAgentTool,
 } from '../types'
 import type { JsonValue } from '../types/json'
-import type { ExecutionEngine } from '../execution'
 import type { AgentStore } from '../store'
 import type { TSchema } from 'typebox'
 import type { ProviderModelOverride } from '../types/agent'
@@ -39,8 +38,7 @@ export interface BaseInstance {
 export interface AgentInstance extends BaseInstance {
   type: InstanceType.Agent
   props: AgentProps
-  engine: ExecutionEngine | null
-  systemParts: Array<{ content: string; cache?: 'ephemeral' }>
+  systemParts: Array<{ content: string }>
   /**
    * Name-keyed rather than positional: a tool's identity is its name, which is
    * what makes conditional mounting robust and lets consecutive renders be
@@ -62,13 +60,11 @@ export interface ToolInstance extends BaseInstance {
 export interface SystemInstance extends BaseInstance {
   type: InstanceType.System
   content: string
-  cache?: 'ephemeral'
 }
 
 export interface ContextInstance extends BaseInstance {
   type: InstanceType.Context
   content: string
-  cache?: 'ephemeral'
 }
 
 export interface MessageInstance extends BaseInstance {
@@ -92,7 +88,7 @@ export interface SubagentInstance extends BaseInstance {
   description?: string
   props: AgentProps
   children: Instance[]
-  systemParts: Array<{ content: string; cache?: 'ephemeral' }>
+  systemParts: Array<{ content: string }>
   tools: Map<string, InternalTool>
   duplicateToolNames: Set<string>
   mcpServers: MCPServerConfig[]
@@ -145,12 +141,10 @@ export interface AgentToolComponentProps {
 
 export interface SystemComponentProps {
   children: React.ReactNode
-  cache?: 'ephemeral'
 }
 
 export interface ContextComponentProps {
   children: React.ReactNode
-  cache?: 'ephemeral'
 }
 
 export interface MessageComponentProps {

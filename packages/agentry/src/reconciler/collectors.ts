@@ -46,15 +46,9 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
   if (isToolInstance(child)) {
     registerTool(agent, child.tool)
   } else if (isSystemInstance(child)) {
-    agent.systemParts.push({
-      content: child.content,
-      cache: child.cache,
-    })
+    agent.systemParts.push({ content: child.content })
   } else if (isContextInstance(child)) {
-    agent.systemParts.push({
-      content: child.content,
-      cache: child.cache,
-    })
+    agent.systemParts.push({ content: child.content })
   } else if (isMessageInstance(child)) {
     // Write directly to store instead of agent.messages
     agent.store.getState().actions.pushMessage(child.message)

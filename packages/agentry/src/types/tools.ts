@@ -49,7 +49,7 @@ export interface RunAgentOptions {
   models?: Models
   /** Override parent's model */
   model?: Model
-  /** Override maxTokens (defaults to half parent's) */
+  /** Override maxTokens (defaults to the framework default, not the parent's) */
   maxTokens?: number
   /** Override temperature */
   temperature?: number
@@ -72,7 +72,7 @@ type BaseToolContext = {
   /**
    * Programmatically run an agent from within a tool handler.
    * The spawned agent runs to completion and returns its result.
-   * Results are returned to the tool handler only (not visible to Claude).
+   * Results are returned to the tool handler only (not visible to the model).
    *
    * @param agent - React element representing the agent to run
    * @param options - Optional configuration (model, maxTokens, temperature, signal)

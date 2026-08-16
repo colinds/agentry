@@ -1,11 +1,5 @@
-import type {
-  Api,
-  ApiStreamOptions,
-  Model,
-  Models,
-  Tool as PiTool,
-  TSchema,
-} from '@earendil-works/pi-ai'
+import { Type } from 'typebox'
+import type { Api, Model, Models, Tool as PiTool } from '@earendil-works/pi-ai'
 import type { AgentMessageParam } from '../types/messages'
 import { userMessage } from '../types/messages'
 import type { ConditionInstance, Instance } from '../instances/types'
@@ -14,6 +8,7 @@ import { debug } from '../debug'
 import type { ProviderName } from '../types/provider'
 import type { JsonObject } from '../types/json'
 import { resolveModel } from '../pi/models'
+import { createTurn } from '../pi/turn'
 
 /**
  * Cheap models used for condition evaluation, keyed by provider. Providers not
@@ -30,39 +25,15 @@ const CONDITION_TOOL: PiTool = {
   name: EVALUATE_CONDITIONS_TOOL,
   description:
     'Report every condition that is currently true, by zero-based index.',
-  parameters: {
-    type: 'object',
-    properties: {
-      trueConditionIndices: {
-        type: 'array',
-        items: { type: 'number' },
+  parameters: Type.Object(
+    {
+      trueConditionIndices: Type.Array(Type.Number(), {
         description: 'Zero-based indices of all conditions that are TRUE.',
-      },
+      }),
     },
-    required: ['trueConditionIndices'],
-    additionalProperties: false,
-  } as unknown as TSchema,
+    { additionalProperties: false },
+  ),
   constrainedSampling: { type: 'json_schema', strict: 'prefer' },
-}
-
-/**
- * Forces a tool call where the API supports it. Only one tool is ever offered
- * during condition evaluation, so "use some tool" is equivalent to "use
- * evaluate_conditions". APIs without a forced mode fall back to prompting.
- */
-function forcedToolChoice(api: Api): string | undefined {
-  switch (api) {
-    case 'anthropic-messages':
-    case 'google-generative-ai':
-    case 'google-vertex':
-      return 'any'
-    case 'openai-responses':
-    case 'openai-completions':
-    case 'azure-openai-responses':
-      return 'required'
-    default:
-      return undefined
-  }
 }
 
 function buildNLConditionSystemPrompt(conditionDescriptions: string): string {
@@ -255,27 +226,22 @@ async function evaluateNaturalLanguageConditions({
     tools: [CONDITION_TOOL],
   }
 
-  const toolChoice = forcedToolChoice(model.api)
-  const options = {
-    signal,
-    maxTokens: 1024,
-    ...(toolChoice ? { toolChoice } : {}),
-  } as ApiStreamOptions<Api>
-
   const startTime = performance.now()
-  const message = await models.complete(model, context, options)
-  const durationMs = Math.round(performance.now() - startTime)
 
-  if (message.stopReason === 'aborted') {
-    const error = new Error(message.errorMessage ?? 'Request was aborted')
-    error.name = 'AbortError'
-    throw error
-  }
-  if (message.stopReason === 'error') {
-    throw new Error(
-      `[agentry] NL condition evaluation failed: ${message.errorMessage ?? 'provider error'}`,
-    )
-  }
+  // Goes through the same seam as every other model call, so abort/error
+  // handling is shared rather than duplicated here. Only one tool is offered,
+  // so "must call a tool" means "must call evaluate_conditions".
+  const message = await createTurn(models, {
+    model,
+    context,
+    maxTokens: 1024,
+    stream: false,
+    forceToolUse: true,
+    signal: signal ?? new AbortController().signal,
+    onStream: () => {},
+  })
+
+  const durationMs = Math.round(performance.now() - startTime)
 
   const call = message.content.find(
     (block) =>

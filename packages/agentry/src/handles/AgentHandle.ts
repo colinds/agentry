@@ -39,7 +39,6 @@ export class AgentHandle extends AbstractAgentHandle {
         maxTokens: 4096,
         stream: true,
       },
-      engine: null,
       systemParts: [],
       tools: new Map(),
       duplicateToolNames: new Set(),

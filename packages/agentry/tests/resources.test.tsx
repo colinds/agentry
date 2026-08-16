@@ -8,7 +8,7 @@ import {
 } from '../src/execution/resourceDiff'
 import { run, Type, Agent, System, Tools, Tool, Message } from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
-import { ANTHROPIC_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from './constants'
 import type { InternalTool } from '../src/types'
 
 function tool(name: string, description = 'a tool', schema = {}): InternalTool {

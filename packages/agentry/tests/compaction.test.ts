@@ -3,7 +3,7 @@ import { ExecutionEngine } from '../src/execution'
 import { createAgentStore } from '../src/store'
 import { assistantSeedMessage, userMessage } from '../src/types/messages'
 import { createStepMockModels, fauxText } from './utils'
-import { ANTHROPIC_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from './constants'
 import { AgentStatus, type AgentMessageParam } from '../src/types'
 import { InstanceType, type AgentInstance } from '../src/instances'
 
@@ -30,7 +30,6 @@ test('compactionControl compacts messages when threshold is exceeded', async () 
       model: ANTHROPIC_TEST_MODEL,
       maxTokens: 100,
     },
-    engine: null,
     systemParts: [],
     tools: new Map(),
     duplicateToolNames: new Set(),
@@ -122,7 +121,6 @@ test('compactionControl does nothing when under threshold', async () => {
       model: ANTHROPIC_TEST_MODEL,
       maxTokens: 100,
     },
-    engine: null,
     systemParts: [],
     tools: new Map(),
     duplicateToolNames: new Set(),

@@ -39,9 +39,11 @@ export async function connectMcpServer(
 ): Promise<McpConnection> {
   const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
 
+  // Version is informational in the MCP handshake; kept coarse deliberately so
+  // it cannot drift out of sync with package.json.
   const client = new Client({
     name: 'agentry',
-    version: '0.2.0',
+    version: '0',
   }) as unknown as McpClientLike
 
   const transport = await createTransport(config)

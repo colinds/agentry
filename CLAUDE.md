@@ -40,7 +40,7 @@ pi resolves them per provider, so no client construction is needed.
   - `src/reconciler` - custom React reconciler
   - `src/execution` - execution loop and condition evaluation
   - `src/handles` - agent/subagent handles
-  - `src/pi` - the **only** place `@earendil-works/pi-ai` may be imported
+  - `src/pi` - the only place that makes runtime calls into pi
   - `src/components` - JSX API (`Agent`, `Tool`, `AgentTool`, etc.)
   - `src/tools` - tool definition/parsing/execution helpers
   - `src/run` - `run`, `createAgent`, `runAgent` wiring
@@ -51,8 +51,10 @@ pi resolves them per provider, so no client construction is needed.
 
 ### The pi seam
 
-- `src/pi/` is the single boundary to `@earendil-works/pi-ai`. Nothing else imports it,
-  which keeps pi's 0.x churn to a one-directory blast radius. The version is pinned exactly.
+- `src/pi/` is the single place that *calls* `@earendil-works/pi-ai`. Elsewhere, pi appears
+  only in `import type` — `Models` threaded through signatures, and the message types
+  re-exported from `src/types/messages.ts`. Keeping every runtime call behind this one
+  directory is what limits pi's 0.x churn; the version is pinned exactly.
 - `createTurn` (`src/pi/turn.ts`) is the only path to a model. It normalizes two things the
   engine depends on: pi reports failures as values (`stopReason: 'error' | 'aborted'`), so
   they are converted back into throws; and non-streaming turns emit the same

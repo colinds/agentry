@@ -40,14 +40,14 @@ export type ConditionProps =
  * ```tsx
  * <Condition when="user wants to search the web">
  *   <System>Web search mode active.</System>
- *   <Tools><WebSearch /></Tools>
+ *   <Tools><Tool {...searchTool} /></Tools>
  * </Condition>
  * ```
  *
  * @example NL condition with cheap model override
  * ```tsx
  * <Condition when="user wants to search" model="claude-haiku-4-5" provider="anthropic">
- *   <Tools><WebSearch /></Tools>
+ *   <Tools><Tool {...searchTool} /></Tools>
  * </Condition>
  * ```
  *

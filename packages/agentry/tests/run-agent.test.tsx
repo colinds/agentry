@@ -9,7 +9,7 @@ import {
   
 } from './utils'
 import { Type } from 'typebox'
-import { ANTHROPIC_TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL, OPENAI_TEST_MODEL } from './constants'
 
 test('runAgent executes subagent and returns result', async () => {
   const { models, controller } = createStepMockModels([

@@ -13,13 +13,9 @@ import {
   isToolInstance,
   isConditionInstance,
 } from '../instances'
+import type { PropagatedSettings } from '../instances/createInstance'
 import { createInstance, InstanceType, type ElementProps } from '../instances'
-import type {
-  AgentProps,
-  CompactionControl,
-  Model,
-  ProviderModelOverride,
-} from '../types'
+import type { ProviderModelOverride } from '../types'
 import { debug } from '../debug'
 import { diffProps, disposeOnIdle } from './utils'
 import { collectChild, uncollectChild } from './collectors'
@@ -74,18 +70,6 @@ function createReconciler<
     FormInstance,
     PublicInstance
   >
-}
-
-interface PropagatedSettings {
-  provider?: AgentProps['provider']
-  stream?: boolean
-  temperature?: number
-  stopSequences?: string[]
-  compactionControl?: CompactionControl
-  maxTokens?: number
-  maxIterations?: number
-  model?: Model
-  thinking?: AgentProps['thinking']
 }
 
 interface HostConfig {
@@ -370,7 +354,6 @@ function rebuildSystemPrompt(agent: AgentInstance): void {
     if (isSystemInstance(child) || isContextInstance(child)) {
       parts.push({
         content: child.content,
-        cache: child.cache,
       })
     }
   }

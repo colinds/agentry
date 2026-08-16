@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { createAI, Agent, Message, AgentHandle } from '../src'
 import { createStepMockModels, fauxText } from './utils'
-import { ANTHROPIC_TEST_MODEL, OPENAI_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL, OPENAI_TEST_MODEL } from './constants'
 
 test('createAI default clients are used when no per-call override given', async () => {
   const { models, controller } = createStepMockModels([

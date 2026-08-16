@@ -25,6 +25,7 @@ export {
   type InternalTool,
   type AnyInternalTool,
   type DefineToolOptions,
+  type RunAgentOptions,
   type PendingToolCall,
   type MemoryHandlers,
 } from './tools'

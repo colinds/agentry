@@ -5,7 +5,7 @@ import { toolResultText } from '../src/types/messages'
 import { defineTool } from '../src/tools'
 import { Agent, System, Context, Tools, Tool, Message, AgentTool } from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
-import { ANTHROPIC_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from './constants'
 
 test('root agent sees pre-loaded JSX messages', async () => {
   const { models, controller } = createStepMockModels([

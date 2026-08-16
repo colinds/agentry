@@ -34,7 +34,7 @@ export interface CreateAgentOptions {
  * const agent = await run(
  *   <Agent provider="anthropic" model="claude-sonnet-4-5">
  *     <System>You are a helpful assistant</System>
- *     <Tools><WebSearch /></Tools>
+ *     <Tools><Tool {...searchTool} /></Tools>
  *   </Agent>,
  *   { mode: 'interactive' }
  * );

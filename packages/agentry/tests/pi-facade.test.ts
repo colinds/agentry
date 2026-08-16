@@ -2,7 +2,11 @@ import { describe, expect, test } from 'bun:test'
 import { Type, type AssistantMessage } from '@earendil-works/pi-ai'
 import { toAgentStreamEvent } from '../src/pi/events'
 import { toPiTool } from '../src/pi/tools'
-import { resolveModel } from '../src/pi/models'
+import {
+  getDefaultModels,
+  resetSharedDefaultModels,
+  resolveModel,
+} from '../src/pi/models'
 import { AgentryProviderError, createTurn } from '../src/pi/turn'
 import type { AgentStreamEvent } from '../src/types/agent'
 import type { InternalTool } from '../src/types/tools'
@@ -244,5 +248,30 @@ describe('createStepMockModels controller', () => {
 
     expect(controller.getCurrentTurnNumber()).toBe(1)
     expect(controller.isComplete()).toBe(true)
+  })
+})
+
+describe('getDefaultModels', () => {
+  test('lazily builds pi’s catalog, caches it, and can be reset', async () => {
+    resetSharedDefaultModels()
+
+    // Concurrent callers must share one in-flight build rather than racing.
+    const [first, second] = await Promise.all([
+      getDefaultModels(),
+      getDefaultModels(),
+    ])
+    expect(first).toBe(second)
+
+    // The zero-config path has to actually carry providers, otherwise
+    // `run(<Agent provider="anthropic" .../>)` could never resolve a model.
+    expect(first.getProviders().length).toBeGreaterThan(1)
+    expect(first.getProvider('anthropic')).toBeDefined()
+
+    expect(await getDefaultModels()).toBe(first)
+
+    resetSharedDefaultModels()
+    expect(await getDefaultModels()).not.toBe(first)
+
+    resetSharedDefaultModels()
   })
 })

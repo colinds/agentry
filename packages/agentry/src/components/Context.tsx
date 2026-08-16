@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 
 export interface ContextProps {
   children: ReactNode
-  cache?: 'ephemeral'
 }
 
 /**
@@ -10,7 +9,7 @@ export interface ContextProps {
  *
  * @example
  * ```tsx
- * <Agent model="claude-sonnet-4-5">
+ * <Agent provider="anthropic" model="claude-sonnet-4-5">
  *   <Context>
  *     Current user: {user.name}
  *     Account type: {user.accountType}
@@ -18,6 +17,6 @@ export interface ContextProps {
  * </Agent>
  * ```
  */
-export function Context({ children, cache }: ContextProps): ReactNode {
-  return <context cache={cache}>{children}</context>
+export function Context({ children }: ContextProps): ReactNode {
+  return <context>{children}</context>
 }

@@ -47,7 +47,8 @@ interface SubagentCreationProps extends Omit<
   agentNode?: React.ReactNode
 }
 
-interface PropagatedSettings {
+/** Agent settings inherited by subagents and propagated as reconciler host context. */
+export interface PropagatedSettings {
   provider?: AgentProps['provider']
   stream?: boolean
   temperature?: number
@@ -134,7 +135,6 @@ function createAgentInstance(
       onError: props.onError,
       onStepFinish: props.onStepFinish,
     } satisfies AgentPropsAllKeys as AgentProps,
-    engine: null,
     systemParts: [],
     tools: new Map(),
     duplicateToolNames: new Set(),
@@ -178,7 +178,6 @@ function createSystemInstance(props: SystemComponentProps): SystemInstance {
   return {
     type: InstanceType.System,
     content: reactNodeToString(props.children),
-    cache: props.cache,
     parent: null,
   }
 }
@@ -187,7 +186,6 @@ function createContextInstance(props: ContextComponentProps): ContextInstance {
   return {
     type: InstanceType.Context,
     content: reactNodeToString(props.children),
-    cache: props.cache,
     parent: null,
   }
 }

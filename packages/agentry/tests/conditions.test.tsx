@@ -16,7 +16,7 @@ import {
   fauxText,
   fauxToolCall,
 } from './utils'
-import { OPENAI_TEST_MODEL } from '../src/constants'
+import { OPENAI_TEST_MODEL } from './constants'
 import { Type } from 'typebox'
 
 describe('Condition', () => {

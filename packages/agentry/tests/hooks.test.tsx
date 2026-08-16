@@ -13,7 +13,7 @@ import {
 } from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
 import { AgentStatus } from '../src/types'
-import { ANTHROPIC_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from './constants'
 import { createStateWatcher, createMessageCollector } from './utils/testHelpers'
 
 test('useExecutionState tracks status transitions', async () => {

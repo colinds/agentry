@@ -1,5 +1,6 @@
 import type {
   Api,
+  ApiStreamOptions,
   AssistantMessage,
   CacheRetention,
   Context,
@@ -33,8 +34,33 @@ export interface TurnRequest {
   /** Per-run identifier; lets providers key prompt caching to this agent run. */
   sessionId?: string
   stream: boolean
+  /**
+   * Require the model to call one of the supplied tools, where the API can
+   * express that. APIs without a forced mode fall back to prompting, so callers
+   * must still handle a turn that produced no tool call.
+   */
+  forceToolUse?: boolean
   signal: AbortSignal
   onStream: (event: AgentStreamEvent) => void
+}
+
+/**
+ * Per-API spelling of "you must call a tool". This is the only place API
+ * differences leak into option-building, and it stays behind the seam.
+ */
+function forcedToolChoice(api: Api): string | undefined {
+  switch (api) {
+    case 'anthropic-messages':
+    case 'google-generative-ai':
+    case 'google-vertex':
+      return 'any'
+    case 'openai-responses':
+    case 'openai-completions':
+    case 'azure-openai-responses':
+      return 'required'
+    default:
+      return undefined
+  }
 }
 
 /**
@@ -48,8 +74,8 @@ export interface TurnRequest {
  *    throwing. `ExecutionEngine` drives its error state transition from a
  *    thrown exception, so both are converted back into throws.
  * 2. **Non-streaming turns still emit events.** Callers get the same
- *    `AgentStreamEvent` sequence whether or not `stream` is set, matching the
- *    guarantee the previous provider adapters made.
+ *    `AgentStreamEvent` sequence whether or not `stream` is set, so callers
+ *    never have to branch on transport.
  */
 export async function createTurn(
   models: Models,
@@ -66,7 +92,16 @@ export async function createTurn(
 
   let message: AssistantMessage
 
-  if (request.stream) {
+  if (request.forceToolUse) {
+    // `complete` rather than `completeSimple`, because tool choice is a native
+    // per-API option that the normalized surface does not model.
+    const toolChoice = forcedToolChoice(request.model.api)
+    message = await models.complete(request.model, request.context, {
+      ...options,
+      ...(toolChoice ? { toolChoice } : {}),
+    } as ApiStreamOptions<Api>)
+    emitSyntheticEvents(message, request.onStream)
+  } else if (request.stream) {
     const stream = models.streamSimple(request.model, request.context, options)
     for await (const event of stream) {
       const mapped = toAgentStreamEvent(event)

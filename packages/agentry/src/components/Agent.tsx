@@ -26,14 +26,14 @@ export type AgentComponentPublicProps = BaseAgentProps &
  *
  * @example
  * ```tsx
- * <Agent model="claude-sonnet-4-5" maxTokens={4096}>
+ * <Agent provider="anthropic" model="claude-sonnet-4-5" maxTokens={4096}>
  *   <System>You are a helpful assistant</System>
  *   <Tools>
  *     <Tool {...searchTool} />
  *     <AgentTool
  *       name="researcher"
  *       description="Research specialist"
- *       parameters={z.object({ topic: z.string() })}
+ *       parameters={Type.Object({ topic: Type.String() })}
  *       agent={(input) => (
  *         <Agent name="researcher">
  *           <System>Research: {input.topic}</System>

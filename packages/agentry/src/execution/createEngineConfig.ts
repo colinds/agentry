@@ -44,7 +44,6 @@ export function createEngineConfig(
 
   const store = options.store ?? createAgentStore()
 
-  const system = buildSystemPrompt(agent)
   const provider = agent.props.provider
   if (!provider) {
     throw new Error('Provider is required on agent props.')
@@ -61,7 +60,6 @@ export function createEngineConfig(
     provider,
     model,
     maxTokens: agent.props.maxTokens ?? 4096,
-    system,
     stream: agent.props.stream ?? false,
     maxIterations: agent.props.maxIterations ?? 20,
     compactionControl: agent.props.compactionControl,

@@ -4,7 +4,7 @@ import { connectMcpServer, mcpToolName } from '../src/mcp'
 import type { MCPServerConfig } from '../src/mcp'
 import { run, Agent, System, Message, MCP } from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
-import { ANTHROPIC_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from './constants'
 import type { ToolContext } from '../src/types'
 
 const SERVER: MCPServerConfig = {

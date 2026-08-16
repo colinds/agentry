@@ -1,27 +1,11 @@
 import type React from 'react'
 import { SubagentHandle } from '../handles'
-import type { AgentResult, Model } from '../types'
+import type { AgentResult, Model, RunAgentOptions } from '../types'
+
+export type { RunAgentOptions }
 import { createSubagentInstance } from '../instances/createInstance'
 import type { ProviderName } from '../types/provider'
 import type { Models } from '@earendil-works/pi-ai'
-
-/**
- * Options for spawning an agent programmatically
- */
-export interface RunAgentOptions {
-  /** Override provider */
-  provider?: ProviderName
-  /** Override the pi model collection */
-  models?: Models
-  /** Override parent's model */
-  model?: Model
-  /** Override maxTokens (defaults to half parent's) */
-  maxTokens?: number
-  /** Override temperature */
-  temperature?: number
-  /** Custom abort signal (defaults to parent's) */
-  signal?: AbortSignal
-}
 
 /**
  * Context for creating a spawn agent function
@@ -38,13 +22,12 @@ interface RunAgentContext {
  * This function is attached to ToolContext and allows tool handlers to
  * programmatically spawn and execute agents on-demand.
  *
- * @param context - The execution context (clients, model, signal)
+ * @param context - The execution context (models, provider, model, signal)
  * @returns A runAgent function that can execute React agent elements
  *
  * @example
  * ```tsx
  * const runSubagent = createRunAgent({
- *   clients: { anthropic: anthropicClient },
  *   model: 'claude-sonnet-4',
  *   signal: abortController.signal,
  * })

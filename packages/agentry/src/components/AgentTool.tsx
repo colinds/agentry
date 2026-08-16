@@ -34,9 +34,9 @@ export type AgentToolProps<TParameters extends TSchema = TSchema> =
  * <AgentTool
  *   name="researcher"
  *   description="Research specialist"
- *   parameters={z.object({
- *     topic: z.string(),
- *     depth: z.enum(['shallow', 'deep']).optional()
+ *   parameters={Type.Object({
+ *     topic: Type.String(),
+ *     depth: Type.Optional(Type.Union([Type.Literal('shallow'), Type.Literal('deep')]))
  *   })}
  *   agent={(input) => (
  *     <Agent name="researcher">

@@ -9,11 +9,11 @@ export interface ToolsProps {
  *
  * @example
  * ```tsx
- * <Agent model="claude-sonnet-4-5">
+ * <Agent provider="anthropic" model="claude-sonnet-4-5">
  *   <Tools>
  *     <Tool {...searchTool} />
  *     <Tool {...calculateTool} />
- *     <WebSearch />
+ *     <MCP type="stdio" name="fs" command="my-mcp-server" />
  *   </Tools>
  * </Agent>
  * ```

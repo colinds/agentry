@@ -13,7 +13,7 @@ import {
   useMessages,
 } from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
-import { ANTHROPIC_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from './constants'
 import { Type } from 'typebox'
 import { getRegisteredTools } from './utils/testHelpers'
 

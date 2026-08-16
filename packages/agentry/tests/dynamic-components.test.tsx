@@ -5,7 +5,7 @@ import { run } from '../src'
 import { defineTool } from '../src/tools'
 import { Agent, System, Tools, Tool, Message } from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
-import { ANTHROPIC_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from './constants'
 
 test('state changes trigger reconciler updates', async () => {
   let updateCount = 0

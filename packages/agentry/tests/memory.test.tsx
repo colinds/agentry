@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { defineMemoryTool } from '../src/tools/defineMemoryTool'
 import { run, Agent, System, Message, Memory } from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
-import { ANTHROPIC_TEST_MODEL } from '../src/constants'
+import { ANTHROPIC_TEST_MODEL } from './constants'
 import type { MemoryHandlers, ToolContext } from '../src/types'
 
 const toolContext = {} as ToolContext

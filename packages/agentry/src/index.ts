@@ -1,6 +1,7 @@
 export { run, createAgent, createAI } from './run'
 export { AgentHandle } from './handles'
 export { defineTool, defineAgentTool, defineMemoryTool } from './tools'
+export { AgentryProviderError } from './pi'
 export {
   Agent,
   Tool,

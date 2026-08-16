@@ -63,9 +63,6 @@ interface ExecutionEngineEvents {
   stepFinish: (result: OnStepFinishResult) => void
 }
 
-/** System prompts are a single string under pi; caching is a provider concern. */
-export type SystemPrompt = string
-
 const DEFAULT_TOKEN_THRESHOLD = 100_000
 
 const DEFAULT_SUMMARY_PROMPT = `You have been working on the task described above but have not yet completed it. Write a continuation summary that will allow you (or another instance of yourself) to resume work efficiently in a future context window where the conversation history will be replaced with this summary. Your summary should be structured, concise, and actionable. Include:
@@ -82,7 +79,6 @@ export interface ExecutionEngineConfig {
   provider: string
   model: string
   maxTokens: number
-  system?: SystemPrompt
   stream?: boolean
   maxIterations?: number
   compactionControl?: {
@@ -180,17 +176,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     return this.store.getState().messages
   }
 
-  updateConfig(updates: Partial<ExecutionEngineConfig>): void {
-    this.config = { ...this.config, ...updates }
-    if (updates.model || updates.provider || updates.models) {
-      this.resolvedModel = resolveModel(
-        this.config.models,
-        this.config.provider,
-        this.config.model,
-      )
-    }
-  }
-
   pushMessage(message: AgentMessageParam): void {
     this.store.getState().actions.pushMessage(message)
   }
@@ -242,9 +227,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     }
   }
 
-  // todo(colin): not a huge fan on recollecting everything
-  // ideally we should compute changesets and only recollect the necessary children
-  // that is why this is still experimental
+  // Conditions flip `isActive` directly on instances rather than through React,
+  // so the reconciler never sees the change and the agent's collected resources
+  // must be rebuilt from scratch.
+  // todo(colin): compute a changeset and recollect only the affected children.
   private recollectAll(): void {
     this.agentInstance.tools = new Map()
     this.agentInstance.duplicateToolNames = new Set()
@@ -288,6 +274,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         // mid-turn.
         await this.renderTurn?.()
 
+        // Natural-language conditions are evaluated once per run, not once per
+        // turn: they describe user intent, which does not change while the
+        // agent works through its own tool loop, and each evaluation is an
+        // extra model call. Boolean conditions re-evaluate every turn.
         const isFirstIteration = this.iterationCount === 1
         const conditionResult = await this.evaluateAllConditions(
           abortController.signal,

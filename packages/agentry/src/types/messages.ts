@@ -99,8 +99,9 @@ const EMPTY_USAGE: Usage = {
  * (`<Message role="assistant">`) rather than returned by a provider.
  *
  * pi's `AssistantMessage` carries provider attribution and usage because it
- * normally describes a real response; a seeded turn has neither, so those
- * fields are zeroed and left unattributed.
+ * normally describes a real response. A seeded turn has neither: usage is
+ * zeroed and `provider`/`model` are left blank. `api` must still be a valid
+ * literal, so it carries a placeholder that nothing reads.
  */
 export function assistantSeedMessage(
   content:
