@@ -1,4 +1,4 @@
-import type { Api, Model, Models } from '@earendil-works/pi-ai'
+import type { Api, Model, Models, ProviderHeaders } from '@earendil-works/pi-ai'
 import {
   isTextBlock,
   isToolResultMessage,
@@ -30,6 +30,13 @@ export const DEFAULT_SUMMARY_PROMPT = `You have been working on the task describ
 Be concise but complete. Write in a way that enables immediate resumption of the task.
 Wrap your summary in <summary></summary> tags.`
 
+/** Request options that must reach every call a run makes, not just the turn. */
+export interface RequestOptions {
+  headers?: ProviderHeaders
+  timeoutMs?: number
+  maxRetries?: number
+}
+
 export interface CompactionSettings {
   enabled: boolean
   contextTokenThreshold?: number
@@ -44,12 +51,27 @@ export interface CompactionSettings {
  * tolerant of being off by a chunk.
  */
 export function estimateTokens(message: AgentMessageParam): number {
-  const text =
-    typeof message.content === 'string'
-      ? message.content
-      : JSON.stringify(message.content)
-  return Math.ceil(text.length / 4)
+  if (typeof message.content === 'string') {
+    return Math.ceil(message.content.length / 4)
+  }
+
+  let chars = 0
+  let images = 0
+  for (const block of message.content) {
+    // A base64 image is enormous as text but costs a roughly fixed number of
+    // tokens. Counting its payload at chars/4 would swamp the estimate and
+    // drag the compaction cut far later than it should be.
+    if (block.type === 'image') {
+      images++
+      continue
+    }
+    chars += JSON.stringify(block).length
+  }
+  return Math.ceil(chars / 4) + images * IMAGE_TOKEN_ESTIMATE
 }
+
+/** Rough per-image cost; real figures are resolution-dependent. */
+const IMAGE_TOKEN_ESTIMATE = 1_500
 
 /**
  * Picks the index to cut at, keeping roughly `keepRecentTokens` of the tail.
@@ -110,8 +132,12 @@ export async function compactMessages(options: {
   settings: CompactionSettings
   maxTokens: number
   signal?: AbortSignal
+  /** Gateway headers and timeouts apply here too; without them a gateway user's
+   * main loop works while compaction silently fails. */
+  request?: RequestOptions
 }): Promise<CompactionResult> {
-  const { models, model, messages, settings, maxTokens, signal } = options
+  const { models, model, messages, settings, maxTokens, signal, request } =
+    options
 
   const keepRecentTokens =
     settings.keepRecentTokens ?? DEFAULT_KEEP_RECENT_TOKENS
@@ -135,13 +161,21 @@ export async function compactMessages(options: {
       tools: [],
     },
     maxTokens,
+    headers: request?.headers,
+    timeoutMs: request?.timeoutMs,
+    maxRetries: request?.maxRetries,
     stream: false,
     // A one-off summary prompt is never reused, so caching it only evicts
     // entries that would have been hit. A fresh id keeps it out of the run's
     // cache lineage.
     sessionId: crypto.randomUUID(),
     cacheRetention: 'none',
-    signal: signal ?? AbortSignal.timeout(60_000),
+    // Compose rather than fall back: the engine always passes a signal, so a
+    // plain `??` meant the 60s guard never applied and a hung summary would
+    // block until the provider SDK's 10-minute default.
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(60_000)])
+      : AbortSignal.timeout(60_000),
     onStream: () => {},
   })
 

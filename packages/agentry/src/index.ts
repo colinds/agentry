@@ -1,7 +1,7 @@
 export { run, createAgent, createAI } from './run'
 export { AgentHandle } from './handles'
 export { defineTool, defineAgentTool, defineMemoryTool } from './tools'
-export { AgentryProviderError } from './pi'
+export { AgentryContextOverflowError, AgentryProviderError } from './pi'
 export {
   Agent,
   Tool,
@@ -43,6 +43,9 @@ export type {
   ProviderId,
   ProviderName,
   ThinkingLevel,
+  CacheRetention,
+  ProviderHeaders,
+  RetryPolicy,
   ToolContext,
   OnStepFinishResult,
 } from './types'

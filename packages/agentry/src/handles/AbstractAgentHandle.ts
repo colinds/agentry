@@ -116,7 +116,10 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
     const models = await this.ensureModels()
 
-    if (agent.props.provider) {
+    // Skipped when custom headers are set: a caller authenticating through a
+    // gateway has no provider credential of the kind pi looks for, and blocking
+    // them here would fail a run that would have worked.
+    if (agent.props.provider && !agent.props.headers) {
       const missingAuth = await describeMissingAuth(
         models,
         agent.props.provider,
@@ -234,9 +237,15 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     const lastAssistant = [...messages]
       .reverse()
       .find((m) => m.role === 'assistant')
+    // `usage.input` excludes cached tokens, so on a healthy cached run it is a
+    // small fraction of the real prompt and `free` would wildly overstate the
+    // headroom. Cached tokens still occupy the window; pi's own overflow
+    // detector counts them too.
     const reportedInputTokens =
       lastAssistant && 'usage' in lastAssistant
-        ? lastAssistant.usage.input
+        ? lastAssistant.usage.input +
+          lastAssistant.usage.cacheRead +
+          lastAssistant.usage.cacheWrite
         : undefined
 
     return describeContextUsage({

@@ -9,6 +9,7 @@ import type { ProviderName } from '../types/provider'
 import type { JsonObject } from '../types/json'
 import { resolveModel } from '../pi/models'
 import { createTurn } from '../pi/turn'
+import type { RequestOptions } from './compaction'
 
 /**
  * Cheap models used for condition evaluation, keyed by provider. Providers not
@@ -77,6 +78,7 @@ export async function evaluateConditions({
   provider,
   signal,
   evaluateNL,
+  request,
 }: {
   root: Instance
   messages: AgentMessageParam[]
@@ -84,6 +86,7 @@ export async function evaluateConditions({
   provider: ProviderName
   signal?: AbortSignal
   evaluateNL?: boolean
+  request?: RequestOptions
 }): Promise<boolean> {
   const conditions = findAllConditions(root)
 
@@ -132,6 +135,7 @@ export async function evaluateConditions({
       models,
       model: resolveModel(models, resolvedProvider, resolvedModelId),
       signal,
+      request,
     })
 
     for (let i = 0; i < nlConditions.length; i++) {
@@ -205,12 +209,14 @@ async function evaluateNaturalLanguageConditions({
   models,
   model,
   signal,
+  request,
 }: {
   conditions: ConditionInstance[]
   messages: AgentMessageParam[]
   models: Models
   model: Model<Api>
   signal?: AbortSignal
+  request?: RequestOptions
 }): Promise<boolean[]> {
   const descriptions = conditions
     .map((c, i) => `${i}: ${String(c.when)}`)
@@ -235,6 +241,8 @@ async function evaluateNaturalLanguageConditions({
     model,
     context,
     maxTokens: 1024,
+    headers: request?.headers,
+    timeoutMs: request?.timeoutMs,
     stream: false,
     forceToolUse: true,
     signal: signal ?? new AbortController().signal,

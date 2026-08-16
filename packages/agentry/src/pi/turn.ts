@@ -205,19 +205,24 @@ function throwIfFailed(
     throw error
   }
 
-  if (message.stopReason === 'error') {
-    if (isContextOverflow(message, model.contextWindow)) {
-      throw new AgentryContextOverflowError(
-        message.errorMessage ??
-          'Conversation exceeded the model context window',
-        {
-          provider: model.provider,
-          model: model.id,
-          contextWindow: model.contextWindow,
-        },
-      )
-    }
+  // Checked before the error branch, because two of the three overflow shapes
+  // pi recognises do NOT arrive as errors: a silent overflow reports
+  // `stopReason: 'stop'` with `input + cacheRead` over the window, and some
+  // providers signal it as a length stop with zero output. Gating this on
+  // `stopReason === 'error'` made both unreachable — the run would simply end
+  // with truncated or empty content and no explanation.
+  if (isContextOverflow(message, model.contextWindow)) {
+    throw new AgentryContextOverflowError(
+      message.errorMessage ?? 'Conversation exceeded the model context window',
+      {
+        provider: model.provider,
+        model: model.id,
+        contextWindow: model.contextWindow,
+      },
+    )
+  }
 
+  if (message.stopReason === 'error') {
     throw new AgentryProviderError(
       message.errorMessage ?? 'Provider request failed',
       model.provider,

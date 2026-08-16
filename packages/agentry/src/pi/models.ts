@@ -83,6 +83,10 @@ export async function describeMissingAuth(
   models: Models,
   provider: string,
 ): Promise<string | undefined> {
+  // An unknown provider is not an auth problem — `resolveModel` raises a much
+  // better error for it, listing what is actually available.
+  if (!models.getProvider(provider)) return undefined
+
   let check: Awaited<ReturnType<Models['checkAuth']>>
   try {
     check = await models.checkAuth(provider)

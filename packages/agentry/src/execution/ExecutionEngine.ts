@@ -43,7 +43,7 @@ import {
   type ToolCall,
   type ToolResultMessage,
 } from '../types/messages'
-import { AgentryContextOverflowError, createTurn } from '../pi/turn'
+import { AgentryContextOverflowError, createTurn } from '../pi'
 import type { CompactionSettings } from './compaction'
 import {
   compactMessages,
@@ -194,6 +194,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         provider: this.config.provider,
         signal,
         evaluateNL: options?.evaluateNL,
+        request: {
+          headers: this.config.headers,
+          timeoutMs: this.config.timeoutMs,
+        },
       })
       return { changed, consecutiveFailures: 0 }
     } catch (e) {
@@ -356,15 +360,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   }
 
   /**
-   * Brings live MCP connections in line with the `<MCP>` servers currently in
-   * the tree, then exposes their tools as ordinary agentry tools.
-   *
-   * pi has no MCP support by design, so servers are connected client-side and
-   * each remote tool is proxied through `tools/call`. Connections are reused
-   * across turns; a server that leaves the tree (for example when a
-   * `<Condition>` deactivates) is disconnected.
-   */
-  /**
    * Reconciles MCP connections with the `<MCP>` elements currently in the tree.
    * The set owns both the sockets and the tools they contribute.
    */
@@ -417,7 +412,6 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     this.lastNarratedResources = snapshot
   }
 
-  /** Closes every live MCP connection. Called when the owning handle closes. */
   /** Closes every live MCP connection. Called when the owning handle closes. */
   async closeMcpConnections(): Promise<void> {
     await this.mcpConnections.closeAll()
@@ -675,6 +669,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         settings,
         maxTokens: this.config.maxTokens,
         signal,
+        request: {
+          headers: this.config.headers,
+          timeoutMs: this.config.timeoutMs,
+        },
       })
 
       if (!result.compacted || !result.messages) return false

@@ -31,9 +31,9 @@ export interface ContextUsage {
    */
   estimatedUsed: number
   /**
-   * Input tokens the provider actually charged for the most recent turn, when
-   * a turn has completed. This is the number to trust for "how close am I to
-   * the limit".
+   * Prompt tokens the most recent turn actually occupied — input plus cached
+   * reads and writes, since cached tokens still take up the window. This is
+   * the number to trust for "how close am I to the limit".
    */
   reportedInputTokens?: number
   /** `contextWindow - reportedInputTokens`, when both are known. */

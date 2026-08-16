@@ -236,16 +236,50 @@ describe('request options reach pi', () => {
 
   test('thinking is clamped to what the model supports', async () => {
     // A model with no reasoning support must degrade rather than error.
+    // The assertion is made *after* the call: an expect() thrown inside the
+    // faux response callback is swallowed into a provider error, so an
+    // in-callback assertion would pass even if clamping were deleted.
     const faux = fauxProvider({
       provider: 'anthropic',
       models: [{ id: 'no-thinking', reasoning: false }],
     })
     const models = createModels()
     models.setProvider(faux.provider)
+
+    let seenReasoning: unknown = 'not captured'
     faux.setResponses([
       (_ctx, options) => {
-        expect(options?.reasoning).toBeUndefined()
-        return { content: 'ok' } as never
+        seenReasoning = options?.reasoning
+        return fauxAssistantMessage('ok')
+      },
+    ])
+
+    const message = await createTurn(models, {
+      model: faux.getModel(),
+      context: userTurn,
+      reasoning: 'high',
+      stream: false,
+      signal: new AbortController().signal,
+      onStream: () => {},
+    })
+
+    expect(message.stopReason).toBe('stop')
+    expect(seenReasoning).toBeUndefined()
+  })
+
+  test('a supported thinking level is passed through unchanged', async () => {
+    const faux = fauxProvider({
+      provider: 'anthropic',
+      models: [{ id: 'thinks', reasoning: true }],
+    })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let seenReasoning: unknown
+    faux.setResponses([
+      (_ctx, options) => {
+        seenReasoning = options?.reasoning
+        return fauxAssistantMessage('ok')
       },
     ])
 
@@ -256,7 +290,9 @@ describe('request options reach pi', () => {
       stream: false,
       signal: new AbortController().signal,
       onStream: () => {},
-    }).catch(() => {})
+    })
+
+    expect(seenReasoning).toBe('high')
   })
 })
 

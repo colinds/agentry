@@ -12,5 +12,9 @@ export {
   resolveModel,
 } from './models'
 export { toPiTool, toPiTools } from './tools'
-export { AgentryProviderError, createTurn } from './turn'
+export {
+  AgentryContextOverflowError,
+  AgentryProviderError,
+  createTurn,
+} from './turn'
 export type { TurnRequest } from './turn'

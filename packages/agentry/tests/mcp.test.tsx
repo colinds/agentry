@@ -250,7 +250,19 @@ describe('MCP connection lifecycle', () => {
     await controller.nextTurn()
     await runPromise
 
+    // Reach the live set so this asserts teardown actually happened rather
+    // than merely that close() did not throw.
+    const connections = (
+      handle as unknown as {
+        engine: { mcpConnections: { size: number } }
+      }
+    ).engine.mcpConnections
+    expect(connections.size).toBe(1)
+
     handle.close()
-    expect(true).toBe(true)
+    // close() fires teardown without awaiting it; give the microtask a turn.
+    await new Promise((r) => setTimeout(r, 50))
+
+    expect(connections.size).toBe(0)
   })
 })
