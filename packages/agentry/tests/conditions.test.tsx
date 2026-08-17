@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, it, test, expect } from 'bun:test'
 import { useState } from 'react'
 import {
   run,
@@ -893,4 +893,34 @@ describe('NL Condition Evaluation', () => {
       expect(result.content).toContain('42')
     })
   })
+})
+
+test('NL conditions work on a provider with no cheap default', async () => {
+  // google/mistral/bedrock etc. have no entry in CONDITION_DEFAULT_MODELS.
+  // This used to throw, get swallowed, and leave every NL condition false.
+  const { models, controller, model } = createStepMockModels(
+    [
+      { content: [fauxToolCall('evaluate_conditions', { trueConditionIndices: [0] })] },
+      { content: [fauxText('done')] },
+    ],
+    { provider: 'google' },
+  )
+
+  const p = run(
+    <Agent provider="google" model={model.id} maxTokens={100} stream={false}>
+      <System>base</System>
+      <Condition when="the user sounds frustrated">
+        <System>DE-ESCALATE</System>
+      </Condition>
+      <Message role="user">this is broken</Message>
+    </Agent>,
+    { models },
+  )
+
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  const sys = controller.peekNextCall()!.context.systemPrompt!
+  expect(sys).toContain('DE-ESCALATE')
+  await controller.nextTurn()
+  await p
 })

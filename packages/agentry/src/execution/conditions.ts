@@ -76,6 +76,7 @@ export async function evaluateConditions({
   messages,
   models,
   provider,
+  model,
   signal,
   evaluateNL,
   request,
@@ -84,6 +85,8 @@ export async function evaluateConditions({
   messages: AgentMessageParam[]
   models: Models
   provider: ProviderName
+  /** The agent's own model, used when no cheap default is known. */
+  model: string
   signal?: AbortSignal
   evaluateNL?: boolean
   request?: RequestOptions
@@ -119,12 +122,19 @@ export async function evaluateConditions({
     // Resolve provider/model for NL evaluation: first condition's override → cheap default
     const firstNL = nlConditions[0]!
     const resolvedProvider = firstNL.provider ?? provider
+    // Falling back to the agent's own model is what the doc above promises, and
+    // it is what keeps NL conditions working on the ~35 providers that have no
+    // cheap default listed. Throwing here left every NL condition permanently
+    // false, since the engine catches this and NL evaluation only runs on the
+    // first iteration — so the failure never even retried.
     const resolvedModelId =
-      firstNL.model ?? CONDITION_DEFAULT_MODELS[resolvedProvider]
+      firstNL.model ??
+      CONDITION_DEFAULT_MODELS[resolvedProvider] ??
+      (resolvedProvider === provider ? model : undefined)
 
     if (!resolvedModelId) {
       throw new Error(
-        `[agentry] No default condition-evaluation model for provider "${resolvedProvider}". ` +
+        `[agentry] No condition-evaluation model for provider "${resolvedProvider}". ` +
           `Set one via the model prop on <Condition>.`,
       )
     }

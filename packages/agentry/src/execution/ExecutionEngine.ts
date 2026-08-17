@@ -213,6 +213,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
         messages: this.messages as AgentMessageParam[],
         models: this.config.models,
         provider: this.config.provider,
+        model: this.config.model,
         signal,
         evaluateNL: options?.evaluateNL,
         request: {

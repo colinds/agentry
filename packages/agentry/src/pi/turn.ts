@@ -102,12 +102,19 @@ function forcedToolChoice(api: Api): string | undefined {
     case 'anthropic-messages':
     case 'google-generative-ai':
     case 'google-vertex':
+    case 'bedrock-converse-stream':
       return 'any'
     case 'openai-responses':
     case 'openai-completions':
     case 'azure-openai-responses':
+    case 'openai-codex-responses':
+    case 'mistral-conversations':
+    case 'pi-messages':
       return 'required'
     default:
+      // A provider pi adds later, or a custom api id. Sending the request
+      // unforced is the safe degradation: the caller checks for the tool call
+      // and errors if it is absent, rather than acting on a wrong answer.
       return undefined
   }
 }
@@ -152,8 +159,18 @@ export async function createTurn(
       // `complete` rather than `completeSimple`, because tool choice is a native
       // per-API option that the normalized surface does not model.
       const toolChoice = forcedToolChoice(request.model.api)
+      // `reasoning` lives on pi's SimpleStreamOptions, but `complete` takes the
+      // raw per-API options — it would ride along as an unknown key and be
+      // dropped. Nothing requests both today; assert rather than silently
+      // sending a request without the thinking configuration it asked for.
+      if (options.reasoning !== undefined) {
+        throw new Error(
+          '[agentry] forceToolUse cannot be combined with reasoning: pi applies thinking levels only on the normalized (non-forced) path.',
+        )
+      }
+      const { reasoning: _reasoning, ...rawOptions } = options
       return models.complete(request.model, request.context, {
-        ...options,
+        ...rawOptions,
         ...(toolChoice ? { toolChoice } : {}),
       } as ApiStreamOptions<Api>)
     }
