@@ -10,6 +10,7 @@ import {
   createTurn,
 } from '../src/pi/turn'
 import { describeMissingAuth } from '../src/pi/models'
+import { userMessage } from '../src/types/messages'
 import {
   run,
   createAgent,
@@ -393,28 +394,109 @@ describe('auth preflight', () => {
   })
 
   test('an unconfigured provider is named, with its credential type', async () => {
-    const { builtinModels } = await import('@earendil-works/pi-ai/providers/all')
-    const catalog = builtinModels()
+    // Built deterministically rather than probing the environment for a
+    // provider that happens to be unset: the previous version returned early
+    // when it found none, so gutting describeMissingAuth to `return undefined`
+    // made it find none and silently assert nothing.
+    const { createProvider, createModels } = await import(
+      '@earendil-works/pi-ai'
+    )
+    const models = createModels()
+    models.setProvider(
+      createProvider({
+        id: 'unconfigured-test',
+        auth: {
+          apiKey: {
+            name: 'Test API key',
+            resolve: async () => undefined,
+          },
+        },
+        models: [],
+        api: {
+          stream: () => {
+            throw new Error('unused')
+          },
+          streamSimple: () => {
+            throw new Error('unused')
+          },
+        },
+      }),
+    )
 
-    // Pick a real provider that has no credentials in this environment rather
-    // than assuming a specific one is unset.
-    const candidates = ['groq', 'deepseek', 'mistral', 'cerebras', 'xai']
-    let unconfigured: string | undefined
-    for (const id of candidates) {
-      if (await describeMissingAuth(catalog, id)) {
-        unconfigured = id
-        break
-      }
-    }
+    const message = await describeMissingAuth(models, 'unconfigured-test')
+    expect(message).toBeDefined()
+    expect(message).toContain('unconfigured-test')
+    expect(message).toContain('Test API key')
+  })
+})
 
-    if (!unconfigured) {
-      // Every candidate is configured here; nothing to assert.
-      return
-    }
+describe('context overflow detection', () => {
+  test('a silent overflow is detected even when the turn reports success', async () => {
+    // Two of the three shapes pi recognises do NOT arrive as errors: a silent
+    // overflow reports stopReason 'stop' with input + cacheRead over the
+    // window. Gating detection on stopReason === 'error' — which is what the
+    // code did originally — misses those entirely, and the suite could not tell.
+    const faux = fauxProvider({ provider: 'anthropic' })
+    const models = createModels()
+    models.setProvider(faux.provider)
+    faux.setResponses([fauxAssistantMessage('fine')])
 
-    const message = await describeMissingAuth(catalog, unconfigured)
-    expect(message).toContain(unconfigured)
-    expect(message).toMatch(/No .*configured for provider/)
+    // A window so small that any real usage exceeds it.
+    const model = { ...faux.getModel(), contextWindow: 1 }
+
+    await expect(
+      createTurn(models, {
+        model,
+        context: { messages: [userMessage('hi')], tools: [] },
+        maxTokens: 16,
+        stream: false,
+        signal: new AbortController().signal,
+        onStream: () => {},
+      }),
+    ).rejects.toBeInstanceOf(AgentryContextOverflowError)
+  })
+})
+
+describe('<Agent retry> plumbing', () => {
+  test('the retry prop reaches the provider call', async () => {
+    // Every other retry test calls createTurn directly, so `retry:
+    // agent.props.retry` could be deleted from createEngineConfig and the whole
+    // suite stayed green — silently turning a 529 into a dead run.
+    const faux = fauxProvider({ provider: 'anthropic' })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let attempts = 0
+    faux.setResponses([
+      () => {
+        attempts++
+        return fauxAssistantMessage('', {
+          stopReason: 'error',
+          errorMessage: '529 overloaded_error',
+        })
+      },
+      () => {
+        attempts++
+        return fauxAssistantMessage('recovered')
+      },
+    ])
+
+    const result = await run(
+      <Agent
+        provider="anthropic"
+        model={faux.getModel().id}
+        maxTokens={100}
+        stream={false}
+        retry={{ enabled: true, maxRetries: 3, baseDelayMs: 1 }}
+      >
+        <System>t</System>
+        <Message role="user">go</Message>
+      </Agent>,
+      { models },
+    )
+
+    expect(attempts).toBe(2)
+    expect(result.content).toBe('recovered')
   })
 })
 
