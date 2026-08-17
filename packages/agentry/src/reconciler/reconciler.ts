@@ -12,6 +12,7 @@ import {
   isContextInstance,
   isToolInstance,
   isConditionInstance,
+  isAgentToolInstance,
   isMCPServerInstance,
 } from '../instances'
 import type { PropagatedSettings } from '../instances/createInstance'
@@ -22,6 +23,8 @@ import {
   type ElementProps,
 } from '../instances'
 import type { ProviderModelOverride } from '../types'
+import { createAgentSyntheticTool } from '../tools/agentSyntheticTool'
+import type { InternalAgentTool } from '../types/agentTool'
 import { debug } from '../debug'
 import { diffProps, disposeOnIdle } from './utils'
 import { collectChild, rebuildSystemParts, uncollectChild } from './collectors'
@@ -435,6 +438,23 @@ function applyUpdate(
           if (payload.tool.name !== toolName) agent.tools.delete(toolName)
           agent.tools.set(payload.tool.name, payload.tool)
         }
+      }
+    }
+  } else if (isAgentToolInstance(instance)) {
+    const payload = updatePayload as { agentTool?: InternalAgentTool }
+    if (payload.agentTool !== undefined) {
+      const agent = findParentAgent(instance)
+      // `name` cannot change here — <agent_tool> is keyed by it, so a rename
+      // remounts. What goes stale is the description, the schema and the agent
+      // closure, which captures the parent's state at first render.
+      instance.description = payload.agentTool.description
+      instance.parameters = payload.agentTool.parameters
+      instance.jsonSchema = payload.agentTool.jsonSchema
+      instance.agent = payload.agentTool.agent
+      // Only if already collected, or this resurrects a tool that an inactive
+      // <Condition> deliberately withheld.
+      if (agent && isAgentLike(agent) && agent.tools.has(instance.name)) {
+        agent.tools.set(instance.name, createAgentSyntheticTool(instance))
       }
     }
   } else if (isMCPServerInstance(instance)) {

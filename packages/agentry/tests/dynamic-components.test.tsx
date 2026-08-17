@@ -10,6 +10,7 @@ import {
   Condition,
   Tools,
   Tool,
+  AgentTool,
   Message,
 } from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
@@ -197,5 +198,40 @@ test('a Tool appearing in <Tools> under an INACTIVE condition is not offered', a
   await controller.waitForNextCall()
   const names = controller.peekNextCall()!.context.tools!.map((t) => t.name)
   expect(names).not.toContain('secret')
+  await controller.nextTurn(); await p
+})
+
+test('<AgentTool> description updates reach the model', async () => {
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('bump', {})] },
+    { content: [fauxText('done')] },
+  ])
+  function App() {
+    const [n, setN] = useState(0)
+    return (
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100} stream={false}>
+        <System>t</System>
+        <Tools>
+          <Tool name="bump" description="b" parameters={Type.Object({})}
+            handler={() => { setN(1); return 'ok' }} />
+          <AgentTool name="helper" description={`helper v${n}`}
+            parameters={Type.Object({})}
+            agent={() => (
+              <Agent name="helper"><System>N IS {n}</System></Agent>
+            )} />
+        </Tools>
+        <Message role="user">go</Message>
+      </Agent>
+    )
+  }
+  const p = run(<App />, { models })
+  await controller.waitForNextCall()
+  expect(
+    controller.peekNextCall()!.context.tools!.find((t) => t.name === 'helper')!.description,
+  ).toBe('helper v0')
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  const desc = controller.peekNextCall()!.context.tools!.find((t) => t.name === 'helper')!.description
+  expect(desc).toBe('helper v1')
   await controller.nextTurn(); await p
 })
