@@ -46,7 +46,8 @@ export interface AgentInstance extends BaseInstance {
    */
   tools: Map<string, InternalTool>
   /** Names seen more than once during collection; rejected at the turn boundary. */
-  duplicateToolNames: Set<string>
+  /** Name -> how many extra registrations are outstanding for it. */
+  duplicateToolNames: Map<string, number>
   mcpServers: MCPServerConfig[]
   children: Instance[]
   store: AgentStore
@@ -90,7 +91,8 @@ export interface SubagentInstance extends BaseInstance {
   children: Instance[]
   systemParts: Array<{ content: string }>
   tools: Map<string, InternalTool>
-  duplicateToolNames: Set<string>
+  /** Name -> how many extra registrations are outstanding for it. */
+  duplicateToolNames: Map<string, number>
   mcpServers: MCPServerConfig[]
   agentNode: React.ReactNode | null
 }

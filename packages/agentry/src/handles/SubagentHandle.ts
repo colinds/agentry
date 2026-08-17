@@ -38,7 +38,7 @@ export class SubagentHandle extends AbstractAgentHandle {
       props: { ...subagent.props },
       systemParts: [],
       tools: new Map(),
-      duplicateToolNames: new Set(),
+      duplicateToolNames: new Map(),
       mcpServers: [],
       children: [],
       parent: null,

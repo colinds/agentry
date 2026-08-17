@@ -235,3 +235,74 @@ test('<AgentTool> description updates reach the model', async () => {
   expect(desc).toBe('helper v1')
   await controller.nextTurn(); await p
 })
+
+test('a conditional <Message> is not re-pushed when conditions change', async () => {
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('flip', {})] },
+    { content: [fauxToolCall('flip', {})] },
+    { content: [fauxText('done')] },
+  ])
+  function App() {
+    const [n, setN] = useState(0)
+    return (
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100} stream={false}>
+        <System>t</System>
+        <Tools>
+          <Tool name="flip" description="f" parameters={Type.Object({})}
+            handler={() => { setN((v) => v + 1); return 'ok' }} />
+        </Tools>
+        {/* always active: it must be collected exactly once, ever */}
+        <Condition when={true}>
+          <Message role="user">CONDITIONAL MESSAGE</Message>
+        </Condition>
+        {/* this one flips, which is what triggers recollectAll */}
+        <Condition when={n % 2 === 1}>
+          <System>ODD</System>
+        </Condition>
+        <Message role="user">go</Message>
+      </Agent>
+    )
+  }
+  const p = run(<App />, { models })
+  await controller.nextTurn()
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  const msgs = controller.peekNextCall()!.context.messages
+  const count = msgs.filter((m) =>
+    JSON.stringify(m).includes('CONDITIONAL MESSAGE'),
+  ).length
+  expect(count).toBe(1)
+  await controller.nextTurn(); await p
+})
+
+test('relocating a tool mid-run does not trip a false duplicate', async () => {
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('bump', {})] },
+    { content: [fauxText('done')] },
+  ])
+  function App() {
+    const [moved, setMoved] = useState(false)
+    const extra = (
+      <Tool name="extra" description="e" parameters={Type.Object({})} handler={() => 'x'} />
+    )
+    return (
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100} stream={false}>
+        <System>t</System>
+        {moved ? extra : null}
+        <Tools>
+          <Tool name="bump" description="b" parameters={Type.Object({})}
+            handler={() => { setMoved(true); return 'ok' }} />
+          {moved ? null : extra}
+        </Tools>
+        <Message role="user">go</Message>
+      </Agent>
+    )
+  }
+  const p = run(<App />, { models })
+  await controller.waitForNextCall()
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  const names = controller.peekNextCall()!.context.tools!.map((t) => t.name)
+  expect(names).toContain('extra')
+  await controller.nextTurn(); await p
+})

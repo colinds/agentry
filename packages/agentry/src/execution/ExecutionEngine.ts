@@ -19,7 +19,6 @@ import type {
   StepToolResult,
 } from '../types'
 import type { AgentInstance } from '../instances'
-import { isMessageInstance } from '../instances'
 import { evaluateConditions } from './conditions'
 import {
   transition,
@@ -255,15 +254,12 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   // todo(colin): compute a changeset and recollect only the affected children.
   private recollectAll(): void {
     this.agentInstance.tools = new Map()
-    this.agentInstance.duplicateToolNames = new Set()
+    this.agentInstance.duplicateToolNames = new Map()
     this.agentInstance.systemParts = []
     this.agentInstance.mcpServers = []
 
     for (const child of this.agentInstance.children) {
-      if (isMessageInstance(child)) {
-        continue
-      }
-      collectChild(this.agentInstance, child)
+      collectChild(this.agentInstance, child, { skipMessages: true })
     }
   }
 
@@ -409,7 +405,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
     const duplicates = this.agentInstance.duplicateToolNames
     if (duplicates.size === 0) return
 
-    const names = [...duplicates].sort().join(', ')
+    const names = [...duplicates.keys()].sort().join(', ')
     throw new Error(
       `[agentry] Duplicate tool name(s): ${names}. Tool names must be unique within an agent.`,
     )

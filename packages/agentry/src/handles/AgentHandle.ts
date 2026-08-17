@@ -41,7 +41,7 @@ export class AgentHandle extends AbstractAgentHandle {
       },
       systemParts: [],
       tools: new Map(),
-      duplicateToolNames: new Set(),
+      duplicateToolNames: new Map(),
       mcpServers: [],
       children: [],
       parent: null,
