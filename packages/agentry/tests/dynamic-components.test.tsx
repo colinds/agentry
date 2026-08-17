@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Type } from 'typebox'
 import { run } from '../src'
 import { defineTool } from '../src/tools'
-import { Agent, System, Tools, Tool, Message } from '../src'
+import { Agent, System, Context, Tools, Tool, Message } from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
 import { ANTHROPIC_TEST_MODEL } from './constants'
 
@@ -55,4 +55,39 @@ test('state changes trigger reconciler updates', async () => {
 
   expect(updateCount).toBe(2)
   expect(result.content).toBe('Done incrementing')
+})
+
+test('dynamic <System>/<Context> text reaches the model', async () => {
+  // `children` is a reserved prop, so diffProps never reports it — these
+  // elements were frozen at their first render until commitUpdate special-cased
+  // them.
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('flip', {})] },
+    { content: [fauxText('done')] },
+  ])
+  function App() {
+    const [mode, setMode] = useState('ALPHA')
+    return (
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100} stream={false}>
+        <System>Current mode is {mode}.</System>
+        <Context>ctx {mode}</Context>
+        <Tools>
+          <Tool name="flip" description="flip" parameters={Type.Object({})}
+            handler={() => { setMode('BETA'); return 'ok' }} />
+        </Tools>
+        <Message role="user">go</Message>
+      </Agent>
+    )
+  }
+  const p = run(<App />, { models })
+  await controller.waitForNextCall()
+  expect(controller.peekNextCall()!.context.systemPrompt).toContain('ALPHA')
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  const second = controller.peekNextCall()!.context.systemPrompt!
+  expect(second).toContain('BETA')
+  expect(second).toContain('ctx BETA')
+  expect(second).not.toContain('ALPHA')
+  await controller.nextTurn()
+  await p
 })

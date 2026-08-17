@@ -1,4 +1,4 @@
-import { createContext } from 'react'
+import { createContext, type ReactNode } from 'react'
 import ReactReconciler from 'react-reconciler'
 import {
   type Instance,
@@ -15,7 +15,12 @@ import {
   isMCPServerInstance,
 } from '../instances'
 import type { PropagatedSettings } from '../instances/createInstance'
-import { createInstance, InstanceType, type ElementProps } from '../instances'
+import {
+  createInstance,
+  InstanceType,
+  reactNodeToString,
+  type ElementProps,
+} from '../instances'
 import type { ProviderModelOverride } from '../types'
 import { debug } from '../debug'
 import { diffProps, disposeOnIdle } from './utils'
@@ -212,8 +217,24 @@ export const reconciler = createReconciler<
     void _internalHandle
     const { changes, hasChanges } = diffProps(prevProps, nextProps)
 
-    if (hasChanges) {
-      applyUpdate(instance, changes)
+    // `children` is a reserved prop, so diffProps never reports it — but for
+    // <System> and <Context> the children ARE the content. Without this a
+    // state-driven system prompt is frozen at its first render.
+    const textInstance =
+      isSystemInstance(instance) || isContextInstance(instance)
+    const prevText = textInstance
+      ? reactNodeToString((prevProps as { children?: ReactNode }).children)
+      : ''
+    const nextText = textInstance
+      ? reactNodeToString((nextProps as { children?: ReactNode }).children)
+      : ''
+    const textChanged = textInstance && prevText !== nextText
+
+    if (hasChanges || textChanged) {
+      applyUpdate(
+        instance,
+        textChanged ? { ...changes, children: nextText } : changes,
+      )
     }
   },
   hideInstance() {},

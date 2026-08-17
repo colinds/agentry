@@ -205,7 +205,8 @@ function createContextInstance(props: ContextComponentProps): ContextInstance {
   }
 }
 
-function reactNodeToString(node: React.ReactNode): string {
+/** Flattens JSX children to the plain string these elements carry. */
+export function reactNodeToString(node: React.ReactNode): string {
   if (node === null || node === undefined) {
     return ''
   }
