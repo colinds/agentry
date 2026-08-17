@@ -3,7 +3,15 @@ import { useState } from 'react'
 import { Type } from 'typebox'
 import { run } from '../src'
 import { defineTool } from '../src/tools'
-import { Agent, System, Context, Tools, Tool, Message } from '../src'
+import {
+  Agent,
+  System,
+  Context,
+  Condition,
+  Tools,
+  Tool,
+  Message,
+} from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
 import { ANTHROPIC_TEST_MODEL } from './constants'
 
@@ -88,6 +96,44 @@ test('dynamic <System>/<Context> text reaches the model', async () => {
   expect(second).toContain('BETA')
   expect(second).toContain('ctx BETA')
   expect(second).not.toContain('ALPHA')
+  await controller.nextTurn()
+  await p
+})
+
+test('an updating <System> does not erase nested system parts', async () => {
+  // rebuildSystemPrompt used to walk only top-level children while collectChild
+  // recursed, so any update erased nested parts.
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('bump', {})] },
+    { content: [fauxText('done')] },
+  ])
+  function App() {
+    const [n, setN] = useState(0)
+    return (
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100} stream={false}>
+        <System>base {n}</System>
+        <Condition when={true}>
+          <System>CONDITIONAL-BLOCK</System>
+        </Condition>
+        <Tools>
+          <Tool name="bump" description="bump" parameters={Type.Object({})}
+            handler={() => { setN(1); return 'ok' }} />
+        </Tools>
+        <Message role="user">go</Message>
+      </Agent>
+    )
+  }
+  const p = run(<App />, { models })
+  await controller.waitForNextCall()
+  const first = controller.peekNextCall()!.context.systemPrompt!
+  expect(first).toContain('base 0')
+  expect(first).toContain('CONDITIONAL-BLOCK')
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  const second = controller.peekNextCall()!.context.systemPrompt!
+  console.error('TURN2 SYSTEM:', JSON.stringify(second))
+  expect(second).toContain('base 1')
+  expect(second).toContain('CONDITIONAL-BLOCK')
   await controller.nextTurn()
   await p
 })

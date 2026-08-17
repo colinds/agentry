@@ -24,7 +24,7 @@ import {
 import type { ProviderModelOverride } from '../types'
 import { debug } from '../debug'
 import { diffProps, disposeOnIdle } from './utils'
-import { collectChild, uncollectChild } from './collectors'
+import { collectChild, rebuildSystemParts, uncollectChild } from './collectors'
 
 function createReconciler<
   Type,
@@ -368,19 +368,6 @@ function removeChild(parent: Instance, child: Instance): void {
   })
 }
 
-function rebuildSystemPrompt(agent: AgentInstance): void {
-  const parts = agent.systemParts
-  parts.length = 0
-
-  for (const child of agent.children) {
-    if (isSystemInstance(child) || isContextInstance(child)) {
-      parts.push({
-        content: child.content,
-      })
-    }
-  }
-}
-
 function applyUpdate(
   instance: Instance,
   updatePayload: Partial<ElementProps>,
@@ -404,7 +391,7 @@ function applyUpdate(
     }
     const agent = findParentAgent(instance)
     if (agent && isAgentInstance(agent)) {
-      rebuildSystemPrompt(agent)
+      rebuildSystemParts(agent)
     }
   } else if (isContextInstance(instance)) {
     const payload = updatePayload as { children?: string }
@@ -413,7 +400,7 @@ function applyUpdate(
     }
     const agent = findParentAgent(instance)
     if (agent && isAgentInstance(agent)) {
-      rebuildSystemPrompt(agent)
+      rebuildSystemParts(agent)
     }
   } else if (isToolInstance(instance)) {
     const payload = updatePayload as { tool?: typeof instance.tool }

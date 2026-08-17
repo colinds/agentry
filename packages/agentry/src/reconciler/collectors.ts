@@ -80,6 +80,35 @@ export function collectChild(agent: AgentInstance, child: Instance): void {
 /**
  * Remove a child instance from the parent agent's arrays
  */
+/**
+ * Rebuilds `agent.systemParts` from the tree.
+ *
+ * Must mirror `collectChild`'s traversal exactly — recursing into `<Tools>` and
+ * into active `<Condition>`s — or an update-driven rebuild silently drops every
+ * nested `<System>`/`<Context>` that the original collection pass had included.
+ * Order matters too: it has to match collect order, or the prompt reorders
+ * between a rebuild and a condition-driven recollect.
+ */
+export function rebuildSystemParts(agent: AgentInstance): void {
+  agent.systemParts.length = 0
+  collectSystemPartsFrom(agent, agent.children)
+}
+
+function collectSystemPartsFrom(
+  agent: AgentInstance,
+  children: readonly Instance[],
+): void {
+  for (const child of children) {
+    if (isSystemInstance(child) || isContextInstance(child)) {
+      agent.systemParts.push({ content: child.content })
+    } else if (isToolsContainerInstance(child)) {
+      collectSystemPartsFrom(agent, child.children)
+    } else if (isConditionInstance(child) && child.isActive) {
+      collectSystemPartsFrom(agent, child.children)
+    }
+  }
+}
+
 export function uncollectChild(agent: AgentInstance, child: Instance): void {
   if (isToolInstance(child)) {
     if (agent.tools.delete(child.tool.name)) {
