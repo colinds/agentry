@@ -46,9 +46,14 @@ describe('Condition', () => {
       const runPromise = run(<TestAgent />, {
         models,
       })
+      // Assert on what was SENT: result.content is the scripted mock reply and
+      // would be identical with condition activation deleted entirely.
+      await controller.waitForNextCall()
+      const sys = controller.peekNextCall()!.context.systemPrompt ?? ''
+      expect(sys).toContain('Active mode')
+      expect(sys).not.toContain('Inactive mode')
       await controller.nextTurn()
-      const result = await runPromise
-      expect(result.content).toContain('Hello')
+      await runPromise
     })
 
     it('should not render condition when condition is false', async () => {
@@ -76,9 +81,12 @@ describe('Condition', () => {
       const runPromise = run(<TestAgent />, {
         models,
       })
+      await controller.waitForNextCall()
+      const sys = controller.peekNextCall()!.context.systemPrompt ?? ''
+      expect(sys).toContain('Inactive mode')
+      expect(sys).not.toContain('Active mode')
       await controller.nextTurn()
-      const result = await runPromise
-      expect(result.content).toContain('Hello')
+      await runPromise
     })
 
     it('should activate all matching routes (parallel routing)', async () => {
@@ -311,24 +319,37 @@ describe('Condition', () => {
       }
 
       const { models, controller } = createStepMockModels([
+        // The NL <Condition> is evaluated first, in its own request.
+        {
+          content: [fauxToolCall('evaluate_conditions', {
+            trueConditionIndices: [],
+          })],
+        },
         {
           content: [fauxText('Hello')],
         },
       ])
 
-      // Create agent in interactive mode
       const handle = await run(<TestAgent />, {
         models,
         mode: 'interactive',
       })
 
-      // Trigger reconciler by starting execution (but abort immediately after first API call)
       const runPromise = handle.run()
-      await controller.nextTurn()
-      handle.abort()
-      await runPromise.catch(() => {})
+      await controller.nextTurn() // serve the condition evaluation
+      // Assert what the collection actually produced. This test previously
+      // ended on "passes if it completes without errors", which held true with
+      // condition activation deleted, with abort() broken, and with Condition
+      // instances missing from children entirely.
+      await controller.waitForNextCall()
+      const sys = controller.peekNextCall()!.context.systemPrompt ?? ''
+      expect(sys).toContain('Route 1')
+      expect(sys).not.toContain('Route 2')
+      // NL routes are still unevaluated on the first call, so Route 3 is off.
+      expect(sys).not.toContain('Route 3')
 
-      // Test passes if reconciliation and execution completes without errors
+      await controller.nextTurn()
+      await runPromise.catch(() => {})
       handle.close()
     })
   })
