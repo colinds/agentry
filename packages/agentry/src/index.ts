@@ -38,6 +38,8 @@ export type {
   AgentResult,
   AgentMessageParam,
   AgentStreamEvent,
+  AgentState,
+  CompactionControl,
   Model,
   ProviderId,
   ProviderName,
@@ -45,9 +47,13 @@ export type {
   CacheRetention,
   ProviderHeaders,
   RetryPolicy,
+  RunAgentOptions,
   ToolContext,
+  ToolResult,
   OnStepFinishResult,
 } from './types'
+export type { AgentStoreState } from './store'
+export type { RunOptions, CreateAgentOptions } from './run/agent'
 
 /**
  * pi types re-exported for convenience. Build a `Models` collection with pi's

@@ -218,8 +218,18 @@ export async function compactMessages(options: {
 export function isFatalCompactionError(error: Error): boolean {
   if (error.name === 'AbortError') return true
 
-  const status = (error as { status?: number }).status
-  if (status === 401 || status === 403 || status === 404) return true
+  // pi surfaces failures as values on the assistant message and classifies them
+  // by message text, so nothing that reaches here carries a `status` — the old
+  // numeric check was unreachable. Match the wording instead: an auth or
+  // not-found failure will not fix itself, and retrying it every iteration just
+  // burns a request per turn.
+  if (
+    /\b(401|403|404)\b|unauthorized|forbidden|invalid api key|not found/i.test(
+      error.message,
+    )
+  ) {
+    return true
+  }
 
   return (
     error instanceof TypeError ||

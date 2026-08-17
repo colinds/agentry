@@ -22,12 +22,16 @@ import { yieldToScheduler } from '../scheduler'
 import { AgentProvider } from '../context'
 import { debug } from '../debug'
 import { userMessage } from '../types/messages'
-import { describeMissingAuth, getDefaultModels } from '../pi/models'
+import {
+  describeMissingAuth,
+  getDefaultModels,
+  releaseSessionResources,
+} from '../pi/models'
 import {
   describeContextUsage,
   type ContextUsage,
 } from '../execution/contextUsage'
-import { cleanupSessionResources, type Models } from '@earendil-works/pi-ai'
+import type { Models } from '@earendil-works/pi-ai'
 
 interface AgentHandleEvents {
   stateChange: (state: AgentState) => void
@@ -439,7 +443,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
     // session id; nothing else releases them. Guarded because pi throws on
     // handler failure and close() runs in `finally` blocks.
     try {
-      cleanupSessionResources(this.sessionId)
+      releaseSessionResources(this.sessionId)
     } catch (error) {
       debug('agent', `Session resource cleanup failed: ${String(error)}`)
     }

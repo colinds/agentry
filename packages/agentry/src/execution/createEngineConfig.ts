@@ -63,7 +63,9 @@ export function createEngineConfig(
     provider,
     model,
     maxTokens: agent.props.maxTokens ?? 4096,
-    stream: agent.props.stream ?? false,
+    // createInstance already applies `?? true`, so this never fires — kept
+    // aligned with the real default rather than implying the opposite.
+    stream: agent.props.stream ?? true,
     maxIterations: agent.props.maxIterations ?? 20,
     compactionControl: agent.props.compactionControl,
     temperature: agent.props.temperature,

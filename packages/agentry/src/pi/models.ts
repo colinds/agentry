@@ -1,3 +1,4 @@
+import { cleanupSessionResources } from '@earendil-works/pi-ai'
 import type { Api, Model, Models } from '@earendil-works/pi-ai'
 
 let sharedDefaultModels: Models | undefined
@@ -108,4 +109,12 @@ export async function describeMissingAuth(
   return credentialName
     ? `[agentry] No ${credentialName} configured for provider "${provider}".${oauthHint}`
     : `[agentry] No credentials configured for provider "${provider}".${oauthHint}`
+}
+
+/**
+ * Releases provider-held resources keyed by session id (pooled sockets, cached
+ * sessions). Wrapped so the runtime pi call stays inside `src/pi/`.
+ */
+export function releaseSessionResources(sessionId: string): void {
+  cleanupSessionResources(sessionId)
 }

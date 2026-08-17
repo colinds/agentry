@@ -8,6 +8,7 @@
 export { toAgentStreamEvent } from './events'
 export {
   getDefaultModels,
+  releaseSessionResources,
   resetSharedDefaultModels,
   resolveModel,
 } from './models'
