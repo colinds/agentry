@@ -10,10 +10,24 @@ import {
   createTurn,
 } from '../src/pi/turn'
 import { describeMissingAuth } from '../src/pi/models'
-import { run, Type, Agent, System, Tools, Tool, Message } from '../src'
-import { createStepMockModels, fauxText } from './utils'
+import {
+  run,
+  createAgent,
+  Type,
+  Agent,
+  System,
+  Tools,
+  Tool,
+  Message,
+} from '../src'
+import { createStepMockModels, fauxText, fauxToolCall } from './utils'
 import { ANTHROPIC_TEST_MODEL } from './constants'
 import type { AgentStreamEvent } from '../src/types'
+import {
+  isToolResultMessage,
+  extractToolCalls,
+  isAssistantMessage,
+} from '../src/types/messages'
 
 const userTurn = {
   messages: [{ role: 'user' as const, content: 'hi', timestamp: 0 }],
@@ -510,4 +524,52 @@ describe('sessionId', () => {
     await controller.nextTurn()
     await runPromise
   })
+})
+
+describe('abort', () => {
+test('abort during tool execution cancels the tool and rejects the run', async () => {
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('slow', {})] },
+    { content: [fauxText('should not get here')] },
+  ])
+
+  let sawAborted = false
+  let started: (() => void) | null = null
+  const toolStarted = new Promise<void>((r) => { started = r })
+
+  const handle = createAgent(
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100} stream={false}>
+      <System>t</System>
+      <Tools>
+        <Tool name="slow" description="slow" parameters={Type.Object({})}
+          handler={async (_i, ctx) => {
+            started?.()
+            await new Promise((r) => setTimeout(r, 150))
+            sawAborted = ctx.signal?.aborted === true
+            if (ctx.signal?.aborted) {
+              const e = new Error('Aborted'); e.name = 'AbortError'; throw e
+            }
+            return 'done'
+          }} />
+      </Tools>
+      <Message role="user">go</Message>
+    </Agent>,
+    { models },
+  )
+
+  const p = handle.run()
+  await controller.nextTurn()
+  await toolStarted
+  handle.abort()
+
+  await expect(p).rejects.toThrow(/aborted/i)
+  expect(sawAborted).toBe(true)
+
+  // transcript must stay balanced or the next sendMessage sends garbage
+  const msgs = handle.messages
+  const calls = msgs.filter(isAssistantMessage).flatMap((m) => extractToolCalls(m))
+  const results = msgs.filter(isToolResultMessage)
+  expect(results.length).toBe(calls.length)
+  handle.close()
+})
 })

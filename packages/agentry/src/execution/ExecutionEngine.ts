@@ -24,7 +24,6 @@ import { evaluateConditions } from './conditions'
 import {
   transition,
   TransitionType,
-  AgentStatus,
   extractToolCalls,
   extractText,
 } from '../types'
@@ -95,6 +94,17 @@ export interface ExecutionEngineConfig {
   session?: AgentSession
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError'
+}
+
+/** The error an aborted run rejects with. */
+function abortError(): Error {
+  const error = new Error('Execution aborted')
+  error.name = 'AbortError'
+  return error
+}
+
 function buildToolContext(
   config: ExecutionEngineConfig,
   signal: AbortSignal,
@@ -129,6 +139,14 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
   private toolExecutionTimes = new Map<string, number>()
   /** Usage summed over every turn of this run, not just the last. */
   private runUsage = emptyRunUsage()
+  /**
+   * The current turn's controller.
+   *
+   * Only the `Streaming` state carries one, so once tools start there is no
+   * other reachable reference — which is why abort() used to be inert from the
+   * moment the model asked for a tool.
+   */
+  private currentTurnAbort: AbortController | null = null
   /** Cross-run state, so MCP connections survive `sendMessage`. */
   private session: AgentSession
 
@@ -265,6 +283,7 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
         this.iterationCount++
         const abortController = new AbortController()
+        this.currentTurnAbort = abortController
         this.transition({
           type: TransitionType.StartStreaming,
           abortController,
@@ -327,6 +346,10 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
           this.transition({ type: TransitionType.ToolsCompleted, results: [] })
 
+          // The results are in the transcript now, so it is well-formed and the
+          // run can stop cleanly.
+          if (this.aborted) throw abortError()
+
           await this.checkAndCompact(abortController.signal)
 
           const stepResult = this.buildStepFinishResult(
@@ -343,6 +366,8 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           break
         }
       }
+
+      if (this.aborted) throw abortError()
 
       if (!this.lastMessage) {
         throw new Error('Execution ended without receiving a message')
@@ -506,11 +531,21 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
           debug('tool', `Executing: ${toolCall.name}`, {
             input: toolCall.input,
           })
-          const { result, isError } = await executeTool(
-            tool,
-            toolCall.input,
-            context,
-          )
+          // An aborted tool still needs a result in the transcript. The
+          // assistant `toolUse` message is already pushed, so rejecting here
+          // would leave a tool call with no answer — and the store is reused by
+          // `sendMessage`, which would then send an invalid conversation.
+          let result: ToolResultMessage['content'] | string
+          let isError: boolean
+          try {
+            const outcome = await executeTool(tool, toolCall.input, context)
+            result = outcome.result
+            isError = outcome.isError
+          } catch (error) {
+            if (!isAbortError(error)) throw error
+            result = `Error: Tool '${toolCall.name}' was cancelled`
+            isError = true
+          }
 
           debug('tool', `Result: ${toolCall.name}`, {
             isError,
@@ -637,14 +672,11 @@ export class ExecutionEngine extends EventEmitter<ExecutionEngineEvents> {
 
   abort(): void {
     this.aborted = true
-    const currentState = this.executionState
-    if (currentState.status === AgentStatus.Streaming) {
-      currentState.abortController.abort()
-    }
-    const error = new Error('Execution aborted')
-    error.name = 'AbortError'
-    this.transition({ type: TransitionType.Error, error })
-    this.emit('error', error)
+    // Unconditional: gating on `Streaming` meant an abort during tool execution
+    // never reached the tools' signal. `run()`'s catch owns the error
+    // transition and the `error` event — emitting them here too made consumers
+    // see both `error` and `complete` for one run.
+    this.currentTurnAbort?.abort()
   }
 
   private async checkAndCompact(
