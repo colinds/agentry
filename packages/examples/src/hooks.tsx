@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import {
   run,
   Agent,
@@ -38,10 +38,15 @@ function ResearchTools({
         name="research_topic"
         description="Research a topic area to discover what capabilities it unlocks"
         strict
-        parameters={z.object({
-          topic: z
-            .enum(['weather', 'news', 'analytics'])
-            .describe('The topic area to research'),
+        parameters={Type.Object({
+          topic: Type.Union(
+            [
+              Type.Literal('weather'),
+              Type.Literal('news'),
+              Type.Literal('analytics'),
+            ],
+            { description: 'The topic area to research' },
+          ),
         })}
         handler={async ({ topic }) => {
           console.log(`🔍 [Research] Investigating: ${topic}`)
@@ -64,10 +69,15 @@ function ResearchTools({
         name="unlock_capability"
         description="Unlock a discovered capability to gain access to new tools"
         strict
-        parameters={z.object({
-          capability: z
-            .enum(['WEATHER', 'NEWS', 'ANALYST'])
-            .describe('The capability to unlock'),
+        parameters={Type.Object({
+          capability: Type.Union(
+            [
+              Type.Literal('WEATHER'),
+              Type.Literal('NEWS'),
+              Type.Literal('ANALYST'),
+            ],
+            { description: 'The capability to unlock' },
+          ),
         })}
         handler={async ({ capability }) => {
           console.log(`🔓 [Unlock] ${capability} capability enabled!`)
@@ -101,8 +111,8 @@ function WeatherTools() {
         name="get_weather"
         description="Get current weather for a location"
         strict
-        parameters={z.object({
-          location: z.string().describe('The location to check'),
+        parameters={Type.Object({
+          location: Type.String({ description: 'The location to check' }),
         })}
         handler={async ({ location }) => {
           const temp = Math.floor(Math.random() * 30) + 50
@@ -136,10 +146,15 @@ function NewsTools() {
         name="get_news"
         description="Get latest news headlines by category"
         strict
-        parameters={z.object({
-          category: z
-            .enum(['tech', 'science', 'business'])
-            .describe('News category'),
+        parameters={Type.Object({
+          category: Type.Union(
+            [
+              Type.Literal('tech'),
+              Type.Literal('science'),
+              Type.Literal('business'),
+            ],
+            { description: 'News category' },
+          ),
         })}
         handler={async ({ category }) => {
           const headlines: Record<string, string[]> = {
@@ -187,8 +202,8 @@ function AnalystSubagent() {
     <AgentTool
       name="data_analyst"
       description="A specialist subagent that analyzes data and provides insights. Delegate complex analysis tasks to this expert."
-      parameters={z.object({
-        task: z.string().describe('The analysis task to perform'),
+      parameters={Type.Object({
+        task: Type.String({ description: 'The analysis task to perform' }),
       })}
       agent={(input) => (
         <Agent temperature={0.3}>

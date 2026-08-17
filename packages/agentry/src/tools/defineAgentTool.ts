@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import type { TSchema } from 'typebox'
 import type {
   DefineAgentToolOptions,
   InternalAgentTool,
@@ -11,9 +11,9 @@ import type {
  * const researcherTool = defineAgentTool({
  *   name: 'researcher',
  *   description: 'Research specialist',
- *   parameters: z.object({
- *     topic: z.string(),
- *     depth: z.enum(['shallow', 'deep']).optional()
+ *   parameters: Type.Object({
+ *     topic: Type.String(),
+ *     depth: Type.Optional(Type.Union([Type.Literal('shallow'), Type.Literal('deep')]))
  *   }),
  *   agent: (input) => (
  *     <Agent name="researcher">
@@ -22,16 +22,16 @@ import type {
  *   )
  * })
  */
-export function defineAgentTool<TSchema extends z.ZodType>(
-  options: DefineAgentToolOptions<TSchema>,
-): InternalAgentTool<z.infer<TSchema>> {
+export function defineAgentTool<TParameters extends TSchema>(
+  options: DefineAgentToolOptions<TParameters>,
+): InternalAgentTool {
   const { name, description, parameters, agent } = options
 
   return {
     name,
     description,
     parameters,
-    jsonSchema: z.toJSONSchema(parameters),
+    jsonSchema: { ...parameters },
     agent,
-  } as InternalAgentTool<z.infer<TSchema>>
+  } as unknown as InternalAgentTool
 }

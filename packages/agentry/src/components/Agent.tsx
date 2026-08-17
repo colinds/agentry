@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react'
 import type {
   BaseAgentProps,
-  ProviderModelOverride,
-  ThinkingConfig,
-  AnthropicThinkingEnabled,
-  OpenAIThinkingEnabled,
+  Model,
+  ProviderId,
+  ThinkingLevel,
 } from '../types/agent'
 
 /**
@@ -12,18 +11,12 @@ import type {
  * - Root agents: specify both (`provider="anthropic" model="claude-haiku-4-5"`)
  * - Subagents inside AgentTool: can omit both (inherit from parent)
  *
- * Extends `ProviderModelOverride` but makes `model` required when `provider`
- * is specified (root agents must provide a model).
+ * Both are plain strings — pi resolves them against its model catalog, so
+ * agentry no longer narrows `model` per provider.
  */
 type PublicProviderVariant =
-  | (Required<Extract<ProviderModelOverride, { provider: 'anthropic' }>> & {
-      thinking?: AnthropicThinkingEnabled | { type: 'disabled' }
-    })
-  | (Required<Extract<ProviderModelOverride, { provider: 'openai' }>> & {
-      thinking?: OpenAIThinkingEnabled | { type: 'disabled' }
-      websocket?: boolean
-    })
-  | { provider?: undefined; model?: undefined; thinking?: ThinkingConfig }
+  | { provider: ProviderId; model: Model; thinking?: ThinkingLevel }
+  | { provider?: undefined; model?: undefined; thinking?: ThinkingLevel }
 
 export type AgentComponentPublicProps = BaseAgentProps &
   PublicProviderVariant & { children?: React.ReactNode }
@@ -33,14 +26,14 @@ export type AgentComponentPublicProps = BaseAgentProps &
  *
  * @example
  * ```tsx
- * <Agent model="claude-sonnet-4-5" maxTokens={4096}>
+ * <Agent provider="anthropic" model="claude-sonnet-4-5" maxTokens={4096}>
  *   <System>You are a helpful assistant</System>
  *   <Tools>
  *     <Tool {...searchTool} />
  *     <AgentTool
  *       name="researcher"
  *       description="Research specialist"
- *       parameters={z.object({ topic: z.string() })}
+ *       parameters={Type.Object({ topic: Type.String() })}
  *       agent={(input) => (
  *         <Agent name="researcher">
  *           <System>Research: {input.topic}</System>

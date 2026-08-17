@@ -1,12 +1,11 @@
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { run, Agent, AgentTool, Tool, Message, System, Tools } from 'agentry'
-import OpenAI from 'openai'
 import { OPENAI_MODEL as EXAMPLE_OPENAI_MODEL } from '../constants'
 
 const MODEL = process.env.OPENAI_MODEL ?? EXAMPLE_OPENAI_MODEL
 
 const result = await run(
-  <Agent provider="openai" model={MODEL} maxTokens={1024} websocket={true}>
+  <Agent provider="openai" model={MODEL} maxTokens={1024}>
     <System>
       You are a coordinator. Use subagents when you need focused help.
     </System>
@@ -14,7 +13,7 @@ const result = await run(
       <AgentTool
         name="researcher"
         description="Research specialist"
-        parameters={z.object({ topic: z.string() })}
+        parameters={Type.Object({ topic: Type.String() })}
         agent={({ topic }) => (
           <Agent provider="openai" model={MODEL} name="researcher">
             <Message role="user">Research briefly: {topic}</Message>
@@ -24,7 +23,7 @@ const result = await run(
       <Tool
         name="spawn_reviewer"
         description="Spawn a reviewer subagent programmatically"
-        parameters={z.object({ text: z.string() })}
+        parameters={Type.Object({ text: Type.String() })}
         handler={async ({ text }, context) => {
           const spawned = await context.runAgent(
             <Agent provider="openai" model={MODEL} name="reviewer">
@@ -41,11 +40,6 @@ const result = await run(
       draft and return the final answer.
     </Message>
   </Agent>,
-  {
-    providers: {
-      openai: { client: new OpenAI() },
-    },
-  },
 )
 
 console.log('Result:', result.content)

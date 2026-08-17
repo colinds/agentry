@@ -1,19 +1,17 @@
+import type { Models } from '@earendil-works/pi-ai'
 import type { AgentInstance } from '../instances/types'
 import type { AgentStore } from '../store'
 import { createAgentStore } from '../store'
 import type { ExecutionEngineConfig } from './ExecutionEngine'
-import type {
-  ProviderClientMap,
-  ProviderAdapter,
-  SystemBlock,
-} from '../providers/types'
-import type { ProviderName } from '../types/provider'
+import type { AgentSession } from './session'
 
 interface EngineConfigOptions {
   agent: AgentInstance
-  clients: Partial<ProviderClientMap>
-  adapters: Record<ProviderName, ProviderAdapter<ProviderName>>
+  models: Models
   store?: AgentStore
+  sessionId?: string
+  /** Cross-run state owned by the calling handle. */
+  session?: AgentSession
 }
 
 interface EngineConfigResult {
@@ -21,27 +19,18 @@ interface EngineConfigResult {
   store: AgentStore
 }
 
-export function buildSystemPrompt(
-  agent: AgentInstance,
-): string | SystemBlock[] | undefined {
+/**
+ * Joins the collected `<System>` parts into a single prompt.
+ *
+ * Per-part cache control is gone: pi owns prompt caching via `cacheRetention`
+ * plus a per-run `sessionId`, so agentry no longer emits cache breakpoints.
+ */
+export function buildSystemPrompt(agent: AgentInstance): string | undefined {
   if (agent.systemParts.length === 0) {
     return undefined
   }
 
-  if (agent.systemParts.length === 1 && !agent.systemParts[0]?.cache) {
-    return agent.systemParts[0]!.content
-  }
-
-  return agent.systemParts.map((part) => {
-    const block: SystemBlock = {
-      type: 'text',
-      text: part.content,
-    }
-    if (part.cache === 'ephemeral') {
-      block.cache_control = { type: 'ephemeral' }
-    }
-    return block
-  })
+  return agent.systemParts.map((part) => part.content).join('\n\n')
 }
 
 /**
@@ -54,11 +43,10 @@ export function buildSystemPrompt(
 export function createEngineConfig(
   options: EngineConfigOptions,
 ): EngineConfigResult {
-  const { agent, clients, adapters } = options
+  const { agent, models } = options
 
   const store = options.store ?? createAgentStore()
 
-  const system = buildSystemPrompt(agent)
   const provider = agent.props.provider
   if (!provider) {
     throw new Error('Provider is required on agent props.')
@@ -69,28 +57,27 @@ export function createEngineConfig(
       'model is required on the agent. Set it via the model prop on <Agent>.',
     )
   }
-  const client = (agent.client ??
-    clients[provider]) as ExecutionEngineConfig['client']
-  if (!client) {
-    throw new Error(`No client configured for provider "${provider}"`)
-  }
 
-  const config = {
+  const config: ExecutionEngineConfig = {
+    models,
     provider,
-    clients,
-    adapters,
-    client,
     model,
     maxTokens: agent.props.maxTokens ?? 4096,
-    system,
-    stream: agent.props.stream ?? false,
+    // createInstance already applies `?? true`, so this never fires — kept
+    // aligned with the real default rather than implying the opposite.
+    stream: agent.props.stream ?? true,
     maxIterations: agent.props.maxIterations ?? 20,
     compactionControl: agent.props.compactionControl,
-    stopSequences: agent.props.stopSequences,
     temperature: agent.props.temperature,
     agentName: agent.props.name,
-    thinking: agent.props.thinking,
-    betas: agent.props.provider === 'anthropic' ? agent.props.betas : undefined,
+    reasoning: agent.props.thinking,
+    sessionId: options.sessionId,
+    session: options.session,
+    retry: agent.props.retry,
+    cacheRetention: agent.props.cacheRetention,
+    timeoutMs: agent.props.timeoutMs,
+    headers: agent.props.headers,
+    samplingParams: agent.props.samplingParams,
     agentInstance: agent,
     store,
   }

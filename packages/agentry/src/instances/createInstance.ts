@@ -5,25 +5,24 @@ import type {
   SubagentInstance,
   AgentToolInstance,
   ToolInstance,
-  BuiltInToolInstance,
   SystemInstance,
   ContextInstance,
   MessageInstance,
-  ToolsContainerInstance,
   MCPServerInstance,
+  ToolsContainerInstance,
   ConditionInstance,
   AgentComponentProps,
   AgentToolComponentProps,
   ToolComponentProps,
-  BuiltInToolComponentProps,
   SystemComponentProps,
   ContextComponentProps,
   MessageComponentProps,
-  ToolsContainerProps,
   MCPServerComponentProps,
+  ToolsContainerProps,
   ConditionComponentProps,
 } from './types'
 import { InstanceType, isAgentInstance, isInstance } from './types'
+import { assistantSeedMessage, userMessage } from '../types/messages'
 import type {
   AgentProps,
   BaseAgentProps,
@@ -38,44 +37,47 @@ type AgentPropsAllKeys = {
   provider: AgentProps['provider']
   model: AgentProps['model']
   thinking: AgentProps['thinking']
-  betas?: string[]
-  websocket?: boolean
+  retry: AgentProps['retry']
+  cacheRetention: AgentProps['cacheRetention']
+  timeoutMs: AgentProps['timeoutMs']
+  headers: AgentProps['headers']
+  samplingParams: AgentProps['samplingParams']
 }
 
 interface SubagentCreationProps extends Omit<
   AgentComponentProps,
-  'children' | 'model' | 'websocket'
+  'children' | 'model'
 > {
   model?: AgentComponentProps['model']
   agentNode?: React.ReactNode
-  betas?: string[]
-  websocket?: boolean
 }
 
-interface PropagatedSettings {
+/** Agent settings inherited by subagents and propagated as reconciler host context. */
+export interface PropagatedSettings {
   provider?: AgentProps['provider']
   stream?: boolean
   temperature?: number
-  stopSequences?: string[]
   compactionControl?: CompactionControl
   maxTokens?: number
   maxIterations?: number
   model?: Model
   thinking?: AgentProps['thinking']
-  betas?: string[]
-  websocket?: boolean
+  retry?: AgentProps['retry']
+  cacheRetention?: AgentProps['cacheRetention']
+  timeoutMs?: AgentProps['timeoutMs']
+  headers?: AgentProps['headers']
+  samplingParams?: AgentProps['samplingParams']
 }
 
 export type ElementProps =
   | AgentComponentProps
   | AgentToolComponentProps
   | ToolComponentProps
-  | BuiltInToolComponentProps
   | SystemComponentProps
   | ContextComponentProps
   | MessageComponentProps
-  | ToolsContainerProps
   | MCPServerComponentProps
+  | ToolsContainerProps
   | ConditionComponentProps
 
 // oxlint-disable-next-line max-params -- called by reconciler host config with fixed arity
@@ -92,8 +94,6 @@ export function createInstance(
       return createAgentToolInstance(props as AgentToolComponentProps)
     case InstanceType.Tool:
       return createToolInstance(props as ToolComponentProps)
-    case InstanceType.BuiltInTool:
-      return createBuiltInToolInstance(props as BuiltInToolComponentProps)
     case InstanceType.System:
       return createSystemInstance(props as SystemComponentProps)
     case InstanceType.Context:
@@ -125,7 +125,6 @@ function createAgentInstance(
   }
 
   const provider = props.provider ?? rootContainer.props.provider
-  const client = props.client ?? rootContainer.client
   const store = rootContainer.store
 
   const instance: AgentInstance = {
@@ -137,23 +136,23 @@ function createAgentInstance(
       description: props.description,
       maxTokens: props.maxTokens ?? 4096,
       maxIterations: props.maxIterations,
-      stopSequences: props.stopSequences,
       temperature: props.temperature,
       stream: props.stream ?? true,
       compactionControl: props.compactionControl,
       thinking: props.thinking,
-      betas: props.provider === 'anthropic' ? props.betas : undefined,
-      websocket: props.provider === 'openai' ? props.websocket : undefined,
+      retry: props.retry,
+      cacheRetention: props.cacheRetention,
+      timeoutMs: props.timeoutMs,
+      headers: props.headers,
+      samplingParams: props.samplingParams,
       onMessage: props.onMessage,
       onComplete: props.onComplete,
       onError: props.onError,
       onStepFinish: props.onStepFinish,
     } satisfies AgentPropsAllKeys as AgentProps,
-    client,
-    engine: null,
     systemParts: [],
-    tools: [],
-    builtInTools: [],
+    tools: new Map(),
+    duplicateToolNames: new Map(),
     mcpServers: [],
     children: [],
     parent: null,
@@ -190,21 +189,10 @@ function createAgentToolInstance(
   }
 }
 
-function createBuiltInToolInstance(
-  props: BuiltInToolComponentProps,
-): BuiltInToolInstance {
-  return {
-    type: InstanceType.BuiltInTool,
-    tool: props.tool,
-    parent: null,
-  }
-}
-
 function createSystemInstance(props: SystemComponentProps): SystemInstance {
   return {
     type: InstanceType.System,
     content: reactNodeToString(props.children),
-    cache: props.cache,
     parent: null,
   }
 }
@@ -213,12 +201,12 @@ function createContextInstance(props: ContextComponentProps): ContextInstance {
   return {
     type: InstanceType.Context,
     content: reactNodeToString(props.children),
-    cache: props.cache,
     parent: null,
   }
 }
 
-function reactNodeToString(node: React.ReactNode): string {
+/** Flattens JSX children to the plain string these elements carry. */
+export function reactNodeToString(node: React.ReactNode): string {
   if (node === null || node === undefined) {
     return ''
   }
@@ -242,10 +230,22 @@ function createMessageInstance(props: MessageComponentProps): MessageInstance {
 
   return {
     type: InstanceType.Message,
-    message: {
-      role: props.role,
-      content,
-    },
+    message:
+      props.role === 'user'
+        ? userMessage(content)
+        : assistantSeedMessage(content),
+    parent: null,
+  }
+}
+
+function createMCPServerInstance(
+  props: MCPServerComponentProps,
+): MCPServerInstance {
+  return {
+    type: InstanceType.McpServer,
+    // Copied, not aliased: React freezes props in development, and the
+    // reconciler updates this object in place when `<MCP>` props change.
+    config: { ...props },
     parent: null,
   }
 }
@@ -256,22 +256,6 @@ function createToolsContainerInstance(
   return {
     type: InstanceType.Tools,
     children: [],
-    parent: null,
-  }
-}
-
-function createMCPServerInstance(
-  props: MCPServerComponentProps,
-): MCPServerInstance {
-  return {
-    type: InstanceType.McpServer,
-    config: {
-      type: 'url',
-      name: props.name,
-      url: props.url,
-      authorization_token: props.authorization_token,
-      tool_configuration: props.tool_configuration,
-    },
     parent: null,
   }
 }
@@ -315,27 +299,28 @@ export function createSubagentInstance(
       name: props.name,
       description: props.description,
       // inherit with fallback to defaults (halve numeric values for subagents)
+      // Left undefined when nothing supplies one, so the value the inner
+      // <Agent> rendered survives. Defaulting here made this *always* defined,
+      // and SubagentHandle then wrote it over the element's own maxTokens —
+      // so <Agent maxTokens={7777}> inside an <AgentTool> silently ran at 4096.
+      // createEngineConfig applies the real default.
       maxTokens:
         props.maxTokens ??
-        (inherited.maxTokens ? Math.floor(inherited.maxTokens / 2) : 4096),
+        (inherited.maxTokens ? Math.floor(inherited.maxTokens / 2) : undefined),
       maxIterations:
         props.maxIterations ??
         (inherited.maxIterations
           ? Math.floor(inherited.maxIterations / 2)
           : undefined),
-      stopSequences: props.stopSequences ?? inherited.stopSequences,
       temperature: props.temperature ?? inherited.temperature,
       stream: props.stream ?? inherited.stream ?? true,
       compactionControl: props.compactionControl ?? inherited.compactionControl,
       thinking: props.thinking ?? inherited.thinking,
-      betas:
-        (props.provider ?? inherited.provider) === 'anthropic'
-          ? (props.betas ?? inherited.betas)
-          : undefined,
-      websocket:
-        (props.provider ?? inherited.provider) === 'openai'
-          ? (props.websocket ?? inherited.websocket)
-          : undefined,
+      retry: props.retry ?? inherited.retry,
+      cacheRetention: props.cacheRetention ?? inherited.cacheRetention,
+      timeoutMs: props.timeoutMs ?? inherited.timeoutMs,
+      headers: props.headers ?? inherited.headers,
+      samplingParams: props.samplingParams ?? inherited.samplingParams,
       // callbacks never inherited
       onMessage: props.onMessage,
       onComplete: props.onComplete,
@@ -343,8 +328,8 @@ export function createSubagentInstance(
       onStepFinish: props.onStepFinish,
     } satisfies AgentPropsAllKeys as AgentProps,
     systemParts: [],
-    tools: [],
-    builtInTools: [],
+    tools: new Map(),
+    duplicateToolNames: new Map(),
     mcpServers: [],
     children: [],
     parent: null,

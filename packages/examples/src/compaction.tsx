@@ -11,19 +11,15 @@
  * Run with EXAMPLE_PROVIDER=openai to use OpenAI instead of Anthropic.
  */
 
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { createAI, Agent, System, Message, Tools, Tool } from 'agentry'
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
 import { MODEL, OPENAI_MODEL } from './constants'
 
 const EXAMPLE_PROVIDER =
   process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
-const ai =
-  EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ providers: { openai: { client: new OpenAI() } } })
-    : createAI({ providers: { anthropic: { client: new Anthropic() } } })
+// createAI() carries no provider itself — the provider is chosen per <Agent>.
+const ai = createAI()
 
 console.log(`Provider: ${EXAMPLE_PROVIDER}\n`)
 
@@ -55,8 +51,8 @@ const result = await ai.run(
         name="search_archive"
         description="Search the archive for a topic and return a document."
         strict
-        parameters={z.object({
-          topic: z.string().describe('The topic to search for'),
+        parameters={Type.Object({
+          topic: Type.String({ description: 'The topic to search for' }),
         })}
         handler={({ topic }) => {
           console.log(`  -> search_archive("${topic}")`)

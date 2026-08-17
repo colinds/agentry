@@ -20,23 +20,24 @@ Agentry adapts React’s component model for AI agents. Define behavior declarat
 > This library is in active development.
 
 > [!NOTE]
-> Supports OpenAI and Anthropic models.
+> Supports ~35 providers through [pi](https://pi.dev) — Anthropic, OpenAI, Google,
+> Bedrock, Groq, xAI, OpenRouter, DeepSeek, Mistral, Cerebras, and any
+> OpenAI-compatible endpoint.
 
 ## Quick Start
 
 ### Installation
 
 ```bash
-bun add agentry react zod
+bun add agentry react
 
-# for anthropic
-bun add @anthropic-ai/sdk
+# credentials come from the environment; set whichever providers you use
 export ANTHROPIC_API_KEY="sk-ant-***"
-
-# for openai
-bun add openai
 export OPENAI_API_KEY="sk-***"
 ```
+
+No provider SDK to install and no client to construct — [pi](https://pi.dev)
+resolves providers, models and credentials.
 
 Next, in your `tsconfig.json`:
 
@@ -57,9 +58,7 @@ Next, in your `tsconfig.json`:
 In `agent.tsx`:
 
 ```tsx
-import Anthropic from '@anthropic-ai/sdk'
-import { run, Agent, System, Tools, Tool, Message } from 'agentry'
-import { z } from 'zod'
+import { run, Type, Agent, System, Tools, Tool, Message } from 'agentry'
 
 const result = await run(
   <Agent provider="anthropic" model="claude-haiku-4-5" maxTokens={1024}>
@@ -68,10 +67,15 @@ const result = await run(
       <Tool
         name="calculator"
         description="Perform calculations"
-        parameters={z.object({
-          operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
-          a: z.number(),
-          b: z.number(),
+        parameters={Type.Object({
+          operation: Type.Union([
+            Type.Literal('add'),
+            Type.Literal('subtract'),
+            Type.Literal('multiply'),
+            Type.Literal('divide'),
+          ]),
+          a: Type.Number(),
+          b: Type.Number(),
         })}
         handler={async ({ operation, a, b }) => {
           const ops = {
@@ -86,9 +90,6 @@ const result = await run(
     </Tools>
     <Message role="user">What is 42 + 17?</Message>
   </Agent>,
-  {
-    providers: { anthropic: { client: new Anthropic() } },
-  },
 )
 
 console.log(result.content)
@@ -105,43 +106,55 @@ bun run agent.tsx
 - **Dynamic tools via React state** - Add/remove tools during execution with `useState`
 - **React hooks** - `useExecutionState()`, `useMessages()` for reactive state
 - **Declarative subagents** - Use `<AgentTool>` to create subagents with type-safe parameters
-- **Type-safe tools** - Handler params inferred from Zod schemas
+- **Type-safe tools** - Handler params inferred from TypeBox schemas
 - **Streaming support** - Stream responses
-- **WebSocket mode (OpenAI)** - Persistent connection via `websocket` prop reduces per-turn latency in multi-tool loops
+- **~35 providers** - Selected by string; no SDK or client to wire up
+- **MCP** - `<MCP>` connects to any MCP server, on every provider
 - **Programmatic agent spawning** - Spawn and execute agents on-demand from tool handlers using `context.runAgent()`
 - **Cross-provider subagents** - Mix providers across parent/subagent boundaries
-- **Compaction control** - Automatic message compaction for long conversations to manage context window usage
+- **Compaction control** - Summarizes older turns while keeping recent ones verbatim
 - **Conditional rendering** - Use `<Condition>` to conditionally render agent components based on state or natural language intent
 - **Structured outputs** - Use `strict` on tools
-- **Prompt caching** - Supports Anthropic's prompt caching
+- **Cost tracking** - `result.usage.costUSD` plus a per-category breakdown
+- **Context inspection** - `handle.describeContext()` reports what is filling the window
 
 ## Providers
 
-Agentry supports multiple providers with a single declarative API.
+Agentry supports every provider [pi](https://pi.dev) does, through a single
+declarative API. `provider` and `model` are plain strings resolved against pi's
+catalog — there is one entry point and no per-provider module.
 
-- Root `agentry` exports the provider-agnostic core (`run`, `Agent`, hooks, custom tools).
-- Provider modules export provider clients and built-ins:
-  - `agentry/anthropic`
-  - `agentry/openai`
-- Built-ins are treated as regular tools in execution (no per-provider capability matrix to maintain).
+```tsx
+<Agent provider="anthropic" model="claude-haiku-4-5" />
+<Agent provider="openai" model="gpt-5-mini" />
+<Agent provider="groq" model="llama-3.3-70b-versatile" />
+```
+
+Credentials are read from the environment. To restrict which providers are
+available, or to register a custom one, build a pi `Models` collection and pass
+it to `run`/`createAI`:
+
+```tsx
+import { createModels } from '@earendil-works/pi-ai'
+import { anthropicProvider } from '@earendil-works/pi-ai/providers/anthropic'
+
+const models = createModels()
+models.setProvider(anthropicProvider())
+
+await run(<Agent provider="anthropic" model="claude-haiku-4-5" />, { models })
+```
 
 ### Reusable instance
 
 ```tsx
-import Anthropic from '@anthropic-ai/sdk'
-import { createAI, Agent, Message, Tools } from 'agentry'
-import { WebSearch } from 'agentry/anthropic'
+import { createAI, Agent, Message } from 'agentry'
 
-const ai = createAI({
-  providers: { anthropic: { client: new Anthropic() } },
-})
+// Bind defaults once; every run inherits them.
+const ai = createAI({ mode: 'batch' })
 
 const result = await ai.run(
   <Agent provider="anthropic" model="claude-sonnet-4-5" maxTokens={1024}>
-    <Tools>
-      <WebSearch maxUses={3} />
-    </Tools>
-    <Message role="user">Find the latest React release notes</Message>
+    <Message role="user">Summarize the latest React release notes</Message>
   </Agent>,
 )
 ```
@@ -152,16 +165,13 @@ Want to see code? See [examples/](/packages/examples/src)
 
 | Example                                                                                | Description                                               |
 | -------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| [`demo.tsx`](packages/examples/src/demo.tsx)                                           | Company research with web search                          |
+| [`demo.tsx`](packages/examples/src/demo.tsx)                                           | Company research with nested subagents                    |
 | [`basic.tsx`](packages/examples/src/basic.tsx)                                         | Simple calculator tool                                    |
 | [`interactive.tsx`](packages/examples/src/interactive.tsx)                             | Multi-turn conversations with streaming                   |
 | [`subagents.tsx`](packages/examples/src/subagents.tsx)                                 | Manager delegating to specialists                         |
 | [`hooks.tsx`](packages/examples/src/hooks.tsx)                                         | Hooks, composition, and dynamic tools                     |
-| [`web-search.tsx`](packages/examples/src/web-search.tsx)                               | Web search workflows                                      |
-| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | MCP server integration                                    |
 | [`chatbot.tsx`](packages/examples/src/chatbot.tsx)                                     | Terminal-based chatbot                                    |
 | [`create-subagent.tsx`](packages/examples/src/create-subagent.tsx)                     | Dynamic subagent creation                                 |
-| [`anthropic/cache-ephemeral.tsx`](packages/examples/src/anthropic/cache-ephemeral.tsx) | Prompt caching with ephemeral content                     |
 | [`conditions.tsx`](packages/examples/src/conditions.tsx)                               | State-based and NL condition rendering                    |
 | [`anthropic/thinking.tsx`](packages/examples/src/anthropic/thinking.tsx)               | Extended thinking with interleaved support                |
 | [`workflow.tsx`](packages/examples/src/workflow.tsx)                                   | Interactive authentication workflow                       |
@@ -169,9 +179,9 @@ Want to see code? See [examples/](/packages/examples/src)
 | [`openai/basic.tsx`](packages/examples/src/openai/basic.tsx)                           | OpenAI Responses API basic usage                          |
 | [`cross-provider/subagents.tsx`](packages/examples/src/cross-provider/subagents.tsx)   | OpenAI parent + Anthropic subagents                       |
 | [`openai/codex-subagent.tsx`](packages/examples/src/openai/codex-subagent.tsx)         | OpenAI Codex subagent                                     |
-| [`openai/built-ins.tsx`](packages/examples/src/openai/built-ins.tsx)                   | OpenAI built-ins: WebSearch, CodeExecution, and MCP       |
-| [`openai/websocket.tsx`](packages/examples/src/openai/websocket.tsx)                   | OpenAI WebSocket mode for lower-latency multi-tool loops  |
-| [`compaction.tsx`](packages/examples/src/compaction.tsx)                               | Context compaction demo (works with Anthropic and OpenAI) |
+| [`compaction.tsx`](packages/examples/src/compaction.tsx)                               | Context compaction demo                                   |
+| [`mcp.tsx`](packages/examples/src/mcp.tsx)                                             | Connect to an MCP server and use its tools                |
+| [`multi-provider.tsx`](packages/examples/src/multi-provider.tsx)                       | Parent and subagent on different providers                |
 
 Run an example:
 
@@ -194,9 +204,7 @@ bun run example:anthropic:thinking
 **Batch mode** (default) - Runs to completion:
 
 ```tsx
-const result = await run(<Agent provider="anthropic">...</Agent>, {
-  providers: { anthropic: { client: new Anthropic() } },
-})
+const result = await run(<Agent provider="anthropic">...</Agent>)
 ```
 
 **Interactive mode** - Returns a handle for ongoing interaction:
@@ -204,7 +212,6 @@ const result = await run(<Agent provider="anthropic">...</Agent>, {
 ```tsx
 const agent = await run(<Agent provider="anthropic">...</Agent>, {
   mode: 'interactive',
-  providers: { anthropic: { client: new Anthropic() } },
 })
 await agent.sendMessage('Hello')
 for await (const event of agent.stream('Tell me more')) {
@@ -223,8 +230,8 @@ Create subagents using `<AgentTool>` with type-safe parameters:
     <AgentTool
       name="researcher"
       description="Research specialist"
-      parameters={z.object({
-        topic: z.string().describe('The topic to research'),
+      parameters={Type.Object({
+        topic: Type.String({ description: 'The topic to research' }),
       })}
       agent={(input) => (
         <Agent name="researcher">
@@ -249,9 +256,9 @@ Spawn agents programmatically from within tool handlers using `context.runAgent(
     <Tool
       name="analyze_code"
       description="Analyze code by spawning a specialist agent"
-      parameters={z.object({
-        code: z.string(),
-        language: z.enum(['python', 'typescript', 'rust']),
+      parameters={Type.Object({
+        code: Type.String(),
+        language: Type.Union([Type.Literal('python'), Type.Literal('typescript'), Type.Literal('rust')]),
       })}
       handler={async (input, context) => {
         // Spawn different agents based on language
@@ -292,17 +299,10 @@ handler={async (input, context) => {
 `<AgentTool>` and `context.runAgent(...)` can run subagents on a different provider than the parent:
 
 ```tsx
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
 import { createAI, Agent, AgentTool, Message, Tools } from 'agentry'
-import { z } from 'zod'
 
-const ai = createAI({
-  providers: {
-    openai: { client: new OpenAI() },
-    anthropic: { client: new Anthropic() },
-  },
-})
+// Both providers resolve from the environment; nothing to wire up.
+const ai = createAI()
 
 await ai.run(
   <Agent provider="openai" model="gpt-5-mini">
@@ -310,7 +310,7 @@ await ai.run(
       <AgentTool
         name="claude_researcher"
         description="Research with Anthropic"
-        parameters={z.object({ topic: z.string() })}
+        parameters={Type.Object({ topic: Type.String() })}
         agent={({ topic }) => (
           <Agent provider="anthropic" model="claude-sonnet-4-5">
             <Message role="user">Research: {topic}</Message>
@@ -339,7 +339,7 @@ function DynamicAgent() {
       <Tools>
         <Tool
           name="unlock_advanced"
-          parameters={z.object({})}
+          parameters={Type.Object({})}
           handler={async () => {
             setHasAdvanced(true) // Adds new tool on next render
             return 'Unlocked!'
@@ -413,26 +413,41 @@ Conditions are evaluated before each API call:
 
 ### Prompt Caching
 
-Use `cache="ephemeral"` on `<System>` or `<Context>` components to mark dynamic content that shouldn't be cached.
+Caching is the provider's job, driven by two knobs rather than per-block markers.
+`cacheRetention` sets how long a provider should hold the prefix, and `sessionId`
+keys the cache so it survives across separate runs of the same agent.
 
 ```tsx
-<Agent provider="anthropic" model="claude-sonnet-4-5">
-  {/* Stable instructions - will be cached */}
-  <System>You are a helpful assistant. Always be concise and accurate.</System>
-
-  {/* Dynamic context - NOT cached (ephemeral) */}
-  <Context cache="ephemeral">
-    Current user: {user.name}
-    Current time: {new Date().toISOString()}
-  </Context>
-
-  <Message role="user">What's my name?</Message>
-</Agent>
+await run(
+  <Agent
+    provider="anthropic"
+    model="claude-sonnet-4-5"
+    cacheRetention="long"
+  >
+    <System>You are a helpful assistant. Always be concise and accurate.</System>
+    <Message role="user">What's my name?</Message>
+  </Agent>,
+  { sessionId: 'support-bot' },
+)
 ```
+
+Whether a cache is actually being hit shows up in `result.usage`:
+
+```tsx
+console.log(result.usage.cacheReadInputTokens, result.usage.cost)
+```
+
+> [!NOTE]
+> Changing the tool set between turns rewrites the provider's tools array and
+> invalidates the cached prefix, so gate tools on state that changes rarely.
 
 ### Compaction Control
 
-For long-running conversations, you can enable automatic message compaction to manage context window usage. When the token threshold is exceeded, the framework automatically summarizes previous messages:
+For long-running conversations, enable automatic compaction. Once a turn crosses
+the token threshold, older turns are summarized while the most recent ones are
+kept verbatim — so the model keeps its immediate working context. Compaction also
+runs automatically if a provider rejects a request for exceeding its context
+window, and the turn is then retried.
 
 ```tsx
 <Agent
@@ -441,6 +456,7 @@ For long-running conversations, you can enable automatic message compaction to m
   compactionControl={{
     enabled: true,
     contextTokenThreshold: 100000, // Compact when total tokens exceed this
+    keepRecentTokens: 16000, // Recent turns kept verbatim (default ~16k)
     model: 'claude-haiku-4-5', // Optional: model to use for summarization
     summaryPrompt: 'Summarize the conversation so far', // Optional: custom prompt
   }}
@@ -454,6 +470,7 @@ For long-running conversations, you can enable automatic message compaction to m
 
 - `enabled: boolean` - Enable/disable compaction
 - `contextTokenThreshold?: number` - Token threshold to trigger compaction (default: 100000)
+- `keepRecentTokens?: number` - Recent turns kept verbatim, never summarized (default: 16000)
 - `model?: Model` - Model to use for summarization (defaults to agent's model)
 - `summaryPrompt?: string` - Custom prompt for summarization (optional)
 
@@ -465,35 +482,30 @@ Runs an agent and returns a result or handle.
 
 ```tsx
 // Batch mode
-const result: AgentResult = await run(<Agent provider="anthropic">...</Agent>, {
-  providers: { anthropic: { client: new Anthropic() } },
-})
+const result: AgentResult = await run(<Agent provider="anthropic">...</Agent>)
 
 // Interactive mode
 const handle: AgentHandle = await run(<Agent provider="anthropic">...</Agent>, {
   mode: 'interactive',
-  providers: { anthropic: { client: new Anthropic() } },
 })
 ```
 
 **Options:**
 
 - `mode?: 'batch' | 'interactive'` - Execution mode (default: `'batch'`)
-- `providers?: { anthropic?: { client?: Anthropic }; openai?: { client?: OpenAI } }` - Provider client map
-  - provider is chosen from `<Agent provider=\"...\">`
-  - if omitted, provider clients are created from environment variables by default
+- `models?: Models` - A pi model collection. Omit it and agentry builds pi's full
+  catalog, resolving credentials from the environment.
+- `sessionId?: string` - Stable id for prompt-cache affinity. Reuse it across runs
+  of the same logical agent; omit it and each run gets a fresh one.
 
 ### `createAI(defaults)`
 
 Create a defaults-bound runner so you can use `ai.run(...)` and `ai.createAgent(...)`.
 
 ```tsx
-import OpenAI from 'openai'
 import { createAI, Agent, Message } from 'agentry'
 
-const ai = createAI({
-  providers: { openai: { client: new OpenAI() } },
-})
+const ai = createAI({})
 
 const result = await ai.run(
   <Agent provider="openai" model="gpt-5-mini">
@@ -504,27 +516,26 @@ const result = await ai.run(
 
 ### Components
 
-Built-ins are provider-owned exports:
-
-- `WebSearch`, `CodeExecution`, `MCP` from `agentry/anthropic` or `agentry/openai`
-- `Memory` from `agentry/anthropic`
+Everything is exported from `agentry`; there is a single entry point.
 
 #### `<Agent>`
 
 | Prop                 | Type                                   | Description                                                                                                                                                                                                                                                                     |
 | -------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `provider?`          | `'anthropic' \| 'openai'`              | AI provider for this agent                                                                                                                                                                                                                                                      |
+| `provider?`          | `string`                               | Provider id, resolved against pi's catalog (`anthropic`, `openai`, `groq`, …)                                                                                                                                                                                                   |
 | `model`              | `string`                               | Provider model id (e.g. `claude-sonnet-4-5`, `gpt-5-mini`)                                                                                                                                                                                                                      |
 | `name?`              | `string`                               | Agent identifier                                                                                                                                                                                                                                                                |
 | `description?`       | `string`                               | Agent description                                                                                                                                                                                                                                                               |
 | `maxTokens?`         | `number`                               | Max output tokens (default: `4096`)                                                                                                                                                                                                                                             |
 | `maxIterations?`     | `number`                               | Max tool call iterations (default: `20`)                                                                                                                                                                                                                                        |
-| `stopSequences?`     | `string[]`                             | Stop sequences                                                                                                                                                                                                                                                                  |
 | `temperature?`       | `number`                               | Sampling temperature (0-1)                                                                                                                                                                                                                                                      |
-| `stream?`            | `boolean`                              | Enable streaming (default: `true`)                                                                                                                                                                                                                                              |
-| `betas?`             | `string[]`                             | Additional Anthropic beta features to enable                                                                                                                                                                                                                                    |
-| `thinking?`          | `ThinkingConfig`                       | Extended thinking config (provider-dependent). Anthropic: `{ type: 'enabled', budget_tokens: number, interleaved?: boolean }`. OpenAI: `{ type: 'enabled', effort: 'low' \| 'medium' \| 'high', summary: 'auto' \| 'concise' \| 'detailed' }`. Disable: `{ type: 'disabled' }`. |
-| `websocket?`         | `boolean`                              | Enable WebSocket mode for OpenAI (reduces per-turn latency ~40% in multi-tool loops via persistent WebSocket connection                                                                                                                                                         |
+| `stream?`            | `boolean`                              | Enable streaming (default: `true`; `<AgentTool>` subagents default to `false`)                                                                                                                                                                                                                                              |
+| `thinking?`          | `ThinkingLevel`                        | `'minimal' \| 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. Clamped to what the model supports.                                                                                                                                                                          |
+| `retry?`             | `RetryPolicy`                          | `{ enabled, maxRetries, baseDelayMs }` for transient provider failures. When streaming, only failures before the first token are retried — past that a retry would replay output the caller has already seen                                                                     |
+| `cacheRetention?`    | `'none' \| 'short' \| 'long'`           | Prompt-cache retention hint (default `'short'`)                                                                                                                                                                                                                                 |
+| `timeoutMs?`         | `number`                               | Request timeout. Without it the provider SDK default (10 minutes) applies                                                                                                                                                                                                       |
+| `headers?`           | `ProviderHeaders`                      | Custom HTTP headers, e.g. for a corporate gateway                                                                                                                                                                                                                               |
+| `samplingParams?`    | `Record<string, unknown>`              | `top_p`, `top_k`, … Applied only by OpenAI-compatible APIs; ignored elsewhere                                                                                                                                                                                                   |
 | `compactionControl?` | `CompactionControl`                    | Context compaction settings (see below)                                                                                                                                                                                                                                         |
 | `onMessage?`         | `(event: AgentStreamEvent) => void`    | Stream event callback                                                                                                                                                                                                                                                           |
 | `onComplete?`        | `(result: AgentResult) => void`        | Completion callback                                                                                                                                                                                                                                                             |
@@ -537,6 +548,7 @@ Built-ins are provider-owned exports:
 | ------------------------ | --------- | ------------------------------------------------ |
 | `enabled`                | `boolean` | Enable/disable compaction                        |
 | `contextTokenThreshold?` | `number`  | Token threshold to trigger (default: `100000`)   |
+| `keepRecentTokens?`      | `number`  | Recent turns kept verbatim (default: `16000`)    |
 | `model?`                 | `string`  | Model for summarization (default: agent's model) |
 | `summaryPrompt?`         | `string`  | Custom summary prompt                            |
 
@@ -544,8 +556,7 @@ Built-ins are provider-owned exports:
 
 | Prop       | Type          | Description                              |
 | ---------- | ------------- | ---------------------------------------- |
-| `children` | `ReactNode`   | Content                                  |
-| `cache?`   | `'ephemeral'` | Mark as non-cacheable for prompt caching |
+| `children` | `ReactNode` | Content |
 
 #### `<Message>`
 
@@ -566,7 +577,7 @@ Built-ins are provider-owned exports:
 | ------------- | ------------------------------------------------------ | --------------------------------------------- |
 | `name`        | `string`                                               | Tool name                                     |
 | `description` | `string`                                               | Description for the model                     |
-| `parameters`  | `ZodSchema`                                            | Zod schema for input validation               |
+| `parameters`  | `TSchema`                                              | TypeBox schema; handler params are inferred from it |
 | `strict?`     | `boolean`                                              | Enable structured outputs (auto-enables beta) |
 | `handler`     | `(input, context: ToolContext) => Promise<ToolResult>` | Tool handler                                  |
 
@@ -576,7 +587,7 @@ Built-ins are provider-owned exports:
 | ------------- | -------------------------------- | ------------------------------- |
 | `name`        | `string`                         | Tool name                       |
 | `description` | `string`                         | Description for the model       |
-| `parameters`  | `ZodSchema`                      | Zod schema for input validation |
+| `parameters`  | `TSchema`                        | TypeBox schema; input is inferred from it |
 | `agent`       | `(input) => ReactElement<Agent>` | Function returning the Agent    |
 
 #### `<Condition>`
@@ -584,42 +595,33 @@ Built-ins are provider-owned exports:
 | Prop        | Type                            | Description                                                                                   |
 | ----------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
 | `when`      | `boolean \| string`             | Condition (boolean or NL description evaluated by LLM)                                        |
-| `provider?` | `'anthropic' \| 'openai'`       | Override provider for NL evaluation (first NL condition's override applies to the batch)      |
-| `model?`    | `AnthropicModel \| OpenAIModel` | Override model for NL evaluation (defaults to `claude-haiku-4-5` / `gpt-4.1-mini` if not set) |
+| `provider?` | `string`                        | Override provider for NL evaluation (first NL condition's override applies to the batch)      |
+| `model?`    | `string`                        | Override model for NL evaluation (defaults to `claude-haiku-4-5` / `gpt-4.1-mini` if not set) |
 | `children`  | `ReactNode`                     | Content to render when condition is true                                                      |
-
-#### `<WebSearch>`
-
-| Prop              | Type                                                                      | Description                    |
-| ----------------- | ------------------------------------------------------------------------- | ------------------------------ |
-| `maxUses?`        | `number`                                                                  | Max searches allowed           |
-| `allowedDomains?` | `string[]`                                                                | Restrict to these domains      |
-| `blockedDomains?` | `string[]`                                                                | Block these domains            |
-| `userLocation?`   | `{ city?: string, region?: string, country?: string, timezone?: string }` | Location for localized results |
-
-#### `<CodeExecution>`
-
-No props. Enables sandboxed code execution.
-
-#### `<Memory>`
-
-| Prop            | Type                                                                                     | Description                 |
-| --------------- | ---------------------------------------------------------------------------------------- | --------------------------- |
-| `onView?`       | `(input: { path: string, view_range?: [number, number] }) => Promise<string>`            | View file/directory handler |
-| `onCreate?`     | `(input: { path: string, file_text: string }) => Promise<string>`                        | Create file handler         |
-| `onStrReplace?` | `(input: { path: string, old_str: string, new_str: string }) => Promise<string>`         | Replace text handler        |
-| `onInsert?`     | `(input: { path: string, insert_line: number, insert_text: string }) => Promise<string>` | Insert text handler         |
-| `onDelete?`     | `(input: { path: string }) => Promise<string>`                                           | Delete file handler         |
-| `onRename?`     | `(input: { old_path: string, new_path: string }) => Promise<string>`                     | Rename/move handler         |
 
 #### `<MCP>`
 
-| Prop                   | Type                                              | Description           |
-| ---------------------- | ------------------------------------------------- | --------------------- |
-| `name`                 | `string`                                          | Server name           |
-| `url`                  | `string`                                          | SSE endpoint URL      |
-| `authorization_token?` | `string`                                          | Auth token            |
-| `tool_configuration?`  | `{ enabled?: boolean, allowed_tools?: string[] }` | Tool filtering config |
+Agentry is the MCP *client*: it connects, lists the server's tools, and proxies
+each call. That makes MCP work on every provider, not only those with a native
+connector. Tools arrive namespaced as `<server>__<tool>`.
+
+| Prop                   | Type                                              | Description                           |
+| ---------------------- | ------------------------------------------------- | ------------------------------------- |
+| `type`                 | `'stdio' \| 'url'`                                | Transport                             |
+| `name`                 | `string`                                          | Server name; namespaces its tools     |
+| `command` / `args?`    | `string` / `string[]`                             | stdio only: process to launch         |
+| `url`                  | `string`                                          | url only: streamable HTTP endpoint    |
+| `authorization_token?` | `string`                                          | url only: bearer token                |
+| `tool_configuration?`  | `{ enabled?: boolean, allowed_tools?: string[] }` | Tool filtering config                 |
+
+```tsx
+<MCP
+  type="stdio"
+  name="fs"
+  command="bunx"
+  args={['-y', '@modelcontextprotocol/server-filesystem', '/tmp']}
+/>
+```
 
 ### Hooks
 
@@ -641,6 +643,27 @@ No props. Enables sandboxed code execution.
 | `state`                | `AgentState`                                                | Current execution state         |
 | `messages`             | `AgentMessageParam[]`                                       | Conversation history            |
 | `isRunning`            | `boolean`                                                   | Whether agent is processing     |
+| `describeContext()`    | `() => ContextUsage \| undefined`                           | What is filling the context window (see below) |
+
+#### Context inspection
+
+`describeContext()` reports where your context window is going — the assembled
+system prompt, each tool's definition, and the message history. Tool schemas are
+re-sent on every request, so they are usually where an unexpectedly full window
+is hiding.
+
+```tsx
+const usage = handle.describeContext()!
+// { contextWindow: 200000, reportedInputTokens: 747, free: 199253,
+//   estimatedUsed: 161,
+//   sections: [{ name: 'tools', tokens: 92, share: 0.571 }, …],
+//   tools: [{ name: 'lookup', tokens: 46 }, …] }
+```
+
+`reportedInputTokens` is what the provider actually charged for the last turn —
+trust that for "how close am I to the limit". `estimatedUsed` and the section
+`share`s are a local estimate, useful for attribution but understating real usage,
+since providers prepend scaffolding a client never sees.
 
 ### Utilities
 
@@ -649,6 +672,7 @@ No props. Enables sandboxed code execution.
 | `defineTool(options)`            | Define a tool programmatically. Options: `name`, `description`, `parameters`, `strict?`, `handler` |
 | `defineAgentTool(options)`       | Define a subagent tool. Options: `name`, `description`, `parameters`, `agent`                      |
 | `createAgent(element, options?)` | Create an agent handle without running                                                             |
+| `Type`                           | TypeBox schema builder, re-exported so you need no extra install                                   |
 
 ### ToolContext
 
@@ -657,9 +681,8 @@ Tool handlers receive a `context` object:
 | Property    | Type                                                                       | Description                   |
 | ----------- | -------------------------------------------------------------------------- | ----------------------------- |
 | `agentName` | `string`                                                                   | Name of the current agent     |
-| `provider`  | `'anthropic' \| 'openai'`                                                  | Current provider              |
-| `client?`   | `Anthropic \| OpenAI`                                                      | Current provider client       |
-| `clients?`  | `{ anthropic?: Anthropic; openai?: OpenAI }`                               | Provider client map           |
+| `provider?` | `string`                                                                   | Current provider              |
+| `models`    | `Models`                                                                   | pi model collection backing this run; what makes cross-provider spawning work |
 | `model?`    | `string`                                                                   | Current agent's model         |
 | `signal?`   | `AbortSignal`                                                              | Abort signal for cancellation |
 | `metadata?` | `JsonObject`                                                               | Custom JSON-like metadata     |
@@ -669,8 +692,8 @@ Tool handlers receive a `context` object:
 
 | Field          | Type                                         | Description             |
 | -------------- | -------------------------------------------- | ----------------------- |
-| `provider?`    | `'anthropic' \| 'openai'`                    | Override provider       |
-| `clients?`     | `{ anthropic?: Anthropic; openai?: OpenAI }` | Override client map     |
+| `provider?`    | `string`                                     | Override provider       |
+| `models?`      | `Models`                                     | Override model collection |
 | `model?`       | `string`                                     | Override parent's model |
 | `maxTokens?`   | `number`                                     | Override max tokens     |
 | `temperature?` | `number`                                     | Override temperature    |
@@ -678,10 +701,10 @@ Tool handlers receive a `context` object:
 
 ## Requirements
 
-- Node.js 18+ or Bun
+- Node.js 22.19+ or Bun
 - React 19+
 - TypeScript 5+
-- Provider API key(s): Anthropic and/or OpenAI
+- An API key for at least one provider (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, …)
 
 ## Development
 

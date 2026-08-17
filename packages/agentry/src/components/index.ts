@@ -8,5 +8,6 @@ export { Context } from './Context.tsx'
 export { Message } from './Message.tsx'
 export { Tools } from './Tools.tsx'
 export { Condition } from './Condition.tsx'
+export { MCP } from './MCP.tsx'
 
 export { useExecutionState, useMessages, useAgentState } from './hooks'

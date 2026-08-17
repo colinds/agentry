@@ -54,7 +54,7 @@ export function createAgentSyntheticTool(
       try {
         result = await runSubagent(subagent, {
           provider: subagent.props.provider,
-          clients: toolContext.clients,
+          models: toolContext.models,
           signal: toolContext.signal,
         })
       } catch (error) {

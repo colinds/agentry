@@ -1,3 +1,4 @@
-# these files are copied from package root before publish
-README.md
-LICENSE.md
+# Copied from the package root by `prepack`, removed by `postpack`.
+# Anchored so the pattern cannot swallow other READMEs in the tree.
+/README.md
+/LICENSE.md

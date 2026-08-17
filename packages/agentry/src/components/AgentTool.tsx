@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
-import { z } from 'zod'
+import type { TSchema } from 'typebox'
 import { defineAgentTool } from '../tools'
 import type { InternalAgentTool, DefineAgentToolOptions } from '../types'
 
-export type AgentToolProps<TSchema extends z.ZodType = z.ZodType> =
-  | InternalAgentTool<z.infer<TSchema>>
-  | DefineAgentToolOptions<TSchema>
+export type AgentToolProps<TParameters extends TSchema = TSchema> =
+  | InternalAgentTool
+  | DefineAgentToolOptions<TParameters>
 
 /**
  * AgentTool component - registers an agent tool with the parent agent
@@ -15,9 +15,9 @@ export type AgentToolProps<TSchema extends z.ZodType = z.ZodType> =
  * const researcherTool = defineAgentTool({
  *   name: 'researcher',
  *   description: 'Research specialist',
- *   parameters: z.object({
- *     topic: z.string(),
- *     depth: z.enum(['shallow', 'deep']).optional()
+ *   parameters: Type.Object({
+ *     topic: Type.String(),
+ *     depth: Type.Optional(Type.String())
  *   }),
  *   agent: (input) => (
  *     <Agent name="researcher">
@@ -34,9 +34,9 @@ export type AgentToolProps<TSchema extends z.ZodType = z.ZodType> =
  * <AgentTool
  *   name="researcher"
  *   description="Research specialist"
- *   parameters={z.object({
- *     topic: z.string(),
- *     depth: z.enum(['shallow', 'deep']).optional()
+ *   parameters={Type.Object({
+ *     topic: Type.String(),
+ *     depth: Type.Optional(Type.Union([Type.Literal('shallow'), Type.Literal('deep')]))
  *   })}
  *   agent={(input) => (
  *     <Agent name="researcher">
@@ -46,8 +46,12 @@ export type AgentToolProps<TSchema extends z.ZodType = z.ZodType> =
  * />
  * ```
  */
-export function AgentTool<TSchema extends z.ZodType>(
-  props: AgentToolProps<TSchema>,
+export function AgentTool(props: InternalAgentTool): ReactNode
+export function AgentTool<TParameters extends TSchema>(
+  props: DefineAgentToolOptions<TParameters>,
+): ReactNode
+export function AgentTool<TParameters extends TSchema>(
+  props: AgentToolProps<TParameters>,
 ): ReactNode {
   if ('parameters' in props && 'jsonSchema' in props) {
     return (

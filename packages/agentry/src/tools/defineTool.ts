@@ -1,43 +1,47 @@
-import { z } from 'zod'
-import type { BetaTool } from '@anthropic-ai/sdk/resources/beta'
+import type { Static, TSchema } from 'typebox'
+import { Value } from 'typebox/value'
 import type { InternalTool, ToolContext, ToolResult } from '../types'
+import type { JsonValue } from '../types/json'
 import { debug } from '../debug'
 
 /**
- * define a type-safe tool with Zod schema validation
+ * define a type-safe tool with a TypeBox schema
+ *
+ * TypeBox schemas are plain JSON Schema at runtime, which is exactly what pi
+ * puts on the wire — so there is no conversion step, and `Static<TSchema>`
+ * gives the handler fully inferred parameters.
  *
  * @example
  * ```ts
+ * import { Type } from 'agentry'
+ *
  * const searchTool = defineTool({
  *   name: 'search_docs',
  *   description: 'Search documentation',
- *   parameters: z.object({
- *     query: z.string().describe('search query'),
- *     maxResults: z.number().optional().default(10),
+ *   parameters: Type.Object({
+ *     query: Type.String({ description: 'search query' }),
+ *     maxResults: Type.Optional(Type.Number()),
  *   }),
  *   handler: async (params, ctx) => {
- *     // params is fully typed as { query: string, maxResults: number }
+ *     // params is typed as { query: string, maxResults?: number }
  *     return `Found results for: ${params.query}`;
  *   },
  * });
  * ```
  */
-export function defineTool<TSchema extends z.ZodType>(options: {
+export function defineTool<TParameters extends TSchema>(options: {
   name: string
   description: string
-  parameters: TSchema
+  parameters: TParameters
   strict?: boolean
   handler: (
-    input: z.infer<TSchema>,
+    input: Static<TParameters>,
     context: ToolContext,
   ) => Promise<ToolResult> | ToolResult
-}): InternalTool<z.infer<TSchema>> {
+}): InternalTool<Static<TParameters>> {
   const { name, description, parameters, strict, handler } = options
 
-  const jsonSchema = z.toJSONSchema(parameters) as Record<
-    string,
-    object | string | number | boolean | null
-  >
+  const jsonSchema = { ...parameters } as unknown as Record<string, JsonValue>
 
   if (strict && jsonSchema.type === 'object') {
     jsonSchema.additionalProperties = false
@@ -50,28 +54,15 @@ export function defineTool<TSchema extends z.ZodType>(options: {
     jsonSchema,
     strict,
     handler,
-  } as InternalTool<z.infer<TSchema>>
+  } as InternalTool<Static<TParameters>>
 }
 
 /**
- * convert an InternalTool to the format expected by the Anthropic API
- */
-export function toApiTool(tool: InternalTool): BetaTool {
-  return {
-    type: 'custom',
-    name: tool.name,
-    description: tool.description,
-    input_schema: tool.jsonSchema as BetaTool.InputSchema,
-    ...(tool.strict ? { strict: true } : {}),
-  }
-}
-
-/**
- * validate and parse tool input using the Zod schema
+ * validate tool input against the tool's TypeBox schema
  */
 export function parseToolInput<TInput>(
   tool: InternalTool<TInput>,
-  input: z.output<z.ZodType>,
+  input: unknown,
 ):
   | { success: true; data: TInput }
   | {
@@ -80,20 +71,16 @@ export function parseToolInput<TInput>(
         issues: Array<{ path: Array<string | number>; message: string }>
       }
     } {
-  const schema = tool.parameters as {
-    safeParse: (input: z.output<z.ZodType>) => {
-      success: boolean
-      data?: TInput
-      error?: {
-        issues: Array<{ path: Array<string | number>; message: string }>
-      }
-    }
+  if (Value.Check(tool.parameters, input)) {
+    return { success: true, data: input as TInput }
   }
-  const result = schema.safeParse(input)
-  if (result.success) {
-    return { success: true, data: result.data as TInput }
-  }
-  return { success: false, error: result.error! }
+
+  const issues = [...Value.Errors(tool.parameters, input)].map((issue) => ({
+    path: issue.instancePath.split('/').filter(Boolean),
+    message: issue.message,
+  }))
+
+  return { success: false, error: { issues } }
 }
 
 /**
@@ -113,7 +100,7 @@ export function formatValidationError(error: {
  */
 export async function executeTool<TInput>(
   tool: InternalTool<TInput>,
-  input: z.output<z.ZodType>,
+  input: unknown,
   context: ToolContext,
 ): Promise<{ result: ToolResult; isError: boolean }> {
   const parseResult = parseToolInput(tool, input)

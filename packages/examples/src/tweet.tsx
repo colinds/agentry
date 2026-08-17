@@ -1,8 +1,6 @@
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { run, Agent, System, Tools, AgentTool, Message } from 'agentry'
-import { WebSearch, CodeExecution } from 'agentry/openai'
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
+import {} from 'agentry'
 
 function Researcher() {
   return (
@@ -12,12 +10,10 @@ function Researcher() {
         <AgentTool
           name="search"
           description="Search the web for information"
-          parameters={z.object({ query: z.string() })}
+          parameters={Type.Object({ query: Type.String() })}
           agent={({ query }) => (
-            <Agent provider="openai" model="gpt-5-mini" websocket={true}>
-              <Tools>
-                <WebSearch />
-              </Tools>
+            <Agent provider="openai" model="gpt-5-mini">
+              <Tools></Tools>
               <Message role="user">{query}</Message>
             </Agent>
           )}
@@ -25,12 +21,10 @@ function Researcher() {
         <AgentTool
           name="compute"
           description="Run Python to analyze data"
-          parameters={z.object({ task: z.string() })}
+          parameters={Type.Object({ task: Type.String() })}
           agent={({ task }) => (
             <Agent provider="openai" model="gpt-5.3-codex">
-              <Tools>
-                <CodeExecution />
-              </Tools>
+              <Tools></Tools>
               <Message role="user">{task}</Message>
             </Agent>
           )}
@@ -40,13 +34,7 @@ function Researcher() {
   )
 }
 
-const agent = await run(<Researcher />, {
-  mode: 'interactive',
-  providers: {
-    anthropic: { client: new Anthropic() },
-    openai: { client: new OpenAI() },
-  },
-})
+const agent = await run(<Researcher />, { mode: 'interactive' })
 
 const res = await agent.sendMessage(
   'Look up the populations of the 10 largest US cities, ' +

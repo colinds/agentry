@@ -1,116 +1,30 @@
 import type { ReactElement } from 'react'
-import type { z } from 'zod'
-import type { Model, AgentResult } from './agent'
-import type { ProviderName } from './provider'
-import type { ProviderClientMap } from '../providers/types'
+import type { Static, TSchema } from 'typebox'
+import type { Models } from '@earendil-works/pi-ai'
+import type { Model, AgentResult, ProviderId } from './agent'
 import type { JsonObject, JsonValue } from './json'
-import type { TextContentArray } from './messages'
-
-export interface MemoryHandlers {
-  /** Handler for viewing directory contents or file contents */
-  onView?: (input: {
-    path: string
-    view_range?: [number, number]
-  }) => Promise<string> | string
-  /** Handler for creating or overwriting a file */
-  onCreate?: (input: {
-    path: string
-    file_text: string
-  }) => Promise<string> | string
-  /** Handler for replacing text in a file */
-  onStrReplace?: (input: {
-    path: string
-    old_str: string
-    new_str: string
-  }) => Promise<string> | string
-  /** Handler for inserting text at a specific line */
-  onInsert?: (input: {
-    path: string
-    insert_line: number
-    insert_text: string
-  }) => Promise<string> | string
-  /** Handler for deleting a file or directory */
-  onDelete?: (input: { path: string }) => Promise<string> | string
-  /** Handler for renaming or moving a file/directory */
-  onRename?: (input: {
-    old_path: string
-    new_path: string
-  }) => Promise<string> | string
-}
-
-export type ToolResult = string | TextContentArray
-
-export enum BuiltInToolType {
-  CodeExecution = 'code_execution',
-  WebSearch = 'web_search',
-  Memory = 'memory',
-}
-
-export interface CodeExecutionTool {
-  type: BuiltInToolType.CodeExecution
-  name: 'code_execution'
-}
-
-export interface WebSearchTool {
-  type: BuiltInToolType.WebSearch
-  name: 'web_search'
-  max_uses?: number
-  allowed_domains?: string[]
-  blocked_domains?: string[]
-  user_location?: {
-    type: 'approximate'
-    city?: string
-    region?: string
-    country?: string
-    timezone?: string
-  }
-}
-
-export interface MemoryTool {
-  type: BuiltInToolType.Memory
-  name: 'memory'
-  memoryHandlers?: MemoryHandlers
-}
+import type { ImageContent, TextContent } from './messages'
 
 /**
- * Union of all supported built-in tools
+ * What a tool handler may return.
+ *
+ * Images are included because pi carries them end-to-end — `ToolResultMessage`
+ * holds `(TextContent | ImageContent)[]`, and pi's own provider APIs convert
+ * them to native image blocks. Screenshot and chart tools depend on this.
  */
-export type BuiltInTool = CodeExecutionTool | WebSearchTool | MemoryTool
-
-/**
- * Type guard for code execution tool
- */
-export function isCodeExecutionTool(
-  tool: BuiltInTool,
-): tool is CodeExecutionTool {
-  return tool.type === BuiltInToolType.CodeExecution
-}
-
-/**
- * Type guard for web search tool
- */
-export function isWebSearchTool(tool: BuiltInTool): tool is WebSearchTool {
-  return tool.type === BuiltInToolType.WebSearch
-}
-
-/**
- * Type guard for memory tool
- */
-export function isMemoryTool(tool: BuiltInTool): tool is MemoryTool {
-  return tool.type === BuiltInToolType.Memory
-}
+export type ToolResult = string | Array<TextContent | ImageContent>
 
 /**
  * Options for running an agent programmatically from a tool handler
  */
 export interface RunAgentOptions {
   /** Override provider */
-  provider?: ProviderName
-  /** Override provider clients */
-  clients?: Partial<ProviderClientMap>
+  provider?: ProviderId
+  /** Override the pi model collection used to resolve the agent's model */
+  models?: Models
   /** Override parent's model */
   model?: Model
-  /** Override maxTokens (defaults to half parent's) */
+  /** Override maxTokens (defaults to the framework default, not the parent's) */
   maxTokens?: number
   /** Override temperature */
   temperature?: number
@@ -118,27 +32,22 @@ export interface RunAgentOptions {
   signal?: AbortSignal
 }
 
-type ProviderContextFields =
-  | { provider: 'anthropic'; client: ProviderClientMap['anthropic'] }
-  | { provider: 'openai'; client: ProviderClientMap['openai'] }
-  | { provider?: undefined; client?: undefined }
-
 type BaseToolContext = {
   agentName: string
   /**
-   * Map of all available provider clients. Unlike the narrowed `client` field
-   * from `ProviderContextFields` (which is typed to the current provider),
-   * `clients` gives access to every configured provider client — useful for
-   * cross-provider subagent spawning via `context.runAgent()`.
+   * The pi model collection backing this run. Carries every configured
+   * provider, which is what makes cross-provider subagent spawning via
+   * `context.runAgent()` work.
    */
-  clients?: Partial<ProviderClientMap>
+  models: Models
+  provider?: ProviderId
   model?: Model
   signal?: AbortSignal
   metadata?: JsonObject
   /**
    * Programmatically run an agent from within a tool handler.
    * The spawned agent runs to completion and returns its result.
-   * Results are returned to the tool handler only (not visible to Claude).
+   * Results are returned to the tool handler only (not visible to the model).
    *
    * @param agent - React element representing the agent to run
    * @param options - Optional configuration (model, maxTokens, temperature, signal)
@@ -163,12 +72,12 @@ type BaseToolContext = {
   ) => Promise<AgentResult>
 }
 
-export type ToolContext = BaseToolContext & ProviderContextFields
+export type ToolContext = BaseToolContext
 
 export interface RunnableTool<TInput = unknown> {
   name: string
   description: string
-  parameters: z.ZodType<TInput>
+  parameters: TSchema
   handler: (
     input: TInput,
     context: ToolContext,
@@ -180,24 +89,25 @@ export interface InternalTool<TInput = unknown> extends RunnableTool<TInput> {
   strict?: boolean
 }
 
-export type DefineToolOptions<TSchema extends z.ZodType> = Omit<
-  RunnableTool<z.infer<TSchema>>,
+/**
+ * An already-defined tool of any input shape.
+ *
+ * `handler` is a function-typed property, so it is checked contravariantly:
+ * widening the input to `never` is what lets `<Tool {...someTool} />` accept a
+ * tool whose handler takes a concrete parameter type.
+ */
+export type AnyInternalTool = InternalTool<never>
+
+export type DefineToolOptions<TParameters extends TSchema> = Omit<
+  RunnableTool<Static<TParameters>>,
   'parameters'
 > & {
-  parameters: TSchema
+  parameters: TParameters
   strict?: boolean
 }
-
-export type ToolUnion = InternalTool | BuiltInTool
 
 export interface PendingToolCall {
   id: string
   name: string
   input: JsonObject
-}
-
-export interface ToolExecutionResult {
-  tool_use_id: string
-  content: ToolResult
-  is_error: boolean
 }

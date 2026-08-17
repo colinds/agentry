@@ -1,5 +1,5 @@
 import { run, Agent, System, Message, Tools, Tool } from 'agentry'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { MODEL } from '../constants'
 
 /**
@@ -29,11 +29,7 @@ const result = await run(
     provider="anthropic"
     model={MODEL}
     maxTokens={8000}
-    thinking={{
-      type: 'enabled',
-      budget_tokens: 4000,
-      interleaved: true, // allows thinking during tool execution
-    }}
+    thinking="high"
     onStepFinish={(step) => {
       apiCallCount++
       console.log(`\n${'='.repeat(70)}`)
@@ -65,8 +61,8 @@ const result = await run(
       <Tool
         name="check_weather"
         description="Check weather for a destination"
-        parameters={z.object({
-          city: z.string(),
+        parameters={Type.Object({
+          city: Type.String(),
         })}
         handler={async ({ city }) => {
           return `Weather in ${city}: Sunny, 22°C, perfect for sightseeing!`
@@ -75,9 +71,13 @@ const result = await run(
       <Tool
         name="find_hotels"
         description="Find available hotels"
-        parameters={z.object({
-          city: z.string(),
-          budget: z.enum(['budget', 'moderate', 'luxury']),
+        parameters={Type.Object({
+          city: Type.String(),
+          budget: Type.Union([
+            Type.Literal('budget'),
+            Type.Literal('moderate'),
+            Type.Literal('luxury'),
+          ]),
         })}
         handler={async ({ city, budget }) => {
           const hotels = {
@@ -91,9 +91,9 @@ const result = await run(
       <Tool
         name="suggest_activities"
         description="Suggest activities based on weather and location"
-        parameters={z.object({
-          city: z.string(),
-          weather: z.string(),
+        parameters={Type.Object({
+          city: Type.String(),
+          weather: Type.String(),
         })}
         handler={async ({ city, weather }) => {
           if (weather.toLowerCase().includes('sunny')) {
@@ -105,10 +105,10 @@ const result = await run(
       <Tool
         name="calculate_budget"
         description="Calculate total trip cost"
-        parameters={z.object({
-          hotel_cost: z.number(),
-          nights: z.number(),
-          activities_cost: z.number(),
+        parameters={Type.Object({
+          hotel_cost: Type.Number(),
+          nights: Type.Number(),
+          activities_cost: Type.Number(),
         })}
         handler={async ({ hotel_cost, nights, activities_cost }) => {
           const hotel_total = hotel_cost * nights

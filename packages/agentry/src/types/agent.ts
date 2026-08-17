@@ -1,40 +1,32 @@
-import type { OnStepFinishResult } from './lifecycle'
-import type { AgentMessageParam } from './messages'
-import type { JsonObject } from './json'
-import type { Model as _AnthropicModel } from '@anthropic-ai/sdk/resources/messages'
 import type {
-  Reasoning,
-  ReasoningEffort,
-  ResponsesModel,
-} from 'openai/resources/shared'
+  CacheRetention,
+  KnownProvider,
+  ProviderHeaders,
+  RetryPolicy,
+  ThinkingLevel,
+} from '@earendil-works/pi-ai'
+import type { OnStepFinishResult } from './lifecycle'
+import type { AgentMessageParam, StopReason } from './messages'
 
-export type AnthropicModel = _AnthropicModel
-export type OpenAIModel = ResponsesModel
-export type Model = AnthropicModel | OpenAIModel
+export type {
+  CacheRetention,
+  ProviderHeaders,
+  RetryPolicy,
+  ThinkingLevel,
+} from '@earendil-works/pi-ai'
 
-export interface AnthropicThinkingEnabled {
-  type: 'enabled'
-  budget_tokens: number
-  interleaved: boolean
-}
-
-export interface OpenAIThinkingEnabled {
-  type: 'enabled'
-  effort: NonNullable<ReasoningEffort>
-  summary: NonNullable<Reasoning['summary']>
-}
-
-export type ThinkingConfig =
-  | { type: 'disabled' }
-  | AnthropicThinkingEnabled
-  | OpenAIThinkingEnabled
+/**
+ * Provider ids pi ships with, while still allowing custom providers registered
+ * on a `Models` collection. Model ids are plain strings — pi owns the catalog.
+ */
+export type ProviderId = KnownProvider | (string & {})
+export type Model = string
 
 export interface BaseAgentProps {
   name?: string
   description?: string
   maxTokens?: number
   maxIterations?: number
-  stopSequences?: string[]
   temperature?: number
   stream?: boolean
   onMessage?: (message: AgentStreamEvent) => void
@@ -42,36 +34,49 @@ export interface BaseAgentProps {
   onError?: (error: Error) => void
   onStepFinish?: (result: OnStepFinishResult) => void | Promise<void>
   compactionControl?: CompactionControl
+
+  /** Retry policy for transient provider failures. */
+  retry?: RetryPolicy
+  /** Prompt-cache retention hint. Defaults to pi's `'short'`. */
+  cacheRetention?: CacheRetention
+  /** Request timeout in ms. Without this the provider SDK default (10m) applies. */
+  timeoutMs?: number
+  /** Custom HTTP headers, e.g. to reach a corporate gateway. */
+  headers?: ProviderHeaders
+  /**
+   * Extra sampling knobs merged into the request body (`top_p`, `top_k`, ...).
+   * Applied only by OpenAI-compatible APIs; silently ignored on Anthropic,
+   * Google and Bedrock.
+   */
+  samplingParams?: Record<string, unknown>
 }
 
 /**
- * Base discriminated union for provider + model selection.
- * Narrows `model` to the correct SDK type based on `provider`.
- * Extended by `ProviderVariant` (Agent) and used directly by `Condition`.
+ * Provider + model selection. Both are plain strings now that pi resolves them
+ * against its catalog, so there is no per-provider discriminated union.
  */
-export type ProviderModelOverride =
-  | { provider: 'anthropic'; model?: AnthropicModel }
-  | { provider: 'openai'; model?: OpenAIModel }
-  | { provider?: undefined; model?: Model }
+export interface ProviderModelOverride {
+  provider?: ProviderId
+  model?: Model
+}
 
-export type ProviderVariant =
-  | (Extract<ProviderModelOverride, { provider: 'anthropic' }> & {
-      thinking?: AnthropicThinkingEnabled | { type: 'disabled' }
-      betas?: string[]
-    })
-  | (Extract<ProviderModelOverride, { provider: 'openai' }> & {
-      thinking?: OpenAIThinkingEnabled | { type: 'disabled' }
-      websocket?: boolean
-    })
-  | (Extract<ProviderModelOverride, { provider?: undefined }> & {
-      thinking?: ThinkingConfig
-    })
+export interface ProviderVariant extends ProviderModelOverride {
+  /** Normalized reasoning effort; pi maps it to each provider's native knob. */
+  thinking?: ThinkingLevel
+}
 
 export type AgentProps = BaseAgentProps & ProviderVariant
 
 export interface CompactionControl {
   enabled: boolean
+  /** Trigger compaction once a turn reports this many total tokens. */
   contextTokenThreshold?: number
+  /**
+   * How much of the recent conversation to keep verbatim rather than fold into
+   * the summary. Defaults to ~16k tokens. Note that changing the transcript
+   * invalidates the provider's prompt cache, so compact rarely.
+   */
+  keepRecentTokens?: number
   model?: Model
   summaryPrompt?: string
 }
@@ -80,23 +85,44 @@ export type AgentStreamEvent =
   | { type: 'text'; text: string; accumulated: string }
   | { type: 'tool_use_start'; toolName: string; toolId: string }
   | { type: 'tool_result'; toolId: string; result: string; isError: boolean }
-  | {
-      type: 'provider_event'
-      itemType: string
-      item: JsonObject
-    }
   | { type: 'thinking'; text: string }
-  | { type: 'message_complete'; stopReason: string | null }
+  | {
+      type: 'retry'
+      attempt: number
+      maxAttempts: number
+      delayMs: number
+      error: string
+    }
+  | { type: 'message_complete'; stopReason: StopReason | null }
 
 export interface AgentResult {
   content: string
   messages: AgentMessageParam[]
+  /**
+   * Totals for the whole run, summed over every provider call it made — a tool
+   * loop is many turns, not one.
+   */
   usage: {
     inputTokens: number
     outputTokens: number
     cacheCreationInputTokens?: number
     cacheReadInputTokens?: number
+    /** Reasoning tokens, where the provider reports them. Subset of output. */
+    reasoningTokens?: number
+    /** Total cost in USD, computed by pi from the model's rate card. */
+    costUSD?: number
+    /**
+     * Per-category cost breakdown. The cache split is the most actionable
+     * signal here — it is how you find out your prompt cache is not hitting.
+     */
+    cost?: {
+      input: number
+      output: number
+      cacheRead: number
+      cacheWrite: number
+      total: number
+    }
   }
-  stopReason: string | null
+  stopReason: StopReason | null
   thinking?: string
 }

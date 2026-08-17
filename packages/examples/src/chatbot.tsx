@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { Type } from 'agentry'
 import {
   createAI,
   defineTool,
@@ -8,24 +8,13 @@ import {
   Tool,
   AgentTool,
 } from 'agentry'
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
-import { WebSearch as AnthropicWebSearch } from 'agentry/anthropic'
-import { WebSearch as OpenAIWebSearch } from 'agentry/openai'
 import { MODEL, OPENAI_MODEL } from './constants'
 import { runInteractive } from './utils/interactive'
 
 const EXAMPLE_PROVIDER =
   process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
-const WebSearch =
-  EXAMPLE_PROVIDER === 'openai' ? OpenAIWebSearch : AnthropicWebSearch
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
-const ai =
-  EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ providers: { openai: { client: new OpenAI() } } })
-    : createAI({
-        providers: { anthropic: { client: new Anthropic() } },
-      })
+const ai = EXAMPLE_PROVIDER === 'openai' ? createAI() : createAI()
 
 const ChatbotAgent = () => {
   // Calculator tool for basic math
@@ -33,10 +22,10 @@ const ChatbotAgent = () => {
     name: 'calculate',
     description: 'Perform basic math calculations',
     strict: true,
-    parameters: z.object({
-      expression: z
-        .string()
-        .describe('Mathematical expression to evaluate (e.g., "2 + 2")'),
+    parameters: Type.Object({
+      expression: Type.String({
+        description: 'Mathematical expression to evaluate (e.g., "2 + 2")',
+      }),
     }),
     handler: async ({ expression }) => {
       try {
@@ -55,7 +44,7 @@ const ChatbotAgent = () => {
   const timeTool = defineTool({
     name: 'get_time',
     description: 'Get the current date and time in ISO format',
-    parameters: z.object({}), // no parameters needed
+    parameters: Type.Object({}), // no parameters needed
     handler: async () => {
       return new Date().toISOString()
     },
@@ -65,7 +54,7 @@ const ChatbotAgent = () => {
   const jokeTool = defineTool({
     name: 'tell_joke',
     description: 'Tell a short, family-friendly programming joke',
-    parameters: z.object({}), // no parameters needed
+    parameters: Type.Object({}), // no parameters needed
     handler: async () => {
       const jokes = [
         'Why do programmers prefer dark mode? Because light attracts bugs.',
@@ -78,22 +67,51 @@ const ChatbotAgent = () => {
     },
   })
 
-  // Web search subagent that specializes in online research
-  const WebSearchSubagent = () => (
+  // A subagent with a tool the parent does not have. Agentry ships no built-in
+  // tools of any kind, so the research subagent gets a plain fetch tool —
+  // written the same way you would write any other.
+  const fetchUrlTool = defineTool({
+    name: 'fetch_url',
+    description: 'Fetch a URL and return its text content, truncated.',
+    parameters: Type.Object({
+      url: Type.String({ description: 'Absolute http(s) URL to fetch' }),
+    }),
+    handler: async ({ url }) => {
+      try {
+        const response = await fetch(url, {
+          headers: { 'user-agent': 'agentry-example' },
+          signal: AbortSignal.timeout(15_000),
+        })
+        if (!response.ok) {
+          return `Request failed: ${response.status} ${response.statusText}`
+        }
+        const body = await response.text()
+        return body.slice(0, 4000)
+      } catch (error) {
+        // Returned as a string so the model can recover and try another URL.
+        return `Could not fetch ${url}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      }
+    },
+  })
+
+  const ResearchSubagent = () => (
     <Agent
       provider={EXAMPLE_PROVIDER}
       model={EXAMPLE_MODEL}
-      name="web_researcher"
-      description="Specialist subagent for web research using the web_search tool"
+      name="researcher"
+      description="Specialist subagent that reads web pages and summarizes them"
       maxTokens={2048}
     >
       <System>
-        You are a focused web research assistant. Use the web_search tool to
-        find up-to-date information on the internet, then synthesize concise,
-        source-backed answers. Prefer official and reputable sources.
+        You are a focused research assistant. Use the fetch_url tool to read
+        pages the user names or that you can infer, then synthesize a concise,
+        source-backed answer. Say so plainly when a page does not answer the
+        question — you cannot search, you can only fetch URLs.
       </System>
       <Tools>
-        <WebSearch maxUses={5} />
+        <Tool {...fetchUrlTool} />
       </Tools>
     </Agent>
   )
@@ -109,18 +127,22 @@ const ChatbotAgent = () => {
         You are a helpful AI assistant. Be concise and friendly. You have access
         to several tools: a calculator for math problems, a time tool for
         current timestamps, a joke tool for light-hearted responses, and a
-        web_researcher subagent that can browse the web using the web_search
-        tool when you need fresh, online information.
+        researcher subagent that can fetch and summarize a web page when you
+        have a URL to read.
       </System>
       <Tools>
         <Tool {...calculatorTool} />
         <Tool {...timeTool} />
         <Tool {...jokeTool} />
         <AgentTool
-          name="web_researcher"
-          description="Specialist subagent for web research using the web_search tool"
-          parameters={z.object({})}
-          agent={() => <WebSearchSubagent />}
+          name="researcher"
+          description="Reads a web page and summarizes it. Give it a URL and a question."
+          parameters={Type.Object({
+            request: Type.String({
+              description: 'What to find out, including any URL to read',
+            }),
+          })}
+          agent={() => <ResearchSubagent />}
         />
       </Tools>
     </Agent>

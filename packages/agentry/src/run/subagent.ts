@@ -1,12 +1,12 @@
 import { SubagentHandle } from '../handles'
 import type { AgentResult } from '../types'
 import type { SubagentInstance } from '../instances'
-import type { ProviderClientMap } from '../providers/types'
+import type { Models } from '@earendil-works/pi-ai'
 import type { ProviderName } from '../types/provider'
 
 export interface RunSubagentOptions {
-  /** provider clients */
-  clients?: Partial<ProviderClientMap>
+  /** pi model collection */
+  models: Models
   /** provider for subagent execution */
   provider?: ProviderName
   /** abort signal for cancellation */

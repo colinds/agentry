@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { run, defineTool, Agent, System, Tools, Tool, Message } from 'agentry'
 import { MODEL } from './constants'
 
@@ -22,12 +22,13 @@ function MathAgent() {
             name: 'calculator',
             description: 'perform basic math (add, subtract)',
             strict: true,
-            parameters: z.object({
-              operation: z
-                .enum(['add', 'subtract'])
-                .describe('the operation to perform'),
-              a: z.number().describe('first number'),
-              b: z.number().describe('second number'),
+            parameters: Type.Object({
+              operation: Type.Union(
+                [Type.Literal('add'), Type.Literal('subtract')],
+                { description: 'the operation to perform' },
+              ),
+              a: Type.Number({ description: 'first number' }),
+              b: Type.Number({ description: 'second number' }),
             }),
             handler: async ({ operation, a, b }) => {
               const result = operation === 'add' ? a + b : a - b
@@ -43,8 +44,10 @@ function MathAgent() {
               description:
                 'unlock advanced math operations (multiply, divide, power)',
               strict: true,
-              parameters: z.object({
-                confirm: z.boolean().describe('set to true to confirm'),
+              parameters: Type.Object({
+                confirm: Type.Boolean({
+                  description: 'set to true to confirm',
+                }),
               }),
               handler: async ({ confirm }) => {
                 if (!confirm) return 'Set confirm to true to unlock.'
@@ -63,12 +66,17 @@ function MathAgent() {
               name: 'advanced_calculator',
               description: 'perform advanced math (multiply, divide, power)',
               strict: true,
-              parameters: z.object({
-                operation: z
-                  .enum(['multiply', 'divide', 'power'])
-                  .describe('the operation to perform'),
-                a: z.number().describe('first number'),
-                b: z.number().describe('second number'),
+              parameters: Type.Object({
+                operation: Type.Union(
+                  [
+                    Type.Literal('multiply'),
+                    Type.Literal('divide'),
+                    Type.Literal('power'),
+                  ],
+                  { description: 'the operation to perform' },
+                ),
+                a: Type.Number({ description: 'first number' }),
+                b: Type.Number({ description: 'second number' }),
               }),
               handler: async ({ operation, a, b }) => {
                 switch (operation) {

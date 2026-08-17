@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import type { InternalTool, InternalAgentTool } from '../types'
-import type { BuiltInTool } from '../types/tools'
 import type { AgentComponentPublicProps } from './Agent.tsx'
 import type { MCPServerConfig } from '../instances/types'
 import type { AgentContentBlock } from '../types/messages'
@@ -22,11 +21,9 @@ export interface AgentryElements {
 
   agent_tool: { agentTool: InternalAgentTool; key?: string }
 
-  built_in_tool: { tool: BuiltInTool; key?: string }
+  system: { children: ReactNode }
 
-  system: { children: ReactNode; cache?: 'ephemeral' }
-
-  context: { children: ReactNode; cache?: 'ephemeral' }
+  context: { children: ReactNode }
 
   message: {
     role: 'user' | 'assistant'
@@ -36,13 +33,7 @@ export interface AgentryElements {
 
   tools: { children?: ReactNode }
 
-  mcp_server: {
-    name: string
-    url: string
-    authorization_token?: string
-    tool_configuration?: MCPServerConfig['tool_configuration']
-    key?: string
-  }
+  mcp_server: MCPServerConfig & { key?: string }
 
   condition: {
     when: boolean | string

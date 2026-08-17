@@ -1,91 +1,146 @@
-import type { JsonObject } from './json'
+import type {
+  AssistantMessage,
+  Usage,
+  ImageContent,
+  Message,
+  TextContent,
+  ThinkingContent,
+  ToolCall,
+  ToolResultMessage,
+  UserMessage,
+} from '@earendil-works/pi-ai'
 
-export type TextContentArray = TextContentBlock[]
+export type {
+  AssistantMessage,
+  ImageContent,
+  Message,
+  StopReason,
+  TextContent,
+  ThinkingContent,
+  ToolCall,
+  ToolResultMessage,
+  Usage,
+  UserMessage,
+} from '@earendil-works/pi-ai'
 
-export interface TextContentBlock {
-  type: 'text'
-  text: string
-}
+/**
+ * Agentry's message model is pi's. These aliases keep the historical agentry
+ * names readable at call sites, but they are pi types — not a parallel
+ * hierarchy with converters at the edge.
+ */
+export type AgentMessage = AssistantMessage
+export type AgentMessageParam = Message
 
-export interface ThinkingContentBlock {
-  type: 'thinking'
-  thinking: string
-}
+export type AgentContentBlock = TextContent | ThinkingContent | ToolCall
+export type TextContentArray = TextContent[]
 
-export interface ToolUseContentBlock {
-  type: 'tool_use'
-  id: string
-  name: string
-  input: JsonObject
-}
-
-export interface ToolResultContentBlock {
-  type: 'tool_result'
-  tool_use_id: string
-  content: string | TextContentArray
-  is_error: boolean
-}
-
-export type AgentContentBlock =
-  | TextContentBlock
-  | ThinkingContentBlock
-  | ToolUseContentBlock
-  | ToolResultContentBlock
-
-export interface AgentMessageParam {
-  role: 'user' | 'assistant'
-  content: string | AgentContentBlock[]
-}
-
-type StopReason =
-  | 'end_turn'
-  | 'tool_use'
-  | 'max_tokens'
-  | 'length'
-  | (string & {})
-
-export interface AgentMessage {
-  content: AgentContentBlock[]
-  stop_reason: StopReason | null
-  usage: {
-    input_tokens: number
-    output_tokens: number
-    cache_creation_input_tokens?: number | null
-    cache_read_input_tokens?: number | null
-  }
-}
-
-export function isToolUseBlock(
-  block: AgentContentBlock,
-): block is ToolUseContentBlock {
-  return block.type === 'tool_use'
-}
-
-export function isTextBlock(
-  block: AgentContentBlock,
-): block is TextContentBlock {
+export function isTextBlock(block: AgentContentBlock): block is TextContent {
   return block.type === 'text'
 }
 
 export function isThinkingBlock(
   block: AgentContentBlock,
-): block is ThinkingContentBlock {
+): block is ThinkingContent {
   return block.type === 'thinking'
 }
 
-export function isToolResultBlock(
-  block: AgentContentBlock,
-): block is ToolResultContentBlock {
-  return block.type === 'tool_result'
+export function isToolCallBlock(block: AgentContentBlock): block is ToolCall {
+  return block.type === 'toolCall'
 }
 
-export function extractText(message: AgentMessage): string {
+export function isAssistantMessage(
+  message: Message,
+): message is AssistantMessage {
+  return message.role === 'assistant'
+}
+
+export function isToolResultMessage(
+  message: Message,
+): message is ToolResultMessage {
+  return message.role === 'toolResult'
+}
+
+export function extractText(message: AssistantMessage): string {
   return message.content
     .filter(isTextBlock)
     .map((block) => block.text)
     .join('')
 }
 
-export function extractToolUses(message: AgentMessage): ToolUseContentBlock[] {
-  return message.content.filter(isToolUseBlock)
+export function extractToolCalls(message: AssistantMessage): ToolCall[] {
+  return message.content.filter(isToolCallBlock)
+}
+
+/** Reads the text out of a tool result's content blocks. */
+export function toolResultText(message: ToolResultMessage): string {
+  return message.content
+    .filter((block): block is TextContent => block.type === 'text')
+    .map((block) => block.text)
+    .join('')
+}
+
+export function userMessage(
+  content: string | Array<TextContent | ImageContent>,
+): UserMessage {
+  return { role: 'user', content, timestamp: Date.now() }
+}
+
+const EMPTY_USAGE: Usage = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  totalTokens: 0,
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+}
+
+/**
+ * Builds an assistant message for history seeded from JSX
+ * (`<Message role="assistant">`) rather than returned by a provider.
+ *
+ * pi's `AssistantMessage` carries provider attribution and usage because it
+ * normally describes a real response. A seeded turn has neither: usage is
+ * zeroed and `provider`/`model` are left blank. `api` must still be a valid
+ * literal, so it carries a placeholder that nothing reads.
+ */
+export function assistantSeedMessage(
+  content:
+    | string
+    | Array<TextContent | ThinkingContent | ToolCall | ImageContent>,
+): AssistantMessage {
+  return {
+    role: 'assistant',
+    content:
+      typeof content === 'string'
+        ? [{ type: 'text', text: content }]
+        : content.filter(
+            (block): block is TextContent | ThinkingContent | ToolCall =>
+              block.type !== 'image',
+          ),
+    api: 'anthropic-messages',
+    provider: '',
+    model: '',
+    usage: EMPTY_USAGE,
+    stopReason: 'stop',
+    timestamp: Date.now(),
+  }
+}
+
+export function toolResultMessage(options: {
+  toolCallId: string
+  toolName: string
+  content: string | Array<TextContent | ImageContent>
+  isError: boolean
+}): ToolResultMessage {
+  return {
+    role: 'toolResult',
+    toolCallId: options.toolCallId,
+    toolName: options.toolName,
+    content:
+      typeof options.content === 'string'
+        ? [{ type: 'text', text: options.content }]
+        : options.content,
+    isError: options.isError,
+    timestamp: Date.now(),
+  }
 }

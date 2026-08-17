@@ -1,5 +1,6 @@
 import type { AgentMessage } from './messages'
-import type { PendingToolCall, ToolExecutionResult } from './tools'
+import type { PendingToolCall } from './tools'
+import type { ToolResultMessage } from './messages'
 
 export enum AgentStatus {
   Idle = 'idle',
@@ -34,7 +35,7 @@ export type StateTransition =
     }
   | { type: TransitionType.ToolsRequested; pendingTools: PendingToolCall[] }
   | { type: TransitionType.ToolsExecuting; pendingTools: PendingToolCall[] }
-  | { type: TransitionType.ToolsCompleted; results: ToolExecutionResult[] }
+  | { type: TransitionType.ToolsCompleted; results: ToolResultMessage[] }
   | { type: TransitionType.Completed; finalMessage: AgentMessage }
   | { type: TransitionType.Error; error: Error }
 

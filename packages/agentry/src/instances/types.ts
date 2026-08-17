@@ -1,31 +1,32 @@
-import type { AgentMessageParam, AgentContentBlock } from '../types/messages'
+import type {
+  AgentMessageParam,
+  ImageContent,
+  TextContent,
+} from '../types/messages'
 import type {
   AgentProps,
   InternalTool,
-  BuiltInTool,
   AgentToolFunction,
   InternalAgentTool,
 } from '../types'
 import type { JsonValue } from '../types/json'
-import type { ExecutionEngine } from '../execution'
 import type { AgentStore } from '../store'
-import type { z } from 'zod'
-import type { ProviderClientMap, MCPServerConfig } from '../providers/types'
+import type { TSchema } from 'typebox'
 import type { ProviderModelOverride } from '../types/agent'
+import type { MCPServerConfig } from '../mcp/types'
 
 export type { MCPServerConfig }
 
 export enum InstanceType {
   Agent = 'agent',
   Tool = 'tool',
-  BuiltInTool = 'built_in_tool',
   System = 'system',
   Context = 'context',
   Message = 'message',
-  McpServer = 'mcp_server',
   Subagent = 'subagent',
   AgentTool = 'agent_tool',
   Tools = 'tools',
+  McpServer = 'mcp_server',
   Condition = 'condition',
 }
 
@@ -37,11 +38,16 @@ export interface BaseInstance {
 export interface AgentInstance extends BaseInstance {
   type: InstanceType.Agent
   props: AgentProps
-  client: ProviderClientMap[keyof ProviderClientMap] | undefined
-  engine: ExecutionEngine | null
-  systemParts: Array<{ content: string; cache?: 'ephemeral' }>
-  tools: InternalTool[]
-  builtInTools: BuiltInTool[]
+  systemParts: Array<{ content: string }>
+  /**
+   * Name-keyed rather than positional: a tool's identity is its name, which is
+   * what makes conditional mounting robust and lets consecutive renders be
+   * diffed. Insertion order is preserved, so wire order stays stable.
+   */
+  tools: Map<string, InternalTool>
+  /** Names seen more than once during collection; rejected at the turn boundary. */
+  /** Name -> how many extra registrations are outstanding for it. */
+  duplicateToolNames: Map<string, number>
   mcpServers: MCPServerConfig[]
   children: Instance[]
   store: AgentStore
@@ -52,21 +58,14 @@ export interface ToolInstance extends BaseInstance {
   tool: InternalTool
 }
 
-export interface BuiltInToolInstance extends BaseInstance {
-  type: InstanceType.BuiltInTool
-  tool: BuiltInTool
-}
-
 export interface SystemInstance extends BaseInstance {
   type: InstanceType.System
   content: string
-  cache?: 'ephemeral'
 }
 
 export interface ContextInstance extends BaseInstance {
   type: InstanceType.Context
   content: string
-  cache?: 'ephemeral'
 }
 
 export interface MessageInstance extends BaseInstance {
@@ -90,9 +89,10 @@ export interface SubagentInstance extends BaseInstance {
   description?: string
   props: AgentProps
   children: Instance[]
-  systemParts: Array<{ content: string; cache?: 'ephemeral' }>
-  tools: InternalTool[]
-  builtInTools: BuiltInTool[]
+  systemParts: Array<{ content: string }>
+  tools: Map<string, InternalTool>
+  /** Name -> how many extra registrations are outstanding for it. */
+  duplicateToolNames: Map<string, number>
   mcpServers: MCPServerConfig[]
   agentNode: React.ReactNode | null
 }
@@ -101,9 +101,9 @@ export interface AgentToolInstance extends BaseInstance {
   type: InstanceType.AgentTool
   name: string
   description: string
-  parameters: z.ZodType
+  parameters: TSchema
   jsonSchema: Record<string, JsonValue>
-  agent: AgentToolFunction<z.ZodType>
+  agent: AgentToolFunction<TSchema>
 }
 
 export type ConditionInstance = BaseInstance &
@@ -122,7 +122,6 @@ export type Instance =
   | SubagentInstance
   | AgentToolInstance
   | ToolInstance
-  | BuiltInToolInstance
   | SystemInstance
   | ContextInstance
   | MessageInstance
@@ -131,7 +130,6 @@ export type Instance =
   | ConditionInstance
 
 export type AgentComponentProps = AgentProps & {
-  client?: ProviderClientMap[keyof ProviderClientMap]
   children?: React.ReactNode
 }
 
@@ -143,32 +141,23 @@ export interface AgentToolComponentProps {
   agentTool: InternalAgentTool
 }
 
-export interface BuiltInToolComponentProps {
-  tool: BuiltInTool
-}
-
 export interface SystemComponentProps {
   children: React.ReactNode
-  cache?: 'ephemeral'
 }
 
 export interface ContextComponentProps {
   children: React.ReactNode
-  cache?: 'ephemeral'
 }
 
 export interface MessageComponentProps {
   role: 'user' | 'assistant'
   children?: React.ReactNode
-  rawContent?: string | AgentContentBlock[]
+  rawContent?: string | Array<TextContent | ImageContent>
 }
 
-export interface MCPServerComponentProps {
-  name: string
-  url: string
-  authorization_token?: string
-  tool_configuration?: MCPServerConfig['tool_configuration']
-}
+export type MessageRawContent = MessageComponentProps['rawContent']
+
+export type MCPServerComponentProps = MCPServerConfig
 
 export interface ToolsContainerProps {
   children?: React.ReactNode
@@ -179,18 +168,18 @@ export type ConditionComponentProps = {
   children?: React.ReactNode
 } & ProviderModelOverride
 
+export function isMCPServerInstance(
+  instance: Instance,
+): instance is MCPServerInstance {
+  return instance.type === InstanceType.McpServer
+}
+
 export function isAgentInstance(instance: Instance): instance is AgentInstance {
   return instance.type === InstanceType.Agent
 }
 
 export function isToolInstance(instance: Instance): instance is ToolInstance {
   return instance.type === InstanceType.Tool
-}
-
-export function isBuiltInToolInstance(
-  instance: Instance,
-): instance is BuiltInToolInstance {
-  return instance.type === InstanceType.BuiltInTool
 }
 
 export function isSystemInstance(
@@ -228,12 +217,6 @@ export function isAgentLike(instance: Instance): instance is AgentLike {
     instance.type === InstanceType.Agent ||
     instance.type === InstanceType.Subagent
   )
-}
-
-export function isMCPServerInstance(
-  instance: Instance,
-): instance is MCPServerInstance {
-  return instance.type === InstanceType.McpServer
 }
 
 export function isAgentToolInstance(

@@ -1,22 +1,32 @@
 export {
   type AgentMessage,
   type AgentMessageParam,
+  type AssistantMessage,
+  type Message,
+  type StopReason,
+  type TextContent,
+  type ThinkingContent,
+  type ToolCall,
+  type ToolResultMessage,
+  type Usage,
+  type UserMessage,
   extractText,
-  extractToolUses,
+  extractToolCalls,
+  isAssistantMessage,
+  isToolResultMessage,
+  toolResultMessage,
+  toolResultText,
+  userMessage,
 } from './messages'
 
 export {
   type ToolResult,
   type ToolContext,
   type InternalTool,
+  type AnyInternalTool,
   type DefineToolOptions,
+  type RunAgentOptions,
   type PendingToolCall,
-  type BuiltInTool,
-  type WebSearchTool,
-  type MemoryTool,
-  type MemoryHandlers,
-  BuiltInToolType,
-  isMemoryTool,
 } from './tools'
 
 export {
@@ -39,13 +49,13 @@ export { type ProviderName } from './provider'
 
 export {
   type Model,
-  type AnthropicModel,
-  type OpenAIModel,
+  type ProviderId,
+  type ThinkingLevel,
+  type CacheRetention,
+  type ProviderHeaders,
+  type RetryPolicy,
   type AgentProps,
   type BaseAgentProps,
-  type ThinkingConfig,
-  type AnthropicThinkingEnabled,
-  type OpenAIThinkingEnabled,
   type CompactionControl,
   type ProviderModelOverride,
   type AgentStreamEvent,

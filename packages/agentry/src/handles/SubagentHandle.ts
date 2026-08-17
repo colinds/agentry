@@ -9,11 +9,8 @@ import {
 import type { AgentMessageParam } from '../types/messages'
 import { AbstractAgentHandle } from './AbstractAgentHandle'
 import type { ExecutionEngineConfig } from '../execution/ExecutionEngine'
-import type { ProviderClientMap } from '../providers/types'
 import type { ProviderName } from '../types/provider'
-import { createDefaultAdapters } from '../providers'
-import { createOpenAIAdapter } from '../providers/openai'
-import { ensureProviderClient } from '../providers/clientResolver'
+import type { Models } from '@earendil-works/pi-ai'
 
 export class SubagentHandle extends AbstractAgentHandle {
   private subagent: SubagentInstance
@@ -23,7 +20,7 @@ export class SubagentHandle extends AbstractAgentHandle {
   constructor(
     subagent: SubagentInstance,
     options: {
-      clients?: Partial<ProviderClientMap>
+      models: Models
       provider?: ProviderName
       signal?: AbortSignal
     },
@@ -33,18 +30,15 @@ export class SubagentHandle extends AbstractAgentHandle {
     if (!provider) {
       throw new Error('Provider is required for the subagent.')
     }
-    const clients: Partial<ProviderClientMap> = { ...options.clients }
 
     const store = createAgentStore()
 
     const container: AgentInstance = {
       type: InstanceType.Agent,
       props: { ...subagent.props },
-      client: undefined,
-      engine: null,
       systemParts: [],
-      tools: [],
-      builtInTools: [],
+      tools: new Map(),
+      duplicateToolNames: new Map(),
       mcpServers: [],
       children: [],
       parent: null,
@@ -54,8 +48,7 @@ export class SubagentHandle extends AbstractAgentHandle {
     const containerInfo = createContainer(container)
 
     super({
-      clients,
-      adapters: createDefaultAdapters(),
+      models: options.models,
       containerInfo,
       store,
     })
@@ -74,6 +67,12 @@ export class SubagentHandle extends AbstractAgentHandle {
 
   protected shouldEmitEvents(): boolean {
     return false
+  }
+
+  protected override async renderTurn(): Promise<void> {
+    if (this.subagent.agentNode) {
+      await this.renderWithProvider(this.subagent.agentNode)
+    }
   }
 
   protected override beforeExecution(
@@ -118,21 +117,11 @@ export class SubagentHandle extends AbstractAgentHandle {
       agentInstance.props.temperature = sub.temperature
     if (sub.maxIterations !== undefined)
       agentInstance.props.maxIterations = sub.maxIterations
-    if (sub.stopSequences !== undefined)
-      agentInstance.props.stopSequences = sub.stopSequences
     if (sub.stream !== undefined) agentInstance.props.stream = sub.stream
 
     const provider = agentInstance.props.provider
     if (!provider) {
       throw new Error('Provider is required on the subagent instance.')
-    }
-    agentInstance.client = await ensureProviderClient(this.clients, provider)
-
-    if (
-      agentInstance.props.provider === 'openai' &&
-      agentInstance.props.websocket
-    ) {
-      this.adapters.openai = createOpenAIAdapter({ websocket: true })
     }
 
     return agentInstance

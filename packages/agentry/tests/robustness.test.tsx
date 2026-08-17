@@ -1,0 +1,657 @@
+import { describe, expect, test } from 'bun:test'
+import {
+  createModels,
+  fauxAssistantMessage,
+  fauxProvider,
+} from '@earendil-works/pi-ai'
+import {
+  AgentryContextOverflowError,
+  AgentryProviderError,
+  createTurn,
+} from '../src/pi/turn'
+import { describeMissingAuth } from '../src/pi/models'
+import { userMessage } from '../src/types/messages'
+import {
+  run,
+  createAgent,
+  Type,
+  Agent,
+  System,
+  Tools,
+  Tool,
+  Message,
+} from '../src'
+import { createStepMockModels, fauxText, fauxToolCall } from './utils'
+import { ANTHROPIC_TEST_MODEL } from './constants'
+import type { AgentStreamEvent } from '../src/types'
+import {
+  isToolResultMessage,
+  extractToolCalls,
+  isAssistantMessage,
+} from '../src/types/messages'
+
+const userTurn = {
+  messages: [{ role: 'user' as const, content: 'hi', timestamp: 0 }],
+}
+
+describe('context overflow', () => {
+  test('is raised as its own error type, not a generic provider error', async () => {
+    const { models, model, controller } = createStepMockModels([
+      { content: '' },
+    ])
+
+    const turn = createTurn(models, {
+      model,
+      context: userTurn,
+      stream: false,
+      signal: new AbortController().signal,
+      onStream: () => {},
+    })
+
+    await controller.waitForNextCall()
+    // Wording pi's overflow patterns recognise across providers.
+    controller.rejectNextCall(
+      'prompt is too long: 250000 tokens > 200000 maximum',
+    )
+
+    await expect(turn).rejects.toThrow(AgentryContextOverflowError)
+  })
+
+  test('carries the model context window so a caller can act on it', async () => {
+    const { models, model, controller } = createStepMockModels([
+      { content: '' },
+    ])
+
+    const turn = createTurn(models, {
+      model,
+      context: userTurn,
+      stream: false,
+      signal: new AbortController().signal,
+      onStream: () => {},
+    }).catch((e: unknown) => e)
+
+    await controller.waitForNextCall()
+    controller.rejectNextCall(
+      'prompt is too long: 250000 tokens > 200000 maximum',
+    )
+
+    const error = (await turn) as AgentryContextOverflowError
+    expect(error).toBeInstanceOf(AgentryContextOverflowError)
+    expect(error.contextWindow).toBe(model.contextWindow)
+    expect(error.model).toBe(model.id)
+  })
+
+  test('an ordinary failure is still a plain provider error', async () => {
+    const { models, model, controller } = createStepMockModels([
+      { content: '' },
+    ])
+
+    const turn = createTurn(models, {
+      model,
+      context: userTurn,
+      stream: false,
+      signal: new AbortController().signal,
+      onStream: () => {},
+    })
+
+    await controller.waitForNextCall()
+    controller.rejectNextCall('upstream exploded')
+
+    await expect(turn).rejects.toThrow(AgentryProviderError)
+    await expect(turn).rejects.not.toThrow(AgentryContextOverflowError)
+  })
+})
+
+describe('abort', () => {
+  test('a pi-reported abort becomes a thrown AbortError', async () => {
+    // pi reports aborts as a *value* (`stopReason: 'aborted'`), not a throw.
+    // The engine's cancellation path depends on the seam converting it back,
+    // so that conversion is what this asserts — not pi's own signal handling.
+    const { models, model, controller } = createStepMockModels([
+      { content: '', stopReason: 'aborted', errorMessage: 'cancelled by user' },
+    ])
+
+    const turn = createTurn(models, {
+      model,
+      context: userTurn,
+      stream: false,
+      signal: new AbortController().signal,
+      onStream: () => {},
+    }).catch((e: unknown) => e)
+
+    await controller.nextTurn()
+    const error = (await turn) as Error
+
+    expect(error).toBeInstanceOf(Error)
+    expect(error.name).toBe('AbortError')
+    expect(error.message).toContain('cancelled by user')
+  })
+})
+
+describe('retry', () => {
+  test('a retryable failure is retried and surfaced as stream events', async () => {
+    // pi classifies which failures are worth retrying (529 yes, 401 no); this
+    // asserts agentry wires that in and reports it, not that pi classifies well.
+    const faux = fauxProvider({ provider: 'anthropic' })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let attempts = 0
+    faux.setResponses([
+      () => {
+        attempts++
+        return fauxAssistantMessage('', {
+          stopReason: 'error',
+          errorMessage: '529 overloaded_error',
+        })
+      },
+      () => {
+        attempts++
+        return fauxAssistantMessage('', {
+          stopReason: 'error',
+          errorMessage: '529 overloaded_error',
+        })
+      },
+      () => {
+        attempts++
+        return fauxAssistantMessage('recovered')
+      },
+    ])
+
+    const events: AgentStreamEvent[] = []
+    const message = await createTurn(models, {
+      model: faux.getModel(),
+      context: userTurn,
+      stream: false,
+      retry: { enabled: true, maxRetries: 3, baseDelayMs: 1 },
+      signal: new AbortController().signal,
+      onStream: (e) => events.push(e),
+    })
+
+    expect(attempts).toBe(3)
+    expect(message.stopReason).toBe('stop')
+
+    const retries = events.filter((e) => e.type === 'retry')
+    expect(retries).toHaveLength(2)
+    expect(retries[0]).toMatchObject({ attempt: 1, maxAttempts: 3 })
+  })
+
+  test('a streaming failure before the first event is retried', async () => {
+    // Agents default to stream: true, so covering only the non-streaming path
+    // left retry inert in the default configuration.
+    const faux = fauxProvider({ provider: 'anthropic' })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let attempts = 0
+    faux.setResponses([
+      () => {
+        attempts++
+        return fauxAssistantMessage('', {
+          stopReason: 'error',
+          errorMessage: '503 service unavailable',
+        })
+      },
+      () => {
+        attempts++
+        return fauxAssistantMessage('recovered')
+      },
+    ])
+
+    const events: AgentStreamEvent[] = []
+    const message = await createTurn(models, {
+      model: faux.getModel(),
+      context: userTurn,
+      stream: true,
+      retry: { enabled: true, maxRetries: 3, baseDelayMs: 1 },
+      signal: new AbortController().signal,
+      onStream: (e) => events.push(e),
+    })
+
+    expect(attempts).toBe(2)
+    expect(message.stopReason).toBe('stop')
+    expect(events.filter((e) => e.type === 'retry')).toHaveLength(1)
+  })
+
+  test('a streaming failure after output has been emitted is not retried', async () => {
+    // Retrying here would replay text the consumer has already seen.
+    const faux = fauxProvider({ provider: 'anthropic' })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let attempts = 0
+    faux.setResponses([
+      () => {
+        attempts++
+        return fauxAssistantMessage('partial answer', {
+          stopReason: 'error',
+          errorMessage: '503 service unavailable',
+        })
+      },
+      () => {
+        attempts++
+        return fauxAssistantMessage('recovered')
+      },
+    ])
+
+    const events: AgentStreamEvent[] = []
+    await expect(
+      createTurn(models, {
+        model: faux.getModel(),
+        context: userTurn,
+        stream: true,
+        retry: { enabled: true, maxRetries: 3, baseDelayMs: 1 },
+        signal: new AbortController().signal,
+        onStream: (e) => events.push(e),
+      }),
+    ).rejects.toThrow(/service unavailable/)
+
+    expect(attempts).toBe(1)
+    expect(events.filter((e) => e.type === 'retry')).toHaveLength(0)
+  })
+
+  test('a non-retryable failure fails immediately', async () => {
+    const faux = fauxProvider({ provider: 'anthropic' })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let attempts = 0
+    faux.setResponses(
+      Array.from({ length: 3 }, () => () => {
+        attempts++
+        return fauxAssistantMessage('', {
+          stopReason: 'error',
+          errorMessage: '401 invalid api key',
+        })
+      }),
+    )
+
+    await expect(
+      createTurn(models, {
+        model: faux.getModel(),
+        context: userTurn,
+        stream: false,
+        retry: { enabled: true, maxRetries: 3, baseDelayMs: 1 },
+        signal: new AbortController().signal,
+        onStream: () => {},
+      }),
+    ).rejects.toThrow(AgentryProviderError)
+
+    // An auth failure must not burn retries.
+    expect(attempts).toBe(1)
+  })
+})
+
+describe('request options reach pi', () => {
+  test('timeoutMs, headers, samplingParams and cacheRetention are forwarded', async () => {
+    const { models, controller } = createStepMockModels([
+      { content: [fauxText('ok')] },
+    ])
+
+    const runPromise = run(
+      <Agent
+        provider="anthropic"
+        model={ANTHROPIC_TEST_MODEL}
+        maxTokens={100}
+        stream={false}
+        timeoutMs={12_345}
+        cacheRetention="long"
+        headers={{ 'x-corp-gateway': 'yes' }}
+        samplingParams={{ top_p: 0.9 }}
+      >
+        <System>Test</System>
+        <Message role="user">Hi</Message>
+      </Agent>,
+      { models },
+    )
+
+    await controller.waitForNextCall()
+    const options = controller.peekNextCall()!.options as Record<
+      string,
+      unknown
+    >
+
+    // `cacheRetention` in particular was declared and read but never set —
+    // permanently undefined until it was wired.
+    expect(options.timeoutMs).toBe(12_345)
+    expect(options.cacheRetention).toBe('long')
+    expect(options.headers).toEqual({ 'x-corp-gateway': 'yes' })
+    expect(options.samplingParams).toEqual({ top_p: 0.9 })
+    expect(options.sessionId).toBeDefined()
+
+    await controller.nextTurn()
+    await runPromise
+  })
+
+  test('thinking is clamped to what the model supports', async () => {
+    // A model with no reasoning support must degrade rather than error.
+    // The assertion is made *after* the call: an expect() thrown inside the
+    // faux response callback is swallowed into a provider error, so an
+    // in-callback assertion would pass even if clamping were deleted.
+    const faux = fauxProvider({
+      provider: 'anthropic',
+      models: [{ id: 'no-thinking', reasoning: false }],
+    })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let seenReasoning: unknown = 'not captured'
+    faux.setResponses([
+      (_ctx, options) => {
+        seenReasoning = options?.reasoning
+        return fauxAssistantMessage('ok')
+      },
+    ])
+
+    const message = await createTurn(models, {
+      model: faux.getModel(),
+      context: userTurn,
+      reasoning: 'high',
+      stream: false,
+      signal: new AbortController().signal,
+      onStream: () => {},
+    })
+
+    expect(message.stopReason).toBe('stop')
+    expect(seenReasoning).toBeUndefined()
+  })
+
+  test('a supported thinking level is passed through unchanged', async () => {
+    const faux = fauxProvider({
+      provider: 'anthropic',
+      models: [{ id: 'thinks', reasoning: true }],
+    })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let seenReasoning: unknown
+    faux.setResponses([
+      (_ctx, options) => {
+        seenReasoning = options?.reasoning
+        return fauxAssistantMessage('ok')
+      },
+    ])
+
+    await createTurn(models, {
+      model: faux.getModel(),
+      context: userTurn,
+      reasoning: 'high',
+      stream: false,
+      signal: new AbortController().signal,
+      onStream: () => {},
+    })
+
+    expect(seenReasoning).toBe('high')
+  })
+})
+
+describe('auth preflight', () => {
+  test('a configured provider is not flagged', async () => {
+    // The faux provider resolves auth, so this is the false-positive guard:
+    // preflight must never block a run that would have worked.
+    const { models } = createStepMockModels([])
+    expect(await describeMissingAuth(models, 'anthropic')).toBeUndefined()
+  })
+
+  test('an unconfigured provider is named, with its credential type', async () => {
+    // Built deterministically rather than probing the environment for a
+    // provider that happens to be unset: the previous version returned early
+    // when it found none, so gutting describeMissingAuth to `return undefined`
+    // made it find none and silently assert nothing.
+    const { createProvider, createModels } = await import(
+      '@earendil-works/pi-ai'
+    )
+    const models = createModels()
+    models.setProvider(
+      createProvider({
+        id: 'unconfigured-test',
+        auth: {
+          apiKey: {
+            name: 'Test API key',
+            resolve: async () => undefined,
+          },
+        },
+        models: [],
+        api: {
+          stream: () => {
+            throw new Error('unused')
+          },
+          streamSimple: () => {
+            throw new Error('unused')
+          },
+        },
+      }),
+    )
+
+    const message = await describeMissingAuth(models, 'unconfigured-test')
+    expect(message).toBeDefined()
+    expect(message).toContain('unconfigured-test')
+    expect(message).toContain('Test API key')
+  })
+})
+
+describe('context overflow detection', () => {
+  test('a silent overflow is detected even when the turn reports success', async () => {
+    // Two of the three shapes pi recognises do NOT arrive as errors: a silent
+    // overflow reports stopReason 'stop' with input + cacheRead over the
+    // window. Gating detection on stopReason === 'error' — which is what the
+    // code did originally — misses those entirely, and the suite could not tell.
+    const faux = fauxProvider({ provider: 'anthropic' })
+    const models = createModels()
+    models.setProvider(faux.provider)
+    faux.setResponses([fauxAssistantMessage('fine')])
+
+    // A window so small that any real usage exceeds it.
+    const model = { ...faux.getModel(), contextWindow: 1 }
+
+    await expect(
+      createTurn(models, {
+        model,
+        context: { messages: [userMessage('hi')], tools: [] },
+        maxTokens: 16,
+        stream: false,
+        signal: new AbortController().signal,
+        onStream: () => {},
+      }),
+    ).rejects.toBeInstanceOf(AgentryContextOverflowError)
+  })
+})
+
+describe('<Agent retry> plumbing', () => {
+  test('the retry prop reaches the provider call', async () => {
+    // Every other retry test calls createTurn directly, so `retry:
+    // agent.props.retry` could be deleted from createEngineConfig and the whole
+    // suite stayed green — silently turning a 529 into a dead run.
+    const faux = fauxProvider({ provider: 'anthropic' })
+    const models = createModels()
+    models.setProvider(faux.provider)
+
+    let attempts = 0
+    faux.setResponses([
+      () => {
+        attempts++
+        return fauxAssistantMessage('', {
+          stopReason: 'error',
+          errorMessage: '529 overloaded_error',
+        })
+      },
+      () => {
+        attempts++
+        return fauxAssistantMessage('recovered')
+      },
+    ])
+
+    const result = await run(
+      <Agent
+        provider="anthropic"
+        model={faux.getModel().id}
+        maxTokens={100}
+        stream={false}
+        retry={{ enabled: true, maxRetries: 3, baseDelayMs: 1 }}
+      >
+        <System>t</System>
+        <Message role="user">go</Message>
+      </Agent>,
+      { models },
+    )
+
+    expect(attempts).toBe(2)
+    expect(result.content).toBe('recovered')
+  })
+})
+
+describe('tool results may carry images', () => {
+  test('an image block survives into the next turn', async () => {
+    const { models, controller } = createStepMockModels([
+      {
+        content: [
+          {
+            type: 'toolCall',
+            id: 'call_1',
+            name: 'screenshot',
+            arguments: {},
+          },
+        ],
+      },
+      { content: [fauxText('I see it')] },
+    ])
+
+    const runPromise = run(
+      <Agent
+        provider="anthropic"
+        model={ANTHROPIC_TEST_MODEL}
+        maxTokens={100}
+        stream={false}
+      >
+        <System>Test</System>
+        <Tools>
+          <Tool
+            name="screenshot"
+            description="Take a screenshot"
+            parameters={Type.Object({})}
+            handler={() => [
+              { type: 'text' as const, text: 'captured' },
+              {
+                type: 'image' as const,
+                data: 'aGVsbG8=',
+                mimeType: 'image/png',
+              },
+            ]}
+          />
+        </Tools>
+        <Message role="user">Take a screenshot</Message>
+      </Agent>,
+      { models },
+    )
+
+    await controller.nextTurn()
+    await controller.waitForNextCall()
+
+    const replayed = controller.peekNextCall()!.context.messages
+    const toolResult = replayed.find((m) => m.role === 'toolResult')!
+    expect(toolResult.content.some((b) => b.type === 'image')).toBe(true)
+
+    await controller.nextTurn()
+    await runPromise
+  })
+})
+
+describe('unsupported stop reasons', () => {
+  test('a deferred response fails loudly rather than returning empty', async () => {
+    // `deferred` carries no content and no tool calls; without a guard the
+    // engine would end the run with empty output and no error.
+    const { models, model, controller } = createStepMockModels([
+      { content: '', stopReason: 'deferred' },
+    ])
+
+    const turn = createTurn(models, {
+      model,
+      context: userTurn,
+      stream: false,
+      signal: new AbortController().signal,
+      onStream: () => {},
+    })
+
+    await controller.nextTurn()
+    await expect(turn).rejects.toThrow(/unsupported stop reason "deferred"/)
+  })
+})
+
+describe('sessionId', () => {
+  test('a caller-supplied id reaches pi, enabling cache affinity across runs', async () => {
+    // Without this the id was always a fresh UUID, so the prompt caching
+    // agentry wires up could never survive a run.
+    const { models, controller } = createStepMockModels([
+      { content: [fauxText('ok')] },
+    ])
+
+    const runPromise = run(
+      <Agent
+        provider="anthropic"
+        model={ANTHROPIC_TEST_MODEL}
+        maxTokens={100}
+        stream={false}
+      >
+        <System>Test</System>
+        <Message role="user">Hi</Message>
+      </Agent>,
+      { models, sessionId: 'stable-session-1' },
+    )
+
+    await controller.waitForNextCall()
+    expect(controller.peekNextCall()!.options?.sessionId).toBe(
+      'stable-session-1',
+    )
+
+    await controller.nextTurn()
+    await runPromise
+  })
+})
+
+describe('abort', () => {
+test('abort during tool execution cancels the tool and rejects the run', async () => {
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('slow', {})] },
+    { content: [fauxText('should not get here')] },
+  ])
+
+  let sawAborted = false
+  let started: (() => void) | null = null
+  const toolStarted = new Promise<void>((r) => { started = r })
+
+  const handle = createAgent(
+    <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100} stream={false}>
+      <System>t</System>
+      <Tools>
+        <Tool name="slow" description="slow" parameters={Type.Object({})}
+          handler={async (_i, ctx) => {
+            started?.()
+            await new Promise((r) => setTimeout(r, 150))
+            sawAborted = ctx.signal?.aborted === true
+            if (ctx.signal?.aborted) {
+              const e = new Error('Aborted'); e.name = 'AbortError'; throw e
+            }
+            return 'done'
+          }} />
+      </Tools>
+      <Message role="user">go</Message>
+    </Agent>,
+    { models },
+  )
+
+  const p = handle.run()
+  await controller.nextTurn()
+  await toolStarted
+  handle.abort()
+
+  await expect(p).rejects.toThrow(/aborted/i)
+  expect(sawAborted).toBe(true)
+
+  // transcript must stay balanced or the next sendMessage sends garbage
+  const msgs = handle.messages
+  const calls = msgs.filter(isAssistantMessage).flatMap((m) => extractToolCalls(m))
+  const results = msgs.filter(isToolResultMessage)
+  expect(results.length).toBe(calls.length)
+  handle.close()
+})
+})

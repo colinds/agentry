@@ -6,7 +6,7 @@ await rm('dist', { recursive: true, force: true })
 console.log('Building ESM bundle...')
 
 const result = await Bun.build({
-  entrypoints: ['./src/index.ts', './src/openai.ts', './src/anthropic.ts'],
+  entrypoints: ['./src/index.ts'],
   outdir: './dist',
   format: 'esm',
   target: 'node',
@@ -17,9 +17,8 @@ const result = await Bun.build({
   },
   external: [
     'react',
-    'zod',
-    '@anthropic-ai/sdk',
-    'openai',
+    'typebox',
+    '@earendil-works/pi-ai',
     'eventemitter3',
     'react-reconciler',
     'scheduler',

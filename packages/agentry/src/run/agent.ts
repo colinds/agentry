@@ -1,18 +1,26 @@
 import type { ReactNode } from 'react'
+import type { Models } from '@earendil-works/pi-ai'
 import { AgentHandle } from '../handles'
 import type { AgentResult } from '../types'
-import type { ProvidersConfig } from '../providers/types'
 
 export interface RunOptions {
-  /** per-provider client and options */
-  providers?: ProvidersConfig
+  /** pi model collection; defaults to pi's full built-in catalog */
+  models?: Models
   /** execution mode */
   mode?: 'batch' | 'interactive'
+  /**
+   * Stable identifier for prompt-cache affinity. Reuse it across runs of the
+   * same logical agent so providers can hit their cache; omit it and each run
+   * gets a fresh id, which is correct for unrelated work.
+   */
+  sessionId?: string
 }
 
 export interface CreateAgentOptions {
-  /** per-provider client and options */
-  providers?: ProvidersConfig
+  /** pi model collection; defaults to pi's full built-in catalog */
+  models?: Models
+  /** Stable identifier for prompt-cache affinity across runs. */
+  sessionId?: string
 }
 
 /**
@@ -34,7 +42,7 @@ export interface CreateAgentOptions {
  * const agent = await run(
  *   <Agent provider="anthropic" model="claude-sonnet-4-5">
  *     <System>You are a helpful assistant</System>
- *     <Tools><WebSearch /></Tools>
+ *     <Tools><Tool {...searchTool} /></Tools>
  *   </Agent>,
  *   { mode: 'interactive' }
  * );
@@ -68,7 +76,7 @@ export async function run(
 
   const handle = new AgentHandle(
     element,
-    { providers: options.providers },
+    { models: options.models, sessionId: options.sessionId },
     mode,
   )
 
@@ -92,5 +100,8 @@ export function createAgent(
   element: ReactNode,
   options?: CreateAgentOptions,
 ): AgentHandle {
-  return new AgentHandle(element, { providers: options?.providers })
+  return new AgentHandle(element, {
+    models: options?.models,
+    sessionId: options?.sessionId,
+  })
 }

@@ -83,36 +83,7 @@ export function getRegisteredTools(handle: AgentHandle): string[] {
     return []
   }
 
-  return agent.tools.map((tool) => tool.name)
-}
-
-/**
- * Test-only helper to get all tools (including SDK tools) from an AgentHandle
- */
-export function getAllRegisteredTools(handle: AgentHandle): {
-  tools: string[]
-  builtInTools: string[]
-} {
-  const containerInfo = handle.__getContainerInfo()
-  if (!containerInfo || !containerInfo.container) {
-    return { tools: [], builtInTools: [] }
-  }
-
-  const container = containerInfo.container
-  const agent = container.children[0]
-  if (!agent || !isAgentInstance(agent)) {
-    return { tools: [], builtInTools: [] }
-  }
-
-  return {
-    tools: agent.tools.map((tool) => tool.name),
-    builtInTools: agent.builtInTools.map((tool) => {
-      if ('name' in tool && typeof tool.name === 'string') {
-        return tool.name
-      }
-      return 'unknown'
-    }),
-  }
+  return [...agent.tools.keys()]
 }
 
 /**

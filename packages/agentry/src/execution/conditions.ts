@@ -1,18 +1,40 @@
-import type Anthropic from '@anthropic-ai/sdk'
-import type OpenAI from 'openai'
+import { Type } from 'typebox'
+import type { Api, Model, Models, Tool as PiTool } from '@earendil-works/pi-ai'
 import type { AgentMessageParam } from '../types/messages'
+import { userMessage } from '../types/messages'
 import type { ConditionInstance, Instance } from '../instances/types'
 import { isConditionInstance } from '../instances/types'
 import { debug } from '../debug'
-import type { ProviderClientMap } from '../providers/types'
 import type { ProviderName } from '../types/provider'
 import type { JsonObject } from '../types/json'
-import { toOpenAIInput } from '../providers/openai'
-import { toAnthropicMessage } from '../providers/anthropic'
+import { resolveModel } from '../pi/models'
+import { createTurn } from '../pi/turn'
+import type { RequestOptions } from './compaction'
 
-const CONDITION_DEFAULT_MODELS: Record<ProviderName, string> = {
+/**
+ * Cheap models used for condition evaluation, keyed by provider. Providers not
+ * listed fall back to the agent's own model.
+ */
+const CONDITION_DEFAULT_MODELS: Record<string, string> = {
   anthropic: 'claude-haiku-4-5',
   openai: 'gpt-4.1-mini',
+}
+
+const EVALUATE_CONDITIONS_TOOL = 'evaluate_conditions'
+
+const CONDITION_TOOL: PiTool = {
+  name: EVALUATE_CONDITIONS_TOOL,
+  description:
+    'Report every condition that is currently true, by zero-based index.',
+  parameters: Type.Object(
+    {
+      trueConditionIndices: Type.Array(Type.Number(), {
+        description: 'Zero-based indices of all conditions that are TRUE.',
+      }),
+    },
+    { additionalProperties: false },
+  ),
+  constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 }
 
 function buildNLConditionSystemPrompt(conditionDescriptions: string): string {
@@ -52,17 +74,22 @@ function findAllConditions(root: Instance): ConditionInstance[] {
 export async function evaluateConditions({
   root,
   messages,
-  clients,
+  models,
   provider,
+  model,
   signal,
   evaluateNL,
+  request,
 }: {
   root: Instance
   messages: AgentMessageParam[]
-  clients: Partial<ProviderClientMap>
+  models: Models
   provider: ProviderName
+  /** The agent's own model, used when no cheap default is known. */
+  model: string
   signal?: AbortSignal
   evaluateNL?: boolean
+  request?: RequestOptions
 }): Promise<boolean> {
   const conditions = findAllConditions(root)
 
@@ -88,23 +115,37 @@ export async function evaluateConditions({
     }
   }
 
-  // step 2: batch evaluate all natural language conditions via LLM
+  // step 2: batch evaluate all natural language conditions via one model call
   const nlConditions = conditions.filter((c) => typeof c.when === 'string')
 
   if (nlConditions.length > 0 && evaluateNL !== false) {
     // Resolve provider/model for NL evaluation: first condition's override → cheap default
     const firstNL = nlConditions[0]!
     const resolvedProvider = firstNL.provider ?? provider
-    const resolvedModel =
-      firstNL.model ?? CONDITION_DEFAULT_MODELS[resolvedProvider]
+    // Falling back to the agent's own model is what the doc above promises, and
+    // it is what keeps NL conditions working on the ~35 providers that have no
+    // cheap default listed. Throwing here left every NL condition permanently
+    // false, since the engine catches this and NL evaluation only runs on the
+    // first iteration — so the failure never even retried.
+    const resolvedModelId =
+      firstNL.model ??
+      CONDITION_DEFAULT_MODELS[resolvedProvider] ??
+      (resolvedProvider === provider ? model : undefined)
+
+    if (!resolvedModelId) {
+      throw new Error(
+        `[agentry] No condition-evaluation model for provider "${resolvedProvider}". ` +
+          `Set one via the model prop on <Condition>.`,
+      )
+    }
 
     const nlResults = await evaluateNaturalLanguageConditions({
       conditions: nlConditions,
       messages,
-      clients,
-      provider: resolvedProvider,
-      model: resolvedModel,
+      models,
+      model: resolveModel(models, resolvedProvider, resolvedModelId),
       signal,
+      request,
     })
 
     for (let i = 0; i < nlConditions.length; i++) {
@@ -140,7 +181,7 @@ function mapConditionResults({
 }: {
   trueConditionIndices: number[]
   conditionCount: number
-  provider: ProviderName
+  provider: string
   durationMs: number
 }): boolean[] {
   const trueIndices = new Set(trueConditionIndices)
@@ -152,13 +193,9 @@ function mapConditionResults({
 }
 
 /**
- * Validate and extract the `trueConditionIndices` array from a provider tool call result.
- * Shared by both Anthropic and OpenAI evaluation paths.
+ * Validate and extract the `trueConditionIndices` array from a tool call result.
  */
-function parseConditionIndices(
-  input: JsonObject,
-  provider: ProviderName,
-): number[] {
+function parseConditionIndices(input: JsonObject, provider: string): number[] {
   const indices = input.trueConditionIndices
   if (!Array.isArray(indices) || !indices.every((i) => typeof i === 'number')) {
     throw new Error(
@@ -169,220 +206,75 @@ function parseConditionIndices(
 }
 
 /**
- * Dispatch NL condition evaluation to the appropriate provider implementation.
+ * Evaluates every natural-language condition in a single model call, using a
+ * constrained-sampling tool to get a structured answer back.
+ *
+ * This replaces the previous pair of hand-written Anthropic and OpenAI paths;
+ * pi handles the wire differences, so the only per-API branch left is whether
+ * the tool call can be forced.
  */
 async function evaluateNaturalLanguageConditions({
   conditions,
   messages,
-  clients,
-  provider,
+  models,
   model,
   signal,
+  request,
 }: {
   conditions: ConditionInstance[]
   messages: AgentMessageParam[]
-  clients: Partial<ProviderClientMap>
-  provider: ProviderName
-  model: string
+  models: Models
+  model: Model<Api>
   signal?: AbortSignal
+  request?: RequestOptions
 }): Promise<boolean[]> {
-  if (provider === 'anthropic' && clients.anthropic) {
-    return evaluateNLWithAnthropic({
-      conditions,
-      messages,
-      client: clients.anthropic,
-      model,
-      signal,
-    })
-  }
-  if (provider === 'openai' && clients.openai) {
-    return evaluateNLWithOpenAI({
-      conditions,
-      messages,
-      client: clients.openai,
-      model,
-      signal,
-    })
-  }
-  throw new Error(
-    `[agentry] Cannot evaluate natural-language conditions: no ${provider} client available. ` +
-      `Provide a client via createAI({ clients: { ${provider}: ... } }) or set the appropriate API key.`,
-  )
-}
-
-/**
- * Evaluate NL conditions using Anthropic's structured outputs beta.
- */
-async function evaluateNLWithAnthropic({
-  conditions,
-  messages,
-  client,
-  model,
-  signal,
-}: {
-  conditions: ConditionInstance[]
-  messages: AgentMessageParam[]
-  client: Anthropic
-  model: string
-  signal?: AbortSignal
-}): Promise<boolean[]> {
-  const conditionDescriptions = conditions
-    .map((c, index) => `${index}. ${c.when}`)
+  const descriptions = conditions
+    .map((c, i) => `${i}: ${String(c.when)}`)
     .join('\n')
 
-  const validIndices = conditions.map((_, index) => index)
-
-  const trimmedMessages = ensureValidMessageStart(messages)
-  if (trimmedMessages.length === 0) {
-    return Array.from({ length: conditions.length }, () => false)
-  }
-  const evalMessages = trimmedMessages.map(toAnthropicMessage)
-
-  const startTime = performance.now()
-  const response = await client.beta.messages.create(
-    {
-      model,
-      max_tokens: 512,
-      system: buildNLConditionSystemPrompt(conditionDescriptions),
-      messages: [
-        ...evalMessages,
-        {
-          role: 'user' as const,
-          content: 'Which conditions are true?',
-        },
-      ],
-      tools: [
-        {
-          name: 'evaluate_conditions',
-          description: 'Select all condition indices that evaluate to true',
-          input_schema: {
-            type: 'object',
-            properties: {
-              trueConditionIndices: {
-                type: 'array',
-                items: {
-                  type: 'number',
-                  enum: validIndices,
-                },
-                description:
-                  'Array of indices for conditions that are true (can be empty if none are true)',
-              },
-            },
-            required: ['trueConditionIndices'],
-            additionalProperties: false,
-          },
-          strict: true,
-        },
-      ],
-      betas: ['structured-outputs-2025-11-13'],
-      tool_choice: { type: 'tool', name: 'evaluate_conditions' },
-    },
-    { signal },
-  )
-  const durationMs = Math.round(performance.now() - startTime)
-
-  const toolUse = response.content.find((block) => block.type === 'tool_use')
-  if (toolUse && toolUse.type === 'tool_use') {
-    const input = toolUse.input as JsonObject
-    const indices = parseConditionIndices(input, 'anthropic')
-    return mapConditionResults({
-      trueConditionIndices: indices,
-      conditionCount: conditions.length,
-      provider: 'anthropic',
-      durationMs,
-    })
-  }
-
-  throw new Error(
-    '[agentry] NL condition evaluation: model did not invoke the evaluate_conditions tool. Conditions cannot be reliably evaluated.',
-  )
-}
-
-/**
- * Evaluate NL conditions using OpenAI's function calling via the Responses API.
- */
-async function evaluateNLWithOpenAI({
-  conditions,
-  messages,
-  client,
-  model,
-  signal,
-}: {
-  conditions: ConditionInstance[]
-  messages: AgentMessageParam[]
-  client: OpenAI
-  model: string
-  signal?: AbortSignal
-}): Promise<boolean[]> {
-  const conditionDescriptions = conditions
-    .map((c, index) => `${index}. ${c.when}`)
-    .join('\n')
-
-  const validIndices = conditions.map((_, index) => index)
   const evalMessages = ensureValidMessageStart(messages)
-
-  if (evalMessages.length === 0) {
-    return Array.from({ length: conditions.length }, () => false)
+  const context = {
+    systemPrompt: buildNLConditionSystemPrompt(descriptions),
+    messages:
+      evalMessages.length > 0
+        ? evalMessages
+        : [userMessage('Evaluate the conditions.')],
+    tools: [CONDITION_TOOL],
   }
 
-  const input = [
-    ...toOpenAIInput(evalMessages),
-    { role: 'user' as const, content: 'Which conditions are true?' },
-  ]
-
   const startTime = performance.now()
-  const response = await client.responses.create(
-    {
-      model,
-      instructions: buildNLConditionSystemPrompt(conditionDescriptions),
-      input,
-      tools: [
-        {
-          type: 'function',
-          name: 'evaluate_conditions',
-          description: 'Select all condition indices that evaluate to true',
-          parameters: {
-            type: 'object',
-            properties: {
-              trueConditionIndices: {
-                type: 'array',
-                items: { type: 'number', enum: validIndices },
-                description:
-                  'Indices of conditions that are true (empty array if none)',
-              },
-            },
-            required: ['trueConditionIndices'],
-            additionalProperties: false,
-          },
-          strict: true,
-        },
-      ],
-      tool_choice: { type: 'function', name: 'evaluate_conditions' },
-      stream: false,
-    },
-    { signal },
-  )
+
+  // Goes through the same seam as every other model call, so abort/error
+  // handling is shared rather than duplicated here. Only one tool is offered,
+  // so "must call a tool" means "must call evaluate_conditions".
+  const message = await createTurn(models, {
+    model,
+    context,
+    maxTokens: 1024,
+    headers: request?.headers,
+    timeoutMs: request?.timeoutMs,
+    stream: false,
+    forceToolUse: true,
+    signal: signal ?? new AbortController().signal,
+    onStream: () => {},
+  })
+
   const durationMs = Math.round(performance.now() - startTime)
 
-  const functionCall = response.output.find(
-    (item) =>
-      item.type === 'function_call' && item.name === 'evaluate_conditions',
+  const call = message.content.find(
+    (block) =>
+      block.type === 'toolCall' && block.name === EVALUATE_CONDITIONS_TOOL,
   )
-  if (functionCall && functionCall.type === 'function_call') {
-    let parsed: JsonObject
-    try {
-      parsed = JSON.parse(functionCall.arguments) as JsonObject
-    } catch (e) {
-      throw new Error(
-        `[agentry] NL condition evaluation: failed to parse OpenAI function call arguments: "${functionCall.arguments}"`,
-        { cause: e },
-      )
-    }
-    const indices = parseConditionIndices(parsed, 'openai')
+
+  if (call?.type === 'toolCall') {
+    const indices = parseConditionIndices(
+      call.arguments as JsonObject,
+      model.provider,
+    )
     return mapConditionResults({
       trueConditionIndices: indices,
       conditionCount: conditions.length,
-      provider: 'openai',
+      provider: model.provider,
       durationMs,
     })
   }
@@ -392,31 +284,13 @@ async function evaluateNLWithOpenAI({
   )
 }
 
-// ensure messages don't start with a tool_result (which requires a preceding tool_use)
+/**
+ * Drops leading tool-result messages, which cannot open a conversation because
+ * they have no preceding tool call to pair with.
+ */
 function ensureValidMessageStart(
   messages: AgentMessageParam[],
 ): AgentMessageParam[] {
-  if (messages.length === 0) return messages
-
-  // find the first user message that doesn't contain tool_results
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i]!
-    if (msg.role !== 'user') continue
-
-    // string content is fine
-    if (typeof msg.content === 'string') {
-      return messages.slice(i)
-    }
-
-    // check if it has tool_results (which would need a preceding tool_use)
-    const hasToolResult = msg.content.some(
-      (block) => block.type === 'tool_result',
-    )
-    if (!hasToolResult) {
-      return messages.slice(i)
-    }
-  }
-
-  // no valid start found, return empty
-  return []
+  const firstValid = messages.findIndex((m) => m.role !== 'toolResult')
+  return firstValid === -1 ? [] : messages.slice(firstValid)
 }

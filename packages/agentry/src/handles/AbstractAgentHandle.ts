@@ -12,6 +12,7 @@ import {
   type ContainerInfo,
 } from '../reconciler/renderer'
 import {
+  AgentSession,
   ExecutionEngine,
   createEngineConfig,
   type ExecutionEngineConfig,
@@ -19,8 +20,18 @@ import {
 import { isProcessing, type AgentState } from '../types/state'
 import { yieldToScheduler } from '../scheduler'
 import { AgentProvider } from '../context'
-import type { ProviderAdapter, ProviderClientMap } from '../providers/types'
-import type { ProviderName } from '../types/provider'
+import { debug } from '../debug'
+import { userMessage } from '../types/messages'
+import {
+  describeMissingAuth,
+  getDefaultModels,
+  releaseSessionResources,
+} from '../pi/models'
+import {
+  describeContextUsage,
+  type ContextUsage,
+} from '../execution/contextUsage'
+import type { Models } from '@earendil-works/pi-ai'
 
 interface AgentHandleEvents {
   stateChange: (state: AgentState) => void
@@ -37,28 +48,43 @@ interface AgentHandleEvents {
 export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents> {
   protected containerInfo: ContainerInfo
   protected engine: ExecutionEngine | null = null
-  protected clients: Partial<ProviderClientMap>
-  protected adapters: Record<string, ProviderAdapter<ProviderName>>
+  protected models: Models | undefined
   protected running = false
   protected store: AgentStore
   protected instance: AgentInstance | null = null
+  /** Per-handle identifier used by pi for prompt-cache affinity. */
+  protected sessionId: string
+  /**
+   * State shared by every run. A fresh engine is built per run, so anything
+   * that must not be rebuilt per message belongs here instead.
+   */
+  protected session = new AgentSession()
 
   constructor({
-    clients,
-    adapters,
+    models,
     containerInfo,
     store,
+    sessionId,
   }: {
-    clients: Partial<ProviderClientMap>
-    adapters: Record<string, ProviderAdapter<ProviderName>>
+    models?: Models
     containerInfo: ContainerInfo
     store: AgentStore
+    sessionId?: string
   }) {
     super()
-    this.clients = clients
-    this.adapters = adapters
+    this.models = models
     this.containerInfo = containerInfo
     this.store = store
+    this.sessionId = sessionId ?? crypto.randomUUID()
+  }
+
+  /**
+   * Resolves the model collection, falling back to pi's full built-in catalog.
+   * Lazy so that `createAgent()` can stay synchronous.
+   */
+  protected async ensureModels(): Promise<Models> {
+    this.models ??= await getDefaultModels()
+    return this.models
   }
 
   get state(): AgentState {
@@ -99,16 +125,33 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   ): Promise<AgentResult> {
     const { emitEvents = true } = options
 
+    const models = await this.ensureModels()
+
+    // Skipped when custom headers are set: a caller authenticating through a
+    // gateway has no provider credential of the kind pi looks for, and blocking
+    // them here would fail a run that would have worked.
+    if (agent.props.provider && !agent.props.headers) {
+      const missingAuth = await describeMissingAuth(
+        models,
+        agent.props.provider,
+      )
+      if (missingAuth) throw new Error(missingAuth)
+    }
+
     const { config } = createEngineConfig({
       agent,
-      clients: this.clients,
-      adapters: this.adapters,
+      models,
       store: this.store,
+      sessionId: this.sessionId,
+      session: this.session,
     })
 
     this.beforeExecution(agent, config, this.store.getState().messages)
 
     this.engine = new ExecutionEngine(config)
+
+    // The engine decides when a turn starts; the handle knows what to render.
+    this.engine.renderTurn = () => this.renderTurn()
 
     // Wire up async-aware onStepFinish so the engine awaits it before
     // proceeding to the next iteration.
@@ -182,6 +225,56 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
   }
 
   /**
+   * Reports what is filling the context window: the assembled system prompt,
+   * each tool's definition, and the message history, against the model's
+   * window.
+   *
+   * Available once the agent has been prepared (after the first `run()`), since
+   * the tool set is only known after a render.
+   */
+  describeContext(): ContextUsage | undefined {
+    if (!this.instance) return undefined
+
+    const provider = this.instance.props.provider
+    const modelId = this.instance.props.model
+    let contextWindow: number | undefined
+
+    if (this.models && provider && modelId) {
+      contextWindow = this.models.getModel(provider, modelId)?.contextWindow
+    }
+
+    // The most recent assistant turn carries what the provider actually
+    // charged, which is the only trustworthy absolute figure.
+    const messages = this.store.getState().messages
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === 'assistant')
+    // `usage.input` excludes cached tokens, so on a healthy cached run it is a
+    // small fraction of the real prompt and `free` would wildly overstate the
+    // headroom. Cached tokens still occupy the window; pi's own overflow
+    // detector counts them too.
+    const reportedInputTokens =
+      lastAssistant && 'usage' in lastAssistant
+        ? lastAssistant.usage.input +
+          lastAssistant.usage.cacheRead +
+          lastAssistant.usage.cacheWrite
+        : undefined
+
+    return describeContextUsage({
+      agent: this.instance,
+      messages,
+      contextWindow,
+      reportedInputTokens,
+    })
+  }
+
+  /**
+   * Re-renders the agent tree at a turn boundary. Subclasses know which element
+   * to render; the default is a no-op for handles with nothing to re-render.
+   */
+  protected async renderTurn(): Promise<void> {}
+
+  /**
    * Abstract method to prepare the agent instance before execution
    * Subclasses implement this to handle their specific setup
    */
@@ -202,7 +295,7 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
       this.instance = agent
 
       if (firstMessage) {
-        this.pushMessage({ role: 'user', content: firstMessage })
+        this.pushMessage(userMessage(firstMessage))
       }
 
       return await this.executeAgent(agent, {
@@ -340,11 +433,19 @@ export abstract class AbstractAgentHandle extends EventEmitter<AgentHandleEvents
 
   /**
    * Subclasses can override for additional cleanup.
-   * Base implementation calls close() on any adapters that support it.
+   * pi is stateless per turn, but MCP connections are long-lived and must be
+   * torn down with the handle.
    */
   protected cleanup(): void {
-    for (const adapter of Object.values(this.adapters)) {
-      adapter.close?.()
+    // The session, not the engine: `this.engine` is only the most recent run.
+    void this.session.close()
+    // Providers key long-lived resources (pooled sockets, cached sessions) by
+    // session id; nothing else releases them. Guarded because pi throws on
+    // handler failure and close() runs in `finally` blocks.
+    try {
+      releaseSessionResources(this.sessionId)
+    } catch (error) {
+      debug('agent', `Session resource cleanup failed: ${String(error)}`)
     }
   }
 

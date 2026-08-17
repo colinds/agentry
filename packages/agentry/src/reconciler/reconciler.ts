@@ -1,4 +1,4 @@
-import { createContext } from 'react'
+import { createContext, type ReactNode } from 'react'
 import ReactReconciler from 'react-reconciler'
 import {
   type Instance,
@@ -12,17 +12,22 @@ import {
   isContextInstance,
   isToolInstance,
   isConditionInstance,
+  isAgentToolInstance,
+  isMCPServerInstance,
 } from '../instances'
-import { createInstance, InstanceType, type ElementProps } from '../instances'
-import type {
-  AgentProps,
-  CompactionControl,
-  Model,
-  ProviderModelOverride,
-} from '../types'
+import type { PropagatedSettings } from '../instances/createInstance'
+import {
+  createInstance,
+  InstanceType,
+  reactNodeToString,
+  type ElementProps,
+} from '../instances'
+import type { ProviderModelOverride } from '../types'
+import { createAgentSyntheticTool } from '../tools/agentSyntheticTool'
+import type { InternalAgentTool } from '../types/agentTool'
 import { debug } from '../debug'
 import { diffProps, disposeOnIdle } from './utils'
-import { collectChild, uncollectChild } from './collectors'
+import { collectChild, rebuildSystemParts, uncollectChild } from './collectors'
 
 function createReconciler<
   Type,
@@ -74,18 +79,6 @@ function createReconciler<
     FormInstance,
     PublicInstance
   >
-}
-
-interface PropagatedSettings {
-  provider?: AgentProps['provider']
-  stream?: boolean
-  temperature?: number
-  stopSequences?: string[]
-  compactionControl?: CompactionControl
-  maxTokens?: number
-  maxIterations?: number
-  model?: Model
-  thinking?: AgentProps['thinking']
 }
 
 interface HostConfig {
@@ -168,7 +161,6 @@ export const reconciler = createReconciler<
       provider: rootContainer.props.provider,
       stream: rootContainer.props.stream,
       temperature: rootContainer.props.temperature,
-      stopSequences: rootContainer.props.stopSequences,
       compactionControl: rootContainer.props.compactionControl,
       maxTokens: rootContainer.props.maxTokens,
       maxIterations: rootContainer.props.maxIterations,
@@ -228,8 +220,24 @@ export const reconciler = createReconciler<
     void _internalHandle
     const { changes, hasChanges } = diffProps(prevProps, nextProps)
 
-    if (hasChanges) {
-      applyUpdate(instance, changes)
+    // `children` is a reserved prop, so diffProps never reports it — but for
+    // <System> and <Context> the children ARE the content. Without this a
+    // state-driven system prompt is frozen at its first render.
+    const textInstance =
+      isSystemInstance(instance) || isContextInstance(instance)
+    const prevText = textInstance
+      ? reactNodeToString((prevProps as { children?: ReactNode }).children)
+      : ''
+    const nextText = textInstance
+      ? reactNodeToString((nextProps as { children?: ReactNode }).children)
+      : ''
+    const textChanged = textInstance && prevText !== nextText
+
+    if (hasChanges || textChanged) {
+      applyUpdate(
+        instance,
+        textChanged ? { ...changes, children: nextText } : changes,
+      )
     }
   },
   hideInstance() {},
@@ -239,12 +247,32 @@ export const reconciler = createReconciler<
   clearContainer() {},
 })
 
+/**
+ * The agent a child appended under `parent` should be collected into, or null
+ * if it should not be collected at all.
+ *
+ * Walks up through `<Tools>` and *active* `<Condition>`s. Two bugs lived in the
+ * asymmetry this replaces: a child appended directly under a `<Condition>` was
+ * never collected or uncollected (the old version returned null for a Condition
+ * parent), while one appended into a `<Tools>` nested in an *inactive*
+ * `<Condition>` was collected anyway, because the walk never checked `isActive`.
+ *
+ * Collection and uncollection must both route through this, or a node collected
+ * while active and removed while inactive leaks. Note `findParentAgent` stays
+ * condition-blind — prop *updates* must still find their agent under an
+ * inactive condition.
+ */
 function getEffectiveAgent(parent: Instance): AgentLike | null {
-  if (isAgentLike(parent)) {
-    return parent
-  }
-  if (isToolsContainerInstance(parent)) {
-    return findParentAgent(parent)
+  let current: Instance | null = parent
+  while (current) {
+    if (isConditionInstance(current)) {
+      if (!current.isActive) return null
+    } else if (isAgentLike(current)) {
+      return current
+    } else if (!isToolsContainerInstance(current)) {
+      return null
+    }
+    current = current.parent
   }
   return null
 }
@@ -355,27 +383,12 @@ function removeChild(parent: Instance, child: Instance): void {
 
   disposeOnIdle(() => {
     if (isSubagentInstance(child)) {
-      child.tools = []
-      child.builtInTools = []
+      child.tools = new Map()
       child.systemParts = []
       child.mcpServers = []
       child.children = []
     }
   })
-}
-
-function rebuildSystemPrompt(agent: AgentInstance): void {
-  const parts = agent.systemParts
-  parts.length = 0
-
-  for (const child of agent.children) {
-    if (isSystemInstance(child) || isContextInstance(child)) {
-      parts.push({
-        content: child.content,
-        cache: child.cache,
-      })
-    }
-  }
 }
 
 function applyUpdate(
@@ -401,7 +414,7 @@ function applyUpdate(
     }
     const agent = findParentAgent(instance)
     if (agent && isAgentInstance(agent)) {
-      rebuildSystemPrompt(agent)
+      rebuildSystemParts(agent)
     }
   } else if (isContextInstance(instance)) {
     const payload = updatePayload as { children?: string }
@@ -410,7 +423,7 @@ function applyUpdate(
     }
     const agent = findParentAgent(instance)
     if (agent && isAgentInstance(agent)) {
-      rebuildSystemPrompt(agent)
+      rebuildSystemParts(agent)
     }
   } else if (isToolInstance(instance)) {
     const payload = updatePayload as { tool?: typeof instance.tool }
@@ -418,14 +431,36 @@ function applyUpdate(
       const agent = findParentAgent(instance)
       if (agent && isAgentLike(agent)) {
         const toolName = instance.tool.name
-        const index = agent.tools.findIndex((t) => t.name === toolName)
+        const wasCollected = agent.tools.has(toolName)
         instance.tool = payload.tool
         // only update if tool was already collected
-        if (index >= 0) {
-          agent.tools.splice(index, 1, payload.tool)
+        if (wasCollected) {
+          if (payload.tool.name !== toolName) agent.tools.delete(toolName)
+          agent.tools.set(payload.tool.name, payload.tool)
         }
       }
     }
+  } else if (isAgentToolInstance(instance)) {
+    const payload = updatePayload as { agentTool?: InternalAgentTool }
+    if (payload.agentTool !== undefined) {
+      const agent = findParentAgent(instance)
+      // `name` cannot change here — <agent_tool> is keyed by it, so a rename
+      // remounts. What goes stale is the description, the schema and the agent
+      // closure, which captures the parent's state at first render.
+      instance.description = payload.agentTool.description
+      instance.parameters = payload.agentTool.parameters
+      instance.jsonSchema = payload.agentTool.jsonSchema
+      instance.agent = payload.agentTool.agent
+      // Only if already collected, or this resurrects a tool that an inactive
+      // <Condition> deliberately withheld.
+      if (agent && isAgentLike(agent) && agent.tools.has(instance.name)) {
+        agent.tools.set(instance.name, createAgentSyntheticTool(instance))
+      }
+    }
+  } else if (isMCPServerInstance(instance)) {
+    // In place, because `agent.mcpServers` holds this exact object: replacing
+    // it would leave the collected array pointing at the old config.
+    Object.assign(instance.config, updatePayload)
   } else if (isConditionInstance(instance)) {
     const payload = updatePayload as Partial<
       { when: boolean | string } & ProviderModelOverride

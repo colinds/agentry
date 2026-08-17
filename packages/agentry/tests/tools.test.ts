@@ -1,12 +1,9 @@
 import { test, expect } from 'bun:test'
-import { z } from 'zod'
+import { Type } from 'typebox'
+import { assistantSeedMessage } from '../src/types/messages'
 import type { AgentMessage } from '../src/types'
-import {
-  defineTool,
-  parseToolInput,
-  executeTool,
-  toApiTool,
-} from '../src/tools'
+import { defineTool, parseToolInput, executeTool } from '../src/tools'
+import { toPiTool } from '../src/pi/tools'
 import {
   initialState,
   transition,
@@ -16,17 +13,17 @@ import {
   TransitionType,
   type InternalTool,
 } from '../src/types'
-import { createStepMockClient } from './utils'
+import { createStepMockModels } from './utils'
 import type { ToolContext } from '../src/types'
 import { createRunAgent } from '../src/run/runAgentFunction'
 
-const { client } = createStepMockClient([])
+const { models } = createStepMockModels([])
 const mockContext: ToolContext = {
   agentName: 'test-agent',
   provider: 'anthropic',
-  client,
+  models,
   runAgent: createRunAgent({
-    clients: { anthropic: client },
+    models,
     model: 'claude-sonnet-4-5',
     provider: 'anthropic',
   }),
@@ -36,9 +33,9 @@ test('defineTool creates a type-safe tool', () => {
   const testTool = defineTool({
     name: 'test',
     description: 'A test tool',
-    parameters: z.object({
-      query: z.string(),
-      count: z.number().default(5),
+    parameters: Type.Object({
+      query: Type.String(),
+      count: Type.Optional(Type.Number()),
     }),
     handler: async ({ query, count }) => {
       return `Query: ${query}, Count: ${count}`
@@ -51,44 +48,45 @@ test('defineTool creates a type-safe tool', () => {
   expect(testTool.handler).toBeDefined()
 })
 
-test('toApiTool converts to Anthropic format', () => {
+test('toPiTool maps a tool to pi wire shape', () => {
   const testTool = defineTool({
     name: 'search',
     description: 'Search for something',
-    parameters: z.object({
-      q: z.string(),
+    parameters: Type.Object({
+      q: Type.String(),
     }),
-    handler: async () => 'result',
+    handler: async () => 'ok',
   })
 
-  const apiTool = toApiTool(testTool as InternalTool)
-
-  expect(apiTool.type).toBe('custom')
-  expect(apiTool.name).toBe('search')
-  expect(apiTool.description).toBe('Search for something')
-  expect(apiTool.input_schema).toBeDefined()
+  const piTool = toPiTool(testTool as InternalTool)
+  expect(piTool.name).toBe('search')
+  expect(piTool.description).toBe('Search for something')
+  expect(piTool.parameters).toEqual(testTool.jsonSchema as never)
+  expect(piTool).not.toHaveProperty('constrainedSampling')
 })
 
-test('strict tool sets strict on tool and API output', () => {
+test('strict tools request constrained sampling', () => {
   const tool = defineTool({
-    name: 'extract',
-    description: 'Extract data',
+    name: 'strict_tool',
+    description: 'strict',
+    parameters: Type.Object({ a: Type.String() }),
     strict: true,
-    parameters: z.object({ name: z.string() }),
-    handler: async () => 'result',
+    handler: async () => 'ok',
   })
 
-  expect(tool.strict).toBe(true)
-  expect(toApiTool(tool as InternalTool)).toHaveProperty('strict', true)
+  expect(toPiTool(tool as InternalTool).constrainedSampling).toEqual({
+    type: 'json_schema',
+    strict: 'prefer',
+  })
 })
 
 test('parseToolInput validates input correctly', () => {
   const tool = defineTool({
     name: 'math',
     description: 'Do math',
-    parameters: z.object({
-      a: z.number(),
-      b: z.number(),
+    parameters: Type.Object({
+      a: Type.Number(),
+      b: Type.Number(),
     }),
     handler: async ({ a, b }) => String(a + b),
   })
@@ -108,8 +106,8 @@ test('executeTool runs handler with validated input', async () => {
   const tool = defineTool({
     name: 'greet',
     description: 'Greet someone',
-    parameters: z.object({
-      name: z.string(),
+    parameters: Type.Object({
+      name: Type.String(),
     }),
     handler: async ({ name }) => `Hello, ${name}!`,
   })
@@ -123,8 +121,8 @@ test('executeTool handles validation errors', async () => {
   const tool = defineTool({
     name: 'test',
     description: 'test',
-    parameters: z.object({
-      age: z.number(),
+    parameters: Type.Object({
+      age: Type.Number(),
     }),
     handler: async () => 'success',
   })
@@ -138,8 +136,8 @@ test('executeTool handles handler errors', async () => {
   const tool = defineTool({
     name: 'failing',
     description: 'This tool fails',
-    parameters: z.object({
-      shouldFail: z.boolean(),
+    parameters: Type.Object({
+      shouldFail: Type.Boolean(),
     }),
     handler: async ({ shouldFail }) => {
       if (shouldFail) {
@@ -200,11 +198,7 @@ test('state machine transitions to completed state', () => {
     abortController: new AbortController(),
   })
 
-  const finalMessage = {
-    content: [],
-    stop_reason: null,
-    usage: { input_tokens: 0, output_tokens: 0 },
-  } as AgentMessage
+  const finalMessage = assistantSeedMessage([])
   state = transition(state, { type: TransitionType.Completed, finalMessage })
 
   expect(state.status).toBe(AgentStatus.Completed)

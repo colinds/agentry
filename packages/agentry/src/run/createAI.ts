@@ -1,22 +1,27 @@
 import type { ReactNode } from 'react'
+import type { Models } from '@earendil-works/pi-ai'
 import { run as runBase, createAgent as createAgentBase } from './agent'
 import { AgentHandle } from '../handles'
 import type { AgentResult } from '../types'
-import type { ProvidersConfig } from '../providers/types'
 import type { CreateAgentOptions, RunOptions } from './agent'
 
 export interface AIDefaults {
-  providers?: ProvidersConfig
+  /** pi model collection; defaults to pi's full built-in catalog */
+  models?: Models
   mode?: 'batch' | 'interactive'
+  /** Stable identifier for prompt-cache affinity across runs. */
+  sessionId?: string
 }
 
 export interface AIBoundRunOptions {
-  providers?: ProvidersConfig
+  models?: Models
   mode?: 'batch' | 'interactive'
+  sessionId?: string
 }
 
 export interface AIBoundCreateAgentOptions {
-  providers?: ProvidersConfig
+  models?: Models
+  sessionId?: string
 }
 
 export interface AI {
@@ -34,23 +39,14 @@ export interface AI {
   ): AgentHandle
 }
 
-function mergeProviders(
-  base?: ProvidersConfig,
-  override?: ProvidersConfig,
-): ProvidersConfig {
-  return {
-    openai: { ...base?.openai, ...override?.openai },
-    anthropic: { ...base?.anthropic, ...override?.anthropic },
-  }
-}
-
 function mergeRunOptions(
   defaults: AIDefaults,
   options?: AIBoundRunOptions,
 ): RunOptions {
   return {
-    providers: mergeProviders(defaults.providers, options?.providers),
+    models: options?.models ?? defaults.models,
     mode: options?.mode ?? defaults.mode,
+    sessionId: options?.sessionId ?? defaults.sessionId,
   }
 }
 
@@ -59,7 +55,8 @@ function mergeCreateAgentOptions(
   options?: AIBoundCreateAgentOptions,
 ): CreateAgentOptions {
   return {
-    providers: mergeProviders(defaults.providers, options?.providers),
+    models: options?.models ?? defaults.models,
+    sessionId: options?.sessionId ?? defaults.sessionId,
   }
 }
 
@@ -68,11 +65,9 @@ function mergeCreateAgentOptions(
  * All calls to `ai.run()` and `ai.createAgent()` inherit the defaults, with
  * per-call options merged on top.
  *
- * @example basic usage — shared clients across multiple runs
+ * @example basic usage — zero config, pi resolves providers from env vars
  * ```ts
- * const ai = createAI({
- *   providers: { anthropic: { client: new Anthropic() } },
- * })
+ * const ai = createAI({})
  *
  * const result = await ai.run(
  *   <Agent provider="anthropic" model="claude-haiku-4-5">
@@ -82,22 +77,20 @@ function mergeCreateAgentOptions(
  * console.log(result.content)
  * ```
  *
- * @example multi-provider setup with WebSocket enabled for OpenAI
+ * @example restricting to specific providers
  * ```ts
- * const ai = createAI({
- *   providers: {
- *     openai: { client: new OpenAI() },
- *     anthropic: { client: new Anthropic() },
- *   },
- * })
+ * import { createModels } from '@earendil-works/pi-ai'
+ * import { anthropicProvider } from '@earendil-works/pi-ai/providers/anthropic'
+ *
+ * const models = createModels()
+ * models.setProvider(anthropicProvider())
+ *
+ * const ai = createAI({ models })
  * ```
  *
  * @example interactive mode default
  * ```ts
- * const ai = createAI({
- *   providers: { anthropic: { client: new Anthropic() } },
- *   mode: 'interactive',
- * })
+ * const ai = createAI({ mode: 'interactive' })
  *
  * const handle = await ai.run(
  *   <Agent provider="anthropic" model="claude-haiku-4-5">
@@ -107,7 +100,7 @@ function mergeCreateAgentOptions(
  * const result = await handle.sendMessage('Hello!')
  * ```
  */
-export function createAI(defaults: AIDefaults): AI {
+export function createAI(defaults: AIDefaults = {}): AI {
   async function run(
     element: ReactNode,
     options?: AIBoundRunOptions & { mode?: 'batch' },

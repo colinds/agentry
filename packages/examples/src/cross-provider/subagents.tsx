@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { Type } from 'agentry'
 import {
   createAI,
   Agent,
@@ -8,8 +8,6 @@ import {
   AgentTool,
   Tool,
 } from 'agentry'
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
 import {
   MODEL as EXAMPLE_ANTHROPIC_MODEL,
   OPENAI_MODEL as EXAMPLE_OPENAI_MODEL,
@@ -17,12 +15,7 @@ import {
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? EXAMPLE_OPENAI_MODEL
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? EXAMPLE_ANTHROPIC_MODEL
-const ai = createAI({
-  providers: {
-    openai: { client: new OpenAI() },
-    anthropic: { client: new Anthropic() },
-  },
-})
+const ai = createAI()
 
 const result = await ai.run(
   <Agent provider="openai" model={OPENAI_MODEL} maxTokens={2048}>
@@ -35,7 +28,7 @@ const result = await ai.run(
       <AgentTool
         name="researcher"
         description="Deep web researcher"
-        parameters={z.object({ topic: z.string() })}
+        parameters={Type.Object({ topic: Type.String() })}
         agent={({ topic }) => (
           <Agent provider="anthropic" model={ANTHROPIC_MODEL} name="researcher">
             <Message role="user">Research deeply: {topic}</Message>
@@ -46,7 +39,7 @@ const result = await ai.run(
       <Tool
         name="spawn_anthropic_reviewer"
         description="Programmatically spawn an Anthropic reviewer"
-        parameters={z.object({ text: z.string() })}
+        parameters={Type.Object({ text: Type.String() })}
         handler={async ({ text }, context) => {
           const result = await context.runAgent(
             <Agent provider="anthropic" model={ANTHROPIC_MODEL} name="reviewer">
@@ -54,7 +47,6 @@ const result = await ai.run(
             </Agent>,
             {
               provider: 'anthropic',
-              clients: { anthropic: new Anthropic() },
             },
           )
           return result.content

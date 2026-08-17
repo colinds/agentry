@@ -12,7 +12,7 @@ export interface MessageProps {
  *
  * @example
  * ```tsx
- * <Agent model="claude-sonnet-4-5">
+ * <Agent provider="anthropic" model="claude-sonnet-4-5">
  *   <Message role="user">Hello!</Message>
  *   <Message role="assistant">Hi there! How can I help?</Message>
  *   <Message role="user">What's the weather?</Message>

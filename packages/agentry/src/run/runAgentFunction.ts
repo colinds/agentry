@@ -1,33 +1,18 @@
 import type React from 'react'
 import { SubagentHandle } from '../handles'
-import type { AgentResult, Model } from '../types'
-import { createSubagentInstance } from '../instances/createInstance'
-import type { ProviderName } from '../types/provider'
-import type { ProviderClientMap } from '../providers/types'
+import type { AgentResult, Model, RunAgentOptions } from '../types'
 
-/**
- * Options for spawning an agent programmatically
- */
-export interface RunAgentOptions {
-  /** Override provider */
-  provider?: ProviderName
-  /** Override client set */
-  clients?: Partial<ProviderClientMap>
-  /** Override parent's model */
-  model?: Model
-  /** Override maxTokens (defaults to half parent's) */
-  maxTokens?: number
-  /** Override temperature */
-  temperature?: number
-  /** Custom abort signal (defaults to parent's) */
-  signal?: AbortSignal
-}
+export type { RunAgentOptions }
+import { createSubagentInstance } from '../instances/createInstance'
+import { cloneElement } from 'react'
+import type { ProviderName } from '../types/provider'
+import type { Models } from '@earendil-works/pi-ai'
 
 /**
  * Context for creating a spawn agent function
  */
 interface RunAgentContext {
-  clients?: Partial<ProviderClientMap>
+  models: Models
   provider?: ProviderName
   model?: Model
   signal?: AbortSignal
@@ -38,13 +23,12 @@ interface RunAgentContext {
  * This function is attached to ToolContext and allows tool handlers to
  * programmatically spawn and execute agents on-demand.
  *
- * @param context - The execution context (clients, model, signal)
+ * @param context - The execution context (models, provider, model, signal)
  * @returns A runAgent function that can execute React agent elements
  *
  * @example
  * ```tsx
  * const runSubagent = createRunAgent({
- *   clients: { anthropic: anthropicClient },
  *   model: 'claude-sonnet-4',
  *   signal: abortController.signal,
  * })
@@ -67,17 +51,34 @@ export function createRunAgent(context: RunAgentContext) {
     if (!provider) {
       throw new Error('Provider is required for runAgent.')
     }
-    const clients = options.clients ?? context.clients ?? {}
+    const models = options.models ?? context.models
 
     const elementProps = agentElement.props as {
       name?: string
       maxTokens?: number
       temperature?: number
+      provider?: string
+      model?: string
     }
+    // The caller's overrides have to be on the ELEMENT, not just on the
+    // subagent props: createAgentInstance reads the element's own provider/model
+    // first, and SubagentHandle only fills gaps with `??=`, so an element that
+    // declares its own would otherwise silently win over the documented
+    // override. Doing it here rather than in SubagentHandle keeps the
+    // <AgentTool> path intact, where `sub.provider` is the parent's provider and
+    // an unconditional assignment would break cross-provider subagents.
+    const overrides: { provider?: string; model?: string } = {}
+    if (options.provider !== undefined) overrides.provider = options.provider
+    if (options.model !== undefined) overrides.model = options.model
+    const resolvedElement =
+      Object.keys(overrides).length > 0
+        ? cloneElement(agentElement, overrides)
+        : agentElement
+
     const subagent = createSubagentInstance(
       {
         name: elementProps.name || `spawned_${Date.now()}`,
-        agentNode: agentElement,
+        agentNode: resolvedElement,
         provider,
         maxTokens: options.maxTokens ?? elementProps.maxTokens,
         temperature: options.temperature ?? elementProps.temperature,
@@ -85,13 +86,13 @@ export function createRunAgent(context: RunAgentContext) {
       },
       {
         provider,
-        model: options.model || context.model,
+        model: options.model ?? elementProps.model ?? context.model,
       },
     )
 
     const handle = new SubagentHandle(subagent, {
       provider,
-      clients,
+      models,
       signal: options.signal || context.signal,
     })
 

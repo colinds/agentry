@@ -1,44 +1,48 @@
 import type { ReactNode } from 'react'
-import type { MCPServerConfig } from '../instances/types'
+import type { MCPServerConfig } from '../mcp/types'
 
-export interface MCPProps {
-  /** Name of the MCP server */
-  name: string
-  /** URL of the MCP server (SSE endpoint) */
-  url: string
-  /** Authorization token for the MCP server */
-  authorization_token?: string
-  /** Tool configuration (allowed tools, enabled status) */
-  tool_configuration?: MCPServerConfig['tool_configuration']
-}
+export type MCPProps = MCPServerConfig
 
 /**
- * MCP component - connects to an MCP (Model Context Protocol) server
+ * MCP component — connects to an MCP server and registers its tools.
  *
- * Uses Anthropic's native MCP support - the server connection is handled
- * by Anthropic's API, not client-side.
+ * pi deliberately ships no MCP support, so agentry acts as the MCP *client*:
+ * it connects, lists the server's tools, and exposes each as an ordinary tool
+ * whose handler proxies `tools/call`. That makes MCP work identically on every
+ * provider pi supports, rather than only on those with a native connector.
  *
- * @example
+ * Tool names are namespaced as `<server>__<tool>` so two servers can expose
+ * the same tool name without colliding.
+ *
+ * @example a local server over stdio
  * ```tsx
- * <Agent model="claude-sonnet-4-5">
- *   <MCP name="filesystem" url="https://mcp.example.com/sse" />
+ * <Agent provider="anthropic" model="claude-haiku-4-5">
  *   <MCP
- *     name="github"
- *     url="https://mcp.github.com/sse"
- *     authorization_token={process.env.GITHUB_TOKEN}
- *     tool_configuration={{ allowed_tools: ['search_code', 'get_file'] }}
+ *     type="stdio"
+ *     name="fs"
+ *     command="bunx"
+ *     args={['@modelcontextprotocol/server-filesystem', '/tmp']}
  *   />
+ *   <Message role="user">List the files in /tmp</Message>
  * </Agent>
+ * ```
+ *
+ * @example a remote server over streamable HTTP
+ * ```tsx
+ * <MCP type="url" name="docs" url="https://example.com/mcp" />
+ * ```
+ *
+ * @example registering only some of the server's tools
+ * ```tsx
+ * <MCP
+ *   type="stdio"
+ *   name="fs"
+ *   command="bunx"
+ *   args={['@modelcontextprotocol/server-filesystem', '/tmp']}
+ *   tool_configuration={{ allowed_tools: ['read_file', 'list_directory'] }}
+ * />
  * ```
  */
 export function MCP(props: MCPProps): ReactNode {
-  return (
-    <mcp_server
-      name={props.name}
-      url={props.url}
-      authorization_token={props.authorization_token}
-      tool_configuration={props.tool_configuration}
-      key={props.name}
-    />
-  )
+  return <mcp_server {...props} key={props.name} />
 }

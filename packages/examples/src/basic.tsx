@@ -1,13 +1,21 @@
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { run, defineTool, Agent, System, Tools, Tool, Message } from 'agentry'
 import { MODEL } from './constants'
 
-const parametersSchema = z.object({
-  operation: z
-    .enum(['add', 'subtract', 'multiply', 'divide'])
-    .describe('the operation to perform'),
-  a: z.number().describe('first number'),
-  b: z.number().describe('second number'),
+const OPERATIONS = ['add', 'subtract', 'multiply', 'divide'] as const
+
+const parametersSchema = Type.Object({
+  operation: Type.Union(
+    [
+      Type.Literal('add'),
+      Type.Literal('subtract'),
+      Type.Literal('multiply'),
+      Type.Literal('divide'),
+    ],
+    { description: 'the operation to perform' },
+  ),
+  a: Type.Number({ description: 'first number' }),
+  b: Type.Number({ description: 'second number' }),
 })
 
 const calculatorTool = defineTool({
@@ -39,7 +47,7 @@ const result = await run(
     </Tools>
     <Message role="user">
       Come up with two numbers and sum perform an operation in{' '}
-      {Object.values(parametersSchema.shape.operation.enum).join(', ')} them.
+      {OPERATIONS.join(', ')} them.
     </Message>
   </Agent>,
 )

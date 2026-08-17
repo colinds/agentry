@@ -24,7 +24,7 @@ test('createSubagentInstance creates correct structure', () => {
   expect(subagent.props.model).toBe('claude-haiku-4-5')
   expect(subagent.props.maxTokens).toBe(1000)
   expect(subagent.systemParts).toEqual([])
-  expect(subagent.tools).toEqual([])
+  expect(subagent.tools.size).toBe(0)
 })
 
 test('subagent uses unified defaults', () => {
@@ -38,7 +38,10 @@ test('subagent uses unified defaults', () => {
 
   // Unified defaults (same as root agents)
   expect(subagent.props.stream).toBe(true)
-  expect(subagent.props.maxTokens).toBe(4096)
+  // Deliberately left unset: SubagentHandle writes defined subagent props over
+  // the rendered <Agent>'s own, so manufacturing a default here silently
+  // overrode an inner `<Agent maxTokens>`. createEngineConfig applies 4096.
+  expect(subagent.props.maxTokens).toBe(undefined)
   expect(subagent.props.maxIterations).toBe(undefined)
 })
 

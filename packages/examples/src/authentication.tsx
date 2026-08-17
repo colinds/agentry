@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import { run, Agent, System, Tools, Tool } from 'agentry'
 import { MODEL } from './constants'
 import readline from 'node:readline'
@@ -33,7 +33,9 @@ function AuthenticatedAgent() {
           <Tool
             name="authenticate"
             description="authenticate with email"
-            parameters={z.object({ email: z.string().email() })}
+            parameters={Type.Object({
+              email: Type.String({ format: 'email' }),
+            })}
             handler={async ({ email: e }) => {
               setEmail(e)
               setAuthed(false)
@@ -46,7 +48,7 @@ function AuthenticatedAgent() {
             <Tool
               name="get_profile"
               description="get the authenticated user profile"
-              parameters={z.object({})}
+              parameters={Type.Object({})}
               handler={async () => {
                 return `Profile for ${email}:\n- Email: ${email}\n- Status: Active\n- Access Level: Full`
               }}
@@ -55,7 +57,7 @@ function AuthenticatedAgent() {
               name="send_message"
               description="send a message"
               strict
-              parameters={z.object({ message: z.string() })}
+              parameters={Type.Object({ message: Type.String() })}
               handler={async ({ message }) => {
                 return `Message sent from ${email}: "${message}"`
               }}

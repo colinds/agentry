@@ -1,66 +1,36 @@
 /**
- * MCP (Model Context Protocol) Server Example
+ * MCP example — agentry connects to an MCP server as a client and exposes its
+ * tools to the model.
  *
- * This example demonstrates how to connect to MCP servers using Anthropic's
- * native MCP support. MCP servers provide tools that Claude can use during
- * conversations - the server connection is handled server-side by Anthropic.
+ * pi ships no MCP support by design, so agentry does the bridging: connect,
+ * list the server's tools, and proxy each `tools/call`. The upside over a
+ * provider-native connector is that this works on every provider pi supports.
  *
- * This example uses Cloudflare's public demo MCP server.
+ * Run: bun run example:mcp
  */
+import { run, Agent, System, Message, MCP } from 'agentry'
+import { MODEL } from './constants'
 
-import { createAI, Agent, System, Message } from 'agentry'
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
-import { MCP as AnthropicMCP } from 'agentry/anthropic'
-import { MCP as OpenAIMCP } from 'agentry/openai'
-import { MODEL, OPENAI_MODEL } from './constants'
-
-const EXAMPLE_PROVIDER =
-  process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
-const MCP = EXAMPLE_PROVIDER === 'openai' ? OpenAIMCP : AnthropicMCP
-const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
-const ai =
-  EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ providers: { openai: { client: new OpenAI() } } })
-    : createAI({
-        providers: { anthropic: { client: new Anthropic() } },
-      })
-
-const MCP_SERVER_URL = 'https://demo-day.mcp.cloudflare.com/sse'
-
-console.log('Using MCP server:', MCP_SERVER_URL)
-console.log(`Provider: ${EXAMPLE_PROVIDER}`)
-
-const mcpAgent = (
-  <Agent provider={EXAMPLE_PROVIDER} model={EXAMPLE_MODEL} maxTokens={4096}>
+const result = await run(
+  <Agent provider="anthropic" model={MODEL} maxTokens={1024}>
     <System>
-      You are a helpful assistant with access to external tools via MCP servers.
-      Use the available tools to help answer the user's questions.
+      You have access to filesystem tools from an MCP server. Use them to answer
+      the question. Be concise.
     </System>
 
-    {/* Connect to Cloudflare's demo MCP server */}
-    <MCP name="cloudflare-demo" url={MCP_SERVER_URL} />
-
-    {/* You can connect to multiple MCP servers with different configurations */}
-    {/*
-    <MCP 
-      name="another-server"
-      url="https://another-server.example.com/sse"
-      authorization_token={process.env.AUTH_TOKEN}
-      tool_configuration={{ 
-        allowed_tools: ['tool_1', 'tool_2'],
-        enabled: true 
-      }}
+    {/* Any stdio MCP server works; tools arrive as `<name>__<tool>`. */}
+    <MCP
+      type="stdio"
+      name="fs"
+      command="bunx"
+      args={['-y', '@modelcontextprotocol/server-filesystem', '/tmp']}
     />
-    */}
 
     <Message role="user">
-      What tools do you have available? Please list them and demonstrate one.
+      List the entries in /tmp, then tell me how many there are.
     </Message>
-  </Agent>
+  </Agent>,
 )
 
-const result = await ai.run(mcpAgent)
-
 console.log('\nResult:', result.content)
-console.log('\nUsage:', result.usage)
+console.log('Usage:', result.usage)

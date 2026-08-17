@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { z } from 'zod'
+import { Type } from 'agentry'
 import {
   createAI,
   Agent,
@@ -11,23 +11,13 @@ import {
   Message,
   AgentTool,
 } from 'agentry'
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
-import { WebSearch as AnthropicWebSearch } from 'agentry/anthropic'
-import { WebSearch as OpenAIWebSearch } from 'agentry/openai'
 import { MODEL, OPENAI_MODEL } from './constants'
 
 const EXAMPLE_PROVIDER =
   process.env.EXAMPLE_PROVIDER === 'openai' ? 'openai' : 'anthropic'
-const WebSearch =
-  EXAMPLE_PROVIDER === 'openai' ? OpenAIWebSearch : AnthropicWebSearch
 const EXAMPLE_MODEL = EXAMPLE_PROVIDER === 'openai' ? OPENAI_MODEL : MODEL
-const ai =
-  EXAMPLE_PROVIDER === 'openai'
-    ? createAI({ providers: { openai: { client: new OpenAI() } } })
-    : createAI({
-        providers: { anthropic: { client: new Anthropic() } },
-      })
+// createAI() carries no provider itself — the provider is chosen per <Agent>.
+const ai = createAI()
 
 function CompanyResearcherAgent({
   company,
@@ -41,9 +31,7 @@ function CompanyResearcherAgent({
       <System>
         You are an expert researcher with a specialization in startups.
       </System>
-      <Tools>
-        <WebSearch maxUses={3} />
-      </Tools>
+      <Tools></Tools>
       <Message role="user">
         Research the company: {company}
         Context: {context}
@@ -63,8 +51,10 @@ function CompanyResearcher({
     <AgentTool
       name="company_researcher"
       description="AI startup researcher that can search the web"
-      parameters={z.object({
-        task: z.string().describe('What to research about the company'),
+      parameters={Type.Object({
+        task: Type.String({
+          description: 'What to research about the company',
+        }),
       })}
       agent={(input) => (
         <CompanyResearcherAgent
@@ -101,9 +91,9 @@ function Coordinator() {
           name="spawn_company_researcher"
           description="Spawn a company researcher for a specific company"
           strict
-          parameters={z.object({
-            company: z.string().describe('Startup to research'),
-            context: z.string().describe('Context for the research'),
+          parameters={Type.Object({
+            company: Type.String({ description: 'Startup to research' }),
+            context: Type.String({ description: 'Context for the research' }),
           })}
           handler={async ({ company, context }) => {
             setParams({ company, context })
