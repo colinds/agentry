@@ -299,9 +299,14 @@ export function createSubagentInstance(
       name: props.name,
       description: props.description,
       // inherit with fallback to defaults (halve numeric values for subagents)
+      // Left undefined when nothing supplies one, so the value the inner
+      // <Agent> rendered survives. Defaulting here made this *always* defined,
+      // and SubagentHandle then wrote it over the element's own maxTokens —
+      // so <Agent maxTokens={7777}> inside an <AgentTool> silently ran at 4096.
+      // createEngineConfig applies the real default.
       maxTokens:
         props.maxTokens ??
-        (inherited.maxTokens ? Math.floor(inherited.maxTokens / 2) : 4096),
+        (inherited.maxTokens ? Math.floor(inherited.maxTokens / 2) : undefined),
       maxIterations:
         props.maxIterations ??
         (inherited.maxIterations

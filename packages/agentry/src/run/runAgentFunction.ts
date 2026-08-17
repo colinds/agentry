@@ -4,6 +4,7 @@ import type { AgentResult, Model, RunAgentOptions } from '../types'
 
 export type { RunAgentOptions }
 import { createSubagentInstance } from '../instances/createInstance'
+import { cloneElement } from 'react'
 import type { ProviderName } from '../types/provider'
 import type { Models } from '@earendil-works/pi-ai'
 
@@ -56,11 +57,28 @@ export function createRunAgent(context: RunAgentContext) {
       name?: string
       maxTokens?: number
       temperature?: number
+      provider?: string
+      model?: string
     }
+    // The caller's overrides have to be on the ELEMENT, not just on the
+    // subagent props: createAgentInstance reads the element's own provider/model
+    // first, and SubagentHandle only fills gaps with `??=`, so an element that
+    // declares its own would otherwise silently win over the documented
+    // override. Doing it here rather than in SubagentHandle keeps the
+    // <AgentTool> path intact, where `sub.provider` is the parent's provider and
+    // an unconditional assignment would break cross-provider subagents.
+    const overrides: { provider?: string; model?: string } = {}
+    if (options.provider !== undefined) overrides.provider = options.provider
+    if (options.model !== undefined) overrides.model = options.model
+    const resolvedElement =
+      Object.keys(overrides).length > 0
+        ? cloneElement(agentElement, overrides)
+        : agentElement
+
     const subagent = createSubagentInstance(
       {
         name: elementProps.name || `spawned_${Date.now()}`,
-        agentNode: agentElement,
+        agentNode: resolvedElement,
         provider,
         maxTokens: options.maxTokens ?? elementProps.maxTokens,
         temperature: options.temperature ?? elementProps.temperature,
@@ -68,7 +86,7 @@ export function createRunAgent(context: RunAgentContext) {
       },
       {
         provider,
-        model: options.model || context.model,
+        model: options.model ?? elementProps.model ?? context.model,
       },
     )
 
