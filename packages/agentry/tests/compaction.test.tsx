@@ -1,7 +1,10 @@
 import { describe, test, expect } from 'bun:test'
 import { run, Agent, System, Message } from '../src'
 import { ExecutionEngine } from '../src/execution'
-import { findCutIndex } from '../src/execution/compaction'
+import {
+  findCutIndex,
+  isFatalCompactionError,
+} from '../src/execution/compaction'
 import { createAgentStore } from '../src/store'
 import {
   assistantSeedMessage,
@@ -336,5 +339,32 @@ describe('context-overflow recovery', () => {
     const error = (await runPromise) as Error
     expect(error).toBeInstanceOf(Error)
     expect(error.name).toBe('AgentryContextOverflowError')
+  })
+})
+
+describe('compaction failure handling', () => {
+  test('an aborted compaction is fatal, a transient one is not', async () => {
+    // isFatalCompactionError could return false unconditionally and nothing
+    // failed — so a user's abort mid-compaction was swallowed and the run
+    // carried on.
+    const abort = new Error('Aborted')
+    abort.name = 'AbortError'
+    expect(isFatalCompactionError(abort)).toBe(true)
+
+    // Programming errors are not worth retrying past either.
+    expect(isFatalCompactionError(new TypeError('boom'))).toBe(true)
+
+    // Auth failures arrive as provider errors carrying the status in the
+    // message — pi never sets `error.status`, which is why the old numeric
+    // check was dead code.
+    expect(
+      isFatalCompactionError(new Error('provider returned 401 Unauthorized')),
+    ).toBe(true)
+
+    // A genuinely transient failure must stay non-fatal: compaction is
+    // best-effort and should not kill an otherwise healthy run.
+    expect(isFatalCompactionError(new Error('529 overloaded_error'))).toBe(
+      false,
+    )
   })
 })

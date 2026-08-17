@@ -19,10 +19,12 @@ import { getRegisteredTools } from './utils/testHelpers'
 
 test('subagent has isolated message context', async () => {
   const subagentMessageCountRef: { current: number } = { current: 0 }
+  const subagentSeenTexts: string[] = []
 
   function IsolatedAgent() {
     const messages = useMessages()
     subagentMessageCountRef.current = messages.length
+    subagentSeenTexts.push(JSON.stringify(messages))
 
     return (
       <Agent
@@ -70,7 +72,14 @@ test('subagent has isolated message context', async () => {
 
   // subagent should only see its own messages, not parent's
   // at the time the subagent component renders, it should have minimal messages
-  expect(subagentMessageCountRef.current).toBeLessThan(5)
+  // Exact, not `toBeLessThan(5)`: pointing useMessages() at the parent store —
+  // a total loss of isolation — produced 2 as well, so the old bound held
+  // whether or not the context was isolated. The subagent sees only its own
+  // <Message> plus the turn it is about to take.
+  expect(subagentMessageCountRef.current).toBe(2)
+  expect(subagentSeenTexts.join(' ')).not.toContain(
+    'Call the isolated agent',
+  )
 })
 
 test('onStepFinish callback fires for subagent calls', async () => {
