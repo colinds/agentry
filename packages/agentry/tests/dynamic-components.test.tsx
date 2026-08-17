@@ -137,3 +137,65 @@ test('an updating <System> does not erase nested system parts', async () => {
   await controller.nextTurn()
   await p
 })
+
+test('a Tool directly inside an ACTIVE condition is collected mid-run', async () => {
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('bump', {})] },
+    { content: [fauxText('done')] },
+  ])
+  function App() {
+    const [n, setN] = useState(0)
+    return (
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100} stream={false}>
+        <System>t</System>
+        <Tools>
+          <Tool name="bump" description="b" parameters={Type.Object({})}
+            handler={() => { setN(1); return 'ok' }} />
+        </Tools>
+        <Condition when={true}>
+          {n >= 1 ? <Tool name="extra" description="e" parameters={Type.Object({})} handler={() => 'x'} /> : null}
+        </Condition>
+        <Message role="user">go</Message>
+      </Agent>
+    )
+  }
+  const p = run(<App />, { models })
+  await controller.waitForNextCall()
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  const names = controller.peekNextCall()!.context.tools!.map((t) => t.name)
+  expect(names).toContain('extra')
+  await controller.nextTurn(); await p
+})
+
+test('a Tool appearing in <Tools> under an INACTIVE condition is not offered', async () => {
+  const { models, controller } = createStepMockModels([
+    { content: [fauxToolCall('bump', {})] },
+    { content: [fauxText('done')] },
+  ])
+  function App() {
+    const [n, setN] = useState(0)
+    return (
+      <Agent provider="anthropic" model={ANTHROPIC_TEST_MODEL} maxTokens={100} stream={false}>
+        <System>t</System>
+        <Tools>
+          <Tool name="bump" description="b" parameters={Type.Object({})}
+            handler={() => { setN(1); return 'ok' }} />
+        </Tools>
+        <Condition when={false}>
+          <Tools>
+            {n >= 1 ? <Tool name="secret" description="s" parameters={Type.Object({})} handler={() => 'x'} /> : null}
+          </Tools>
+        </Condition>
+        <Message role="user">go</Message>
+      </Agent>
+    )
+  }
+  const p = run(<App />, { models })
+  await controller.waitForNextCall()
+  await controller.nextTurn()
+  await controller.waitForNextCall()
+  const names = controller.peekNextCall()!.context.tools!.map((t) => t.name)
+  expect(names).not.toContain('secret')
+  await controller.nextTurn(); await p
+})

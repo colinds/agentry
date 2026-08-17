@@ -244,12 +244,32 @@ export const reconciler = createReconciler<
   clearContainer() {},
 })
 
+/**
+ * The agent a child appended under `parent` should be collected into, or null
+ * if it should not be collected at all.
+ *
+ * Walks up through `<Tools>` and *active* `<Condition>`s. Two bugs lived in the
+ * asymmetry this replaces: a child appended directly under a `<Condition>` was
+ * never collected or uncollected (the old version returned null for a Condition
+ * parent), while one appended into a `<Tools>` nested in an *inactive*
+ * `<Condition>` was collected anyway, because the walk never checked `isActive`.
+ *
+ * Collection and uncollection must both route through this, or a node collected
+ * while active and removed while inactive leaks. Note `findParentAgent` stays
+ * condition-blind — prop *updates* must still find their agent under an
+ * inactive condition.
+ */
 function getEffectiveAgent(parent: Instance): AgentLike | null {
-  if (isAgentLike(parent)) {
-    return parent
-  }
-  if (isToolsContainerInstance(parent)) {
-    return findParentAgent(parent)
+  let current: Instance | null = parent
+  while (current) {
+    if (isConditionInstance(current)) {
+      if (!current.isActive) return null
+    } else if (isAgentLike(current)) {
+      return current
+    } else if (!isToolsContainerInstance(current)) {
+      return null
+    }
+    current = current.parent
   }
   return null
 }
