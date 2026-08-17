@@ -17,7 +17,17 @@ const server = new Server(
   { capabilities: { tools: {} } },
 )
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
+// Set MCP_FIXTURE_FAIL_LIST=1 to make tools/list reject after a successful
+// handshake — the shape that used to leave this process running forever.
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  if (process.env.MCP_FIXTURE_FAIL_LIST === '1') {
+    throw new Error('deliberate tools/list failure')
+  }
+  return listToolsResult()
+})
+
+function listToolsResult() {
+  return ({
   tools: [
     {
       name: 'add',
@@ -46,7 +56,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: { type: 'object', properties: {} },
     },
   ],
-}))
+})
+}
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params

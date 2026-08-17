@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
-import { connectMcpServer, mcpToolName } from '../src/mcp'
+import { connectMcpServer, McpConnectionSet, mcpToolName } from '../src/mcp'
 import type { MCPServerConfig } from '../src/mcp'
 import { useState } from 'react'
 import {
@@ -16,13 +16,25 @@ import {
 } from '../src'
 import { createStepMockModels, fauxText, fauxToolCall } from './utils'
 import { ANTHROPIC_TEST_MODEL } from './constants'
-import type { ToolContext } from '../src/types'
+import type { InternalTool, ToolContext } from '../src/types'
 
 const SERVER: MCPServerConfig = {
   type: 'stdio',
   name: 'test',
   command: 'bun',
   args: [join(import.meta.dir, 'fixtures', 'mcp-server.ts')],
+}
+
+
+/** Live fixture-server processes, for asserting we do not orphan any. */
+async function countFixtureProcesses(): Promise<number> {
+  const proc = Bun.spawn([
+    'bash',
+    '-c',
+    'pgrep -fc "fixtures/mcp-server.ts" || true',
+  ])
+  const out = await new Response(proc.stdout).text()
+  return Number(out.trim() || '0')
 }
 
 const toolContext = {} as ToolContext
@@ -144,6 +156,25 @@ describe('MCP client bridge', () => {
     } finally {
       await connection.close()
     }
+  })
+
+  test('a failing tools/list does not leak the server process', async () => {
+    // The transport is already live by then; the MCP SDK only tears down from a
+    // transport close, so nothing else can reap the child.
+    const before = await countFixtureProcesses()
+
+    await expect(
+      connectMcpServer({
+        ...SERVER,
+        env: { ...process.env, MCP_FIXTURE_FAIL_LIST: '1' } as Record<
+          string,
+          string
+        >,
+      }),
+    ).rejects.toThrow(/MCP server "test"/)
+
+    await new Promise((r) => setTimeout(r, 300))
+    expect(await countFixtureProcesses()).toBe(before)
   })
 
   test('mcpToolName namespaces by server', () => {
@@ -363,6 +394,47 @@ describe('MCP connection lifecycle', () => {
     handle.close()
     await new Promise((r) => setTimeout(r, 50))
     expect(sessionOf(handle).mcpConnections.size).toBe(0)
+  })
+
+  test('a partial sync failure does not orphan the servers that opened', async () => {
+    // Under Promise.all a single rejection discarded the successful siblings
+    // before they were ever stored, so closeAll() could not reach them.
+    const set = new McpConnectionSet()
+    const tools = new Map<string, InternalTool>()
+    const before = await countFixtureProcesses()
+
+    await expect(
+      set.sync(
+        [
+          SERVER,
+          { type: 'stdio', name: 'broken', command: 'definitely-not-real-xyz' },
+        ],
+        tools,
+      ),
+    ).rejects.toThrow(/MCP server "broken"/)
+
+    // The healthy server is tracked, so it is reachable for teardown...
+    expect(set.size).toBe(1)
+    // ...and its tools are published, so a partly-available tree still works.
+    expect([...tools.keys()]).toContain('test__add')
+
+    await set.closeAll()
+    await new Promise((r) => setTimeout(r, 300))
+    expect(await countFixtureProcesses()).toBe(before)
+  })
+
+  test('two <MCP> elements with the same name are rejected', async () => {
+    // Both would be spawned and the second would overwrite the first, leaking
+    // it permanently. Their tool names would collide anyway.
+    const set = new McpConnectionSet()
+    const before = await countFixtureProcesses()
+
+    await expect(
+      set.sync([SERVER, { ...SERVER }], new Map()),
+    ).rejects.toThrow(/Duplicate MCP server name "test"/)
+
+    expect(set.size).toBe(0)
+    expect(await countFixtureProcesses()).toBe(before)
   })
 
   test('closing the handle tears down connections', async () => {

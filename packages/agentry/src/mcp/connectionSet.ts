@@ -57,25 +57,59 @@ export class McpConnectionSet {
       )
     }
 
+    // Two servers with the same name would each be opened here (the `has` check
+    // below runs before anything is stored) and the second would overwrite the
+    // first, leaking it. A collision is an authoring error — their tools would
+    // collide too — so reject it rather than silently picking a winner.
+    const seen = new Set<string>()
+    for (const server of declared) {
+      if (seen.has(server.name)) {
+        throw new Error(
+          `[agentry] Duplicate MCP server name "${server.name}". Names must be unique — tools are namespaced by them.`,
+        )
+      }
+      seen.add(server.name)
+    }
+
     // In parallel: each spawns a subprocess or performs an HTTP handshake.
     const missing = declared.filter((server) => !this.entries.has(server.name))
-    const opened = await Promise.all(
+    const opened = await Promise.allSettled(
       missing.map(async (server) => ({
         server,
         connection: await connectMcpServer(server),
       })),
     )
-    for (const { server, connection } of opened) {
+
+    // Register every connection that opened *before* raising anything. Under
+    // `Promise.all` a single failure discarded the successful siblings without
+    // ever storing them, so `closeAll()` could not reach them and their stdio
+    // subprocesses outlived the run.
+    for (const result of opened) {
+      if (result.status !== 'fulfilled') continue
+      const { server, connection } = result.value
       this.entries.set(server.name, {
         connection,
         fingerprint: fingerprint(server),
       })
     }
 
+    // Tools are published for the servers that did connect, so a partially
+    // available tree keeps working; the caller still sees the failure.
     for (const { connection } of this.entries.values()) {
       for (const tool of connection.tools) {
         tools.set(tool.name, tool)
       }
+    }
+
+    const failures = opened
+      .filter((r) => r.status === 'rejected')
+      .map((r) => (r as PromiseRejectedResult).reason)
+    if (failures.length === 1) throw failures[0]
+    if (failures.length > 1) {
+      throw new AggregateError(
+        failures,
+        '[agentry] Multiple MCP servers failed to connect',
+      )
     }
   }
 

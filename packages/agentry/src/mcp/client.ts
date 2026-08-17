@@ -51,9 +51,28 @@ export async function connectMcpServer(
 
   const transport = await createTransport(config)
 
+  // Everything after `connect` succeeds is inside the try as well: once the
+  // transport is live a stdio server is an running child process, and the MCP
+  // SDK only tears down from a transport close — a failing `tools/list` (a
+  // timeout, an error response, a schema mismatch) leaves it alive forever.
+  let tools: InternalTool[]
+  let listedCount: number
   try {
     await client.connect(transport)
+
+    const listed = await client.listTools()
+    const allowed = config.tool_configuration?.allowed_tools
+    const enabled = config.tool_configuration?.enabled !== false
+
+    listedCount = listed.tools.length
+    tools = enabled
+      ? listed.tools
+          .filter((tool) => !allowed || allowed.includes(tool.name))
+          .map((tool) => toInternalTool({ client, config, tool }))
+      : []
   } catch (error) {
+    // Never let a teardown failure mask why the connection actually failed.
+    await client.close().catch(() => {})
     throw new Error(
       `[agentry] Failed to connect to MCP server "${config.name}": ${
         error instanceof Error ? error.message : String(error)
@@ -62,19 +81,9 @@ export async function connectMcpServer(
     )
   }
 
-  const listed = await client.listTools()
-  const allowed = config.tool_configuration?.allowed_tools
-  const enabled = config.tool_configuration?.enabled !== false
-
-  const tools: InternalTool[] = enabled
-    ? listed.tools
-        .filter((tool) => !allowed || allowed.includes(tool.name))
-        .map((tool) => toInternalTool({ client, config, tool }))
-    : []
-
   debug(
     'mcp',
-    `Connected to "${config.name}": ${tools.length}/${listed.tools.length} tools registered`,
+    `Connected to "${config.name}": ${tools.length}/${listedCount} tools registered`,
     { tools: tools.map((t) => t.name) },
   )
 
