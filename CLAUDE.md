@@ -101,8 +101,8 @@ user-defined tools than shipped as half-working built-ins.
 
 ### Execution mechanics
 
-Borrowed from [Flue](https://github.com/withastro/flue), which solves the same
-problem with hooks and no reconciler. agentry keeps JSX; only the mechanics moved.
+The mechanics below replaced an earlier mid-turn rendering model. The JSX API is
+unchanged; only when and how the tree is read moved.
 
 - **Turn-boundary rendering.** The tree is rendered exactly once per turn,
   immediately before the model call (`ExecutionEngine.renderTurn`, supplied by
